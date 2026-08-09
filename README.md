@@ -1,0 +1,1 @@
+ClearWork is a web app that combines time tracking and task management for remote teams in one place, giving supervisors clear visibility into progress while helping employees manage their workday.
