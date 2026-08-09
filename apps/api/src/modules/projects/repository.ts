@@ -48,6 +48,15 @@ export async function listAllProjects(): Promise<ProjectRow[]> {
   return result.rows;
 }
 
+/** Borra el proyecto y, en cascada, sus tareas, su historial de tareas y
+ * las membresías (activas o pasadas) que tuviera — todo declarado
+ * ON DELETE CASCADE desde su creación, así que no hay clave ajena que
+ * pueda bloquear este borrado. */
+export async function deleteProjectById(projectId: string): Promise<boolean> {
+  const result = await pool.query("DELETE FROM projects WHERE id = $1", [projectId]);
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function listProjectsForSupervisor(
   supervisorId: string,
 ): Promise<ProjectRow[]> {

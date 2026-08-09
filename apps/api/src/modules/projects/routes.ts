@@ -5,6 +5,7 @@ import { validateBody } from "../../middleware/validate.js";
 import {
   assignMemberHandler,
   createProjectHandler,
+  deleteProjectHandler,
   getProjectHandler,
   listProjectsHandler,
   removeMemberHandler,
@@ -23,5 +24,6 @@ projectsRouter.post("/", validateBody(createProjectSchema), createProjectHandler
 projectsRouter.get("/", listProjectsHandler);
 projectsRouter.get("/:id", getProjectHandler);
 projectsRouter.patch("/:id", validateBody(updateProjectSchema), updateProjectHandler);
+projectsRouter.delete("/:id", deleteProjectHandler);
 projectsRouter.post("/:id/members", validateBody(assignMemberSchema), assignMemberHandler);
 projectsRouter.delete("/:id/members/:userId", removeMemberHandler);

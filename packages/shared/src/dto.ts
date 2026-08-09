@@ -194,6 +194,8 @@ export type AdminUserSummary = {
   /** Solo relevante para teletrabajadores: su proyecto activo, si tiene. */
   currentProjectId: string | null;
   currentProjectName: string | null;
+  /** Solo relevante para supervisores: los proyectos que supervisa (puede ser más de uno). */
+  supervisedProjects: { id: string; name: string }[];
 };
 
 export type AdminCreateUserRequest = {
@@ -205,6 +207,7 @@ export type AdminCreateUserRequest = {
 };
 
 export type AdminUpdateUserRequest = {
+  fullName?: string;
   weeklyTargetHours?: number;
   isActive?: boolean;
 };

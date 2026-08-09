@@ -1,10 +1,11 @@
 import type { AdminUserSummary, ProjectDetailDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import {
   assignProjectMember,
+  deleteAdminProject,
   fetchAdminProject,
   fetchAdminUsers,
   removeProjectMember,
@@ -97,9 +98,19 @@ function MembersCard({
 }) {
   const memberIds = new Set(project.members.map((m) => m.userId));
   const available = workers.filter((w) => !memberIds.has(w.id));
-  const [selectedWorkerId, setSelectedWorkerId] = useState(available[0]?.id ?? "");
+  const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Si la selección actual ya no está disponible (recién asignada, o la
+  // lista todavía no había cargado cuando se montó el componente), se
+  // recoloca sobre el primer disponible en vez de quedarse congelada.
+  const availableIdsKey = available.map((w) => w.id).join(",");
+  useEffect(() => {
+    if (!available.some((w) => w.id === selectedWorkerId)) {
+      setSelectedWorkerId(available[0]?.id ?? "");
+    }
+  }, [availableIdsKey]);
 
   async function handleAssign(event: FormEvent) {
     event.preventDefault();
@@ -166,6 +177,42 @@ function MembersCard({
   );
 }
 
+function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (
+      !confirm(
+        `¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await deleteAdminProject(project.id);
+      navigate("/admin/projects", { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Eliminar proyecto</h3>
+      <p>Borra el proyecto, sus tareas y la membresía de su equipo. No se puede deshacer.</p>
+      {error && <div className="error-banner">{error}</div>}
+      <button type="button" className="secondary" disabled={isDeleting} onClick={handleDelete}>
+        {isDeleting ? "Eliminando…" : "Eliminar proyecto"}
+      </button>
+    </div>
+  );
+}
+
 export function AdminProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<ProjectDetailDTO | null>(null);
@@ -200,10 +247,13 @@ export function AdminProjectDetail() {
       {error && <div className="error-banner">{error}</div>}
 
       {project && (
-        <div className="dashboard-grid__row">
-          <EditProjectForm project={project} supervisors={supervisors} onSaved={load} />
-          <MembersCard project={project} workers={workers} onChanged={load} />
-        </div>
+        <>
+          <div className="dashboard-grid__row">
+            <EditProjectForm project={project} supervisors={supervisors} onSaved={load} />
+            <MembersCard project={project} workers={workers} onChanged={load} />
+          </div>
+          <DeleteProjectCard project={project} />
+        </>
       )}
     </div>
   );

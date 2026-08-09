@@ -11,6 +11,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = z
   .object({
+    fullName: z.string().trim().min(1, "El nombre es obligatorio").optional(),
     weeklyTargetHours: z.coerce.number().positive().optional(),
     isActive: z.boolean().optional(),
   })

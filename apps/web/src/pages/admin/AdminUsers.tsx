@@ -1,14 +1,29 @@
 import type { AdminUserSummary, Role } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
-import { createAdminUser, fetchAdminUsers, updateAdminUser } from "../../api/admin.js";
+import { createAdminUser, deleteAdminUser, fetchAdminUsers } from "../../api/admin.js";
 
 const ROLE_LABEL: Record<Role, string> = {
   worker: "Teletrabajador",
   supervisor: "Supervisor",
   admin: "Admin",
 };
+
+/** Para un teletrabajador es el proyecto del que es miembro (0 o 1); para
+ * un supervisor, los proyectos que supervisa (puede llevar varios). */
+function projectColumnText(user: AdminUserSummary): string {
+  if (user.role === "worker") {
+    return user.currentProjectName ?? "Sin proyecto";
+  }
+  if (user.role === "supervisor") {
+    return user.supervisedProjects.length === 0
+      ? "Sin proyecto"
+      : user.supervisedProjects.map((p) => p.name).join(", ");
+  }
+  return "—";
+}
 
 function CreateUserForm({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
@@ -106,35 +121,21 @@ function UserRow({
   user: AdminUserSummary;
   onChanged: () => void;
 }) {
-  const [isEditingTarget, setIsEditingTarget] = useState(false);
-  const [targetInput, setTargetInput] = useState(String(user.weeklyTargetHours));
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  async function toggleActive() {
-    setError(null);
-    setIsSaving(true);
-    try {
-      await updateAdminUser(user.id, { isActive: !user.isActive });
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo actualizar");
-    } finally {
-      setIsSaving(false);
+  async function handleDelete() {
+    if (!confirm(`¿Eliminar la cuenta de ${user.fullName}? Esta acción no se puede deshacer.`)) {
+      return;
     }
-  }
-
-  async function saveTarget() {
     setError(null);
-    setIsSaving(true);
+    setIsDeleting(true);
     try {
-      await updateAdminUser(user.id, { weeklyTargetHours: Number(targetInput) });
-      setIsEditingTarget(false);
+      await deleteAdminUser(user.id);
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo actualizar");
-    } finally {
-      setIsSaving(false);
+      setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
+      setIsDeleting(false);
     }
   }
 
@@ -143,42 +144,15 @@ function UserRow({
       <td>{user.fullName}</td>
       <td>{user.email}</td>
       <td>{ROLE_LABEL[user.role]}</td>
-      <td>{user.isActive ? "Sí" : "No"}</td>
+      <td>{user.role === "worker" ? `${user.weeklyTargetHours} h` : "—"}</td>
+      <td>{projectColumnText(user)}</td>
       <td>
-        {user.role === "worker" ? (
-          isEditingTarget ? (
-            <span className="inline-edit">
-              <input
-                type="number"
-                min="1"
-                step="0.5"
-                value={targetInput}
-                onChange={(e) => setTargetInput(e.target.value)}
-              />
-              <button type="button" disabled={isSaving} onClick={saveTarget}>
-                Guardar
-              </button>
-              <button type="button" className="secondary" onClick={() => setIsEditingTarget(false)}>
-                Cancelar
-              </button>
-            </span>
-          ) : (
-            <span className="inline-edit">
-              {user.weeklyTargetHours} h
-              <button type="button" className="secondary" onClick={() => setIsEditingTarget(true)}>
-                Editar
-              </button>
-            </span>
-          )
-        ) : (
-          "—"
-        )}
-      </td>
-      <td>{user.role === "worker" ? (user.currentProjectName ?? "Sin proyecto") : "—"}</td>
-      <td>
-        <button type="button" className="secondary" disabled={isSaving} onClick={toggleActive}>
-          {user.isActive ? "Desactivar" : "Activar"}
-        </button>
+        <div className="row-actions">
+          <Link to={`/admin/users/${user.id}`}>Ver</Link>
+          <button type="button" className="secondary" disabled={isDeleting} onClick={handleDelete}>
+            Eliminar
+          </button>
+        </div>
         {error && <div className="error-banner">{error}</div>}
       </td>
     </tr>
@@ -217,7 +191,6 @@ export function AdminUsers() {
                   <th>Nombre</th>
                   <th>Email</th>
                   <th>Rol</th>
-                  <th>Activo</th>
                   <th>Horas objetivo</th>
                   <th>Proyecto actual</th>
                   <th></th>

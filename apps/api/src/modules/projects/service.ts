@@ -120,3 +120,9 @@ export async function removeMember(
   await repo.closeActiveMembership(userId);
   return toProjectDetailDTO(project);
 }
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const project = await repo.findProjectById(projectId);
+  if (!project) throw new NotFoundError("Proyecto no encontrado");
+  await repo.deleteProjectById(projectId);
+}

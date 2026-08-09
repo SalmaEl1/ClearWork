@@ -18,11 +18,19 @@ export function createAdminUser(input: AdminCreateUserRequest): Promise<AdminUse
   return apiFetch<AdminUserSummary>("/admin/users", { method: "POST", body: input });
 }
 
+export function fetchAdminUser(userId: string): Promise<AdminUserSummary> {
+  return apiFetch<AdminUserSummary>(`/admin/users/${userId}`);
+}
+
 export function updateAdminUser(
   userId: string,
   input: AdminUpdateUserRequest,
 ): Promise<AdminUserSummary> {
   return apiFetch<AdminUserSummary>(`/admin/users/${userId}`, { method: "PATCH", body: input });
+}
+
+export function deleteAdminUser(userId: string): Promise<void> {
+  return apiFetch<void>(`/admin/users/${userId}`, { method: "DELETE" });
 }
 
 export function fetchAdminProjects(): Promise<ProjectDTO[]> {
@@ -61,4 +69,8 @@ export function removeProjectMember(
   return apiFetch<ProjectDetailDTO>(`/admin/projects/${projectId}/members/${userId}`, {
     method: "DELETE",
   });
+}
+
+export function deleteAdminProject(projectId: string): Promise<void> {
+  return apiFetch<void>(`/admin/projects/${projectId}`, { method: "DELETE" });
 }

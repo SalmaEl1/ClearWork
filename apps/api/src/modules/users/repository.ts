@@ -72,6 +72,7 @@ export async function updateUserPassword(userId: string, passwordHash: string): 
 }
 
 export type UpdateUserFields = {
+  fullName?: string;
   weeklyTargetHours?: number;
   isActive?: boolean;
 };
@@ -85,6 +86,10 @@ export async function updateUserById(
   const setClauses: string[] = [];
   const values: unknown[] = [userId];
 
+  if (fields.fullName !== undefined) {
+    values.push(fields.fullName);
+    setClauses.push(`full_name = $${values.length}`);
+  }
   if (fields.weeklyTargetHours !== undefined) {
     values.push(fields.weeklyTargetHours);
     setClauses.push(`weekly_target_hours = $${values.length}`);
@@ -103,4 +108,15 @@ export async function updateUserById(
     values,
   );
   return result.rows[0] ?? null;
+}
+
+/**
+ * Borrado real. Puede chocar con una clave ajena ON DELETE RESTRICT (un
+ * supervisor con proyectos, o cualquiera con historial de cambios de
+ * estado en tareas) — el servicio traduce ese choque a un mensaje claro,
+ * ver admin/service.ts.
+ */
+export async function deleteUserById(userId: string): Promise<boolean> {
+  const result = await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+  return (result.rowCount ?? 0) > 0;
 }

@@ -57,3 +57,12 @@ export async function removeMemberHandler(req: Request, res: Response, next: Nex
     next(err);
   }
 }
+
+export async function deleteProjectHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    await service.deleteProject(req.params.id as string);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}

@@ -3,8 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
-import { createAdminProject, fetchAdminProjects } from "../../api/admin.js";
-import { fetchAdminUsers } from "../../api/admin.js";
+import {
+  createAdminProject,
+  deleteAdminProject,
+  fetchAdminProjects,
+  fetchAdminUsers,
+} from "../../api/admin.js";
 
 function CreateProjectForm({
   supervisors,
@@ -15,9 +19,19 @@ function CreateProjectForm({
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [supervisorId, setSupervisorId] = useState(supervisors[0]?.id ?? "");
+  const [supervisorId, setSupervisorId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // `supervisors` llega vacío en el primer render (todavía no ha
+  // respondido la API) y se rellena después: sin este efecto, el valor
+  // por defecto del desplegable se quedaría congelado en "" para siempre,
+  // aunque ya hubiera supervisores disponibles.
+  useEffect(() => {
+    if (!supervisorId && supervisors.length > 0) {
+      setSupervisorId(supervisors[0]?.id ?? "");
+    }
+  }, [supervisors, supervisorId]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -71,6 +85,55 @@ function CreateProjectForm({
   );
 }
 
+function ProjectRow({
+  project,
+  supervisorName,
+  onChanged,
+}: {
+  project: ProjectDTO;
+  supervisorName: string;
+  onChanged: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (
+      !confirm(
+        `¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await deleteAdminProject(project.id);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>{project.name}</td>
+      <td>{supervisorName}</td>
+      <td>{project.isArchived ? "Sí" : "No"}</td>
+      <td>
+        <div className="row-actions">
+          <Link to={`/admin/projects/${project.id}`}>Gestionar</Link>
+          <button type="button" className="secondary" disabled={isDeleting} onClick={handleDelete}>
+            Eliminar
+          </button>
+        </div>
+        {error && <div className="error-banner">{error}</div>}
+      </td>
+    </tr>
+  );
+}
+
 export function AdminProjects() {
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
@@ -115,14 +178,12 @@ export function AdminProjects() {
               </thead>
               <tbody>
                 {projects.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.name}</td>
-                    <td>{supervisorName(p.supervisorId)}</td>
-                    <td>{p.isArchived ? "Sí" : "No"}</td>
-                    <td>
-                      <Link to={`/admin/projects/${p.id}`}>Gestionar</Link>
-                    </td>
-                  </tr>
+                  <ProjectRow
+                    key={p.id}
+                    project={p}
+                    supervisorName={supervisorName(p.supervisorId)}
+                    onChanged={load}
+                  />
                 ))}
               </tbody>
             </table>

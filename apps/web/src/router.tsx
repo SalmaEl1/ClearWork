@@ -6,6 +6,7 @@ import { roleHome } from "./auth/roleHome.js";
 import { AppLayout } from "./layouts/AppLayout.js";
 import { AdminProjectDetail } from "./pages/admin/AdminProjectDetail.js";
 import { AdminProjects } from "./pages/admin/AdminProjects.js";
+import { AdminUserDetail } from "./pages/admin/AdminUserDetail.js";
 import { AdminUsers } from "./pages/admin/AdminUsers.js";
 import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
             element: <RequireRole role="admin" />,
             children: [
               { path: "/admin/users", element: <AdminUsers /> },
+              { path: "/admin/users/:id", element: <AdminUserDetail /> },
               { path: "/admin/projects", element: <AdminProjects /> },
               { path: "/admin/projects/:id", element: <AdminProjectDetail /> },
             ],
