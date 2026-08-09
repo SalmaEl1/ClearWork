@@ -7,6 +7,13 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, "JWT_SECRET debe tener al menos 16 caracteres"),
   JWT_EXPIRES_IN: z.string().default("8h"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
+
+  // Solo los usa db/seedAdmin.ts para crear el primer admin. Opcionales
+  // aquí para no exigirlos al arrancar el servidor normal; el propio
+  // script comprueba que estén presentes antes de usarlos.
+  ADMIN_EMAIL: z.string().email().optional(),
+  ADMIN_PASSWORD: z.string().min(8).optional(),
+  ADMIN_FULL_NAME: z.string().min(1).optional(),
 });
 
 function loadEnv() {

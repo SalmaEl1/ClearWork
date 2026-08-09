@@ -7,6 +7,7 @@ import { changePassword, fetchCurrentUser } from "../api/auth.js";
 const ROLE_LABEL = {
   worker: "Teletrabajador",
   supervisor: "Supervisor",
+  admin: "Admin",
 } as const;
 
 function ProfileInfo({ profile }: { profile: MeResponse }) {

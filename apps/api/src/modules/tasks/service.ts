@@ -6,8 +6,7 @@ import type {
   TaskStatusHistoryEntryDTO,
 } from "@clearwork/shared";
 import { BadRequestError, NotFoundError } from "../../shared/errors.js";
-import { findProjectForSupervisor } from "../projects/repository.js";
-import { findUserById } from "../users/repository.js";
+import { findActiveMembership, findProjectForSupervisor } from "../projects/repository.js";
 import { findOpenSessionForUser } from "../work-sessions/repository.js";
 import * as repo from "./repository.js";
 import type { TaskRow, TaskStatusHistoryRow } from "./types.js";
@@ -49,13 +48,12 @@ function toHistoryDTO(row: TaskStatusHistoryRow): TaskStatusHistoryEntryDTO {
   };
 }
 
-/** La clave ajena de assignee_id no puede exigir "worker a cargo de este
- * supervisor"; esa comprobación no la hace la base de datos, se hace aquí,
- * igual que con supervisorId en auth/service.ts. */
-async function assertIsOwnWorker(workerId: string, supervisorId: string): Promise<void> {
-  const worker = await findUserById(workerId);
-  if (!worker || worker.role !== "worker" || worker.supervisor_id !== supervisorId) {
-    throw new BadRequestError("assigneeId debe ser un teletrabajador a tu cargo");
+/** La clave ajena de assignee_id no puede exigir "miembro activo de este
+ * proyecto"; esa comprobación no la hace la base de datos, se hace aquí. */
+async function assertIsProjectMember(workerId: string, projectId: string): Promise<void> {
+  const membership = await findActiveMembership(workerId);
+  if (!membership || membership.project_id !== projectId) {
+    throw new BadRequestError("assigneeId debe ser un teletrabajador miembro de este proyecto");
   }
 }
 
@@ -83,7 +81,7 @@ export async function createTask(
 
   const assigneeId = input.assigneeId ?? null;
   if (assigneeId) {
-    await assertIsOwnWorker(assigneeId, supervisorId);
+    await assertIsProjectMember(assigneeId, input.projectId);
   }
 
   const task = await repo.createTask({
@@ -129,7 +127,7 @@ export async function updateTask(
   if (!existing) throw new NotFoundError("Tarea no encontrada");
 
   if (input.assigneeId) {
-    await assertIsOwnWorker(input.assigneeId, supervisorId);
+    await assertIsProjectMember(input.assigneeId, existing.project_id);
   }
 
   const updated = await repo.updateTaskById(taskId, input);

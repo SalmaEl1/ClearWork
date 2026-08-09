@@ -175,14 +175,6 @@ label > span {
   padding: 1.5rem;
 }
 
-.supervisor-id {
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-  background: var(--color-bg);
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-}
-
 /* --- estados compartidos (fichaje, equipo, alertas) --- */
 
 .status-ok {
@@ -366,4 +358,65 @@ label > span {
 .profile-info dd {
   margin: 0;
   font-weight: 600;
+}
+
+/* --- navegación del admin --- */
+
+.app-header__nav {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  margin-left: 2rem;
+}
+
+.app-header__nav a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.app-header__nav a:hover {
+  color: var(--color-text);
+}
+
+.app-header__nav a.active {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+/* --- tablas --- */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.inline-edit input {
+  width: 5rem;
 }

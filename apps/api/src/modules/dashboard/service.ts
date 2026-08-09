@@ -6,9 +6,9 @@ import type {
   WeeklyHoursStatus,
   WorkerDashboardResponse,
 } from "@clearwork/shared";
-import { listProjectsForSupervisor } from "../projects/repository.js";
+import { listActiveWorkersForSupervisor, listProjectsForSupervisor } from "../projects/repository.js";
 import { countTaskStatusesForSupervisor } from "../tasks/repository.js";
-import { findUserById, listWorkersForSupervisor } from "../users/repository.js";
+import { findUserById } from "../users/repository.js";
 import {
   findOpenBreakForSession,
   findOpenSessionForUser,
@@ -111,7 +111,7 @@ export async function getSupervisorDashboard(
   supervisorId: string,
   now: Date = new Date(),
 ): Promise<SupervisorDashboardResponse> {
-  const workers = await listWorkersForSupervisor(supervisorId);
+  const workers = await listActiveWorkersForSupervisor(supervisorId);
   const workerIds = workers.map((w) => w.id);
 
   const { start, end } = getCurrentWeekRange(now);

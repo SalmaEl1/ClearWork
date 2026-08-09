@@ -7,7 +7,6 @@ export type UserRow = {
   password_hash: string;
   full_name: string;
   role: Role;
-  supervisor_id: string | null;
   weekly_target_hours: string; // NUMERIC llega como string desde pg
   is_active: boolean;
   created_at: Date;

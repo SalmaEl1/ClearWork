@@ -1,7 +1,7 @@
-import type { LoginRequest, PublicUser, RegisterRequest } from "@clearwork/shared";
+import type { LoginRequest, PublicUser } from "@clearwork/shared";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { fetchCurrentUser, login as apiLogin, register as apiRegister } from "../api/auth.js";
+import { fetchCurrentUser, login as apiLogin } from "../api/auth.js";
 import { getStoredToken, setStoredToken } from "../api/client.js";
 
 type AuthContextValue = {
@@ -9,7 +9,6 @@ type AuthContextValue = {
   /** Sigue en true mientras se comprueba si el token guardado sigue siendo válido. */
   isLoading: boolean;
   login: (input: LoginRequest) => Promise<void>;
-  register: (input: RegisterRequest) => Promise<void>;
   logout: () => void;
 };
 
@@ -38,19 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   }
 
-  async function register(input: RegisterRequest) {
-    const result = await apiRegister(input);
-    setStoredToken(result.token);
-    setUser(result.user);
-  }
-
   function logout() {
     setStoredToken(null);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,59 +1,21 @@
 import bcrypt from "bcryptjs";
 import type { AuthResponse, MeResponse } from "@clearwork/shared";
-import { BadRequestError, ConflictError, UnauthorizedError } from "../../shared/errors.js";
+import { BadRequestError, UnauthorizedError } from "../../shared/errors.js";
+import { findProjectById, findActiveMembership } from "../projects/repository.js";
 import {
-  createUser,
   findUserByEmail,
   findUserById,
   toPublicUser,
   updateUserPassword,
 } from "../users/repository.js";
 import type { z } from "zod";
-import type { changePasswordSchema, loginSchema, registerSchema } from "./schemas.js";
+import type { changePasswordSchema, loginSchema } from "./schemas.js";
 import { signToken } from "./jwt.js";
 
 const BCRYPT_ROUNDS = 12;
 
-type RegisterInput = z.infer<typeof registerSchema>;
 type LoginInput = z.infer<typeof loginSchema>;
 type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-
-export async function register(input: RegisterInput): Promise<AuthResponse> {
-  const existing = await findUserByEmail(input.email);
-  if (existing) {
-    throw new ConflictError("Ya existe una cuenta con ese email");
-  }
-
-  const supervisorId = input.supervisorId ?? null;
-
-  if (input.role === "supervisor" && supervisorId) {
-    throw new BadRequestError("Un supervisor no puede tener asignado otro supervisor");
-  }
-
-  // La clave ajena no puede exigir que el usuario referenciado sea
-  // supervisor; esa comprobación no la hace la base de datos, la hacemos aquí.
-  if (input.role === "worker" && supervisorId) {
-    const supervisor = await findUserById(supervisorId);
-    if (!supervisor || supervisor.role !== "supervisor") {
-      throw new BadRequestError("supervisorId debe corresponder a un usuario con rol supervisor");
-    }
-  }
-
-  const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
-
-  const user = await createUser({
-    email: input.email,
-    passwordHash,
-    fullName: input.fullName,
-    role: input.role,
-    supervisorId,
-  });
-
-  const publicUser = toPublicUser(user);
-  const token = signToken({ id: publicUser.id, role: publicUser.role });
-
-  return { token, user: publicUser };
-}
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
   const user = await findUserByEmail(input.email);
@@ -78,9 +40,20 @@ export async function getCurrentUser(userId: string): Promise<MeResponse> {
     throw new UnauthorizedError("El usuario del token ya no existe");
   }
 
-  const supervisor = user.supervisor_id ? await findUserById(user.supervisor_id) : null;
+  // El supervisor de un teletrabajador se deriva de su membresía activa
+  // en un proyecto, no de un campo propio: ver migración 005 y
+  // projects/repository.ts.
+  let supervisorName: string | null = null;
+  if (user.role === "worker") {
+    const membership = await findActiveMembership(userId);
+    if (membership) {
+      const project = await findProjectById(membership.project_id);
+      const supervisor = project ? await findUserById(project.supervisor_id) : null;
+      supervisorName = supervisor?.full_name ?? null;
+    }
+  }
 
-  return { ...toPublicUser(user), supervisorName: supervisor?.full_name ?? null };
+  return { ...toPublicUser(user), supervisorName };
 }
 
 export async function changePassword(

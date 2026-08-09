@@ -1,4 +1,4 @@
-import type { BreakType, Role, TaskStatus } from "./roles.js";
+import type { AdminCreatableRole, BreakType, Role, TaskStatus } from "./roles.js";
 
 /** Forma pública de un usuario: nunca incluye password_hash. */
 export type PublicUser = {
@@ -6,17 +6,9 @@ export type PublicUser = {
   email: string;
   fullName: string;
   role: Role;
-  supervisorId: string | null;
   weeklyTargetHours: number;
+  isActive: boolean;
   createdAt: string;
-};
-
-export type RegisterRequest = {
-  email: string;
-  password: string;
-  fullName: string;
-  role: Role;
-  supervisorId?: string | null;
 };
 
 export type LoginRequest = {
@@ -30,8 +22,9 @@ export type AuthResponse = {
 };
 
 /** Lo que devuelve GET /auth/me: el perfil público más el nombre del
- * supervisor, útil para pantallas propias (p. ej. "Mi perfil") donde
- * mostrar solo el UUID de supervisorId no dice nada al usuario. */
+ * supervisor, derivado de la membresía activa del teletrabajador en un
+ * proyecto (ver ProjectMemberDTO). Null si no está en ningún proyecto o
+ * si el usuario no es un teletrabajador. */
 export type MeResponse = PublicUser & {
   supervisorName: string | null;
 };
@@ -77,15 +70,32 @@ export type ProjectDTO = {
   updatedAt: string;
 };
 
+export type ProjectMemberDTO = {
+  userId: string;
+  fullName: string;
+  joinedAt: string;
+};
+
+export type ProjectDetailDTO = ProjectDTO & {
+  supervisorName: string;
+  members: ProjectMemberDTO[];
+};
+
 export type CreateProjectRequest = {
   name: string;
   description?: string | null;
+  supervisorId: string;
 };
 
 export type UpdateProjectRequest = {
   name?: string;
   description?: string | null;
   isArchived?: boolean;
+  supervisorId?: string;
+};
+
+export type AssignMemberRequest = {
+  userId: string;
 };
 
 export type TaskDTO = {
@@ -170,4 +180,31 @@ export type SupervisorDashboardResponse = {
   weekEnd: string;
   team: TeamMemberSummary[];
   projects: ProjectTaskSummary[];
+};
+
+/* --- Panel de administración --- */
+
+export type AdminUserSummary = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: Role;
+  isActive: boolean;
+  weeklyTargetHours: number;
+  /** Solo relevante para teletrabajadores: su proyecto activo, si tiene. */
+  currentProjectId: string | null;
+  currentProjectName: string | null;
+};
+
+export type AdminCreateUserRequest = {
+  email: string;
+  password: string;
+  fullName: string;
+  role: AdminCreatableRole;
+  weeklyTargetHours?: number;
+};
+
+export type AdminUpdateUserRequest = {
+  weeklyTargetHours?: number;
+  isActive?: boolean;
 };

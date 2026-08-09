@@ -12,7 +12,7 @@ el modelo de datos y las decisiones relevantes con su justificación.
 | Organización | Monorepo con npm workspaces | Un único repositorio para entregar y desplegar; los tipos compartidos entre API y web se resuelven sin publicar paquetes. |
 | Lenguaje | TypeScript en API y web | Los tipos documentan el modelo (roles, estados de tarea, payload del JWT) y detectan errores antes de ejecutar. |
 | Acceso a datos | Driver `pg` + SQL escrito a mano | Sin capa que oculte el SQL: cada consulta e índice es visible y justificable. Migraciones en archivos `.sql` versionados. |
-| Alcance del supervisor | `users.supervisor_id` (auto-referencia) | La regla de autorización es una única condición en el `WHERE`, trivial de explicar y de probar. |
+| Alcance del supervisor | ~~`users.supervisor_id`~~ → derivado de `project_members` | **Superado, ver §7.** El supervisor de un teletrabajador ya no es un campo propio: se deriva de en qué proyecto tiene membresía activa. |
 | Vínculo tarea↔jornada | Tabla `task_status_history` con `work_session_id` | La tarea vive por encima de las jornadas; cada cambio de estado queda atribuido a la jornada abierta en ese momento. |
 | Nomenclatura | Identificadores en inglés, documentación y UI en español | Coherente con el README y con la convención habitual en el código. |
 
@@ -46,7 +46,8 @@ ClearWork/
 │   │   │       ├── 001_users.sql
 │   │   │       ├── 002_work_sessions_breaks.sql
 │   │   │       ├── 003_projects_tasks.sql
-│   │   │       └── 004_task_status_history.sql
+│   │   │       ├── 004_task_status_history.sql
+│   │   │       └── 005_admin_role_and_project_members.sql   # ver §7
 │   │   ├── src/
 │   │   │   ├── index.ts               # arranque del servidor
 │   │   │   ├── app.ts                 # montaje de Express y rutas
@@ -145,6 +146,11 @@ El motivo de esta separación es poder responder sin ambigüedad a la pregunta
 ```
 
 ### 3.2 `users`
+
+> **Nota (§7):** esta es la forma *original* de la tabla, previa a añadir
+> proyectos con membresía y el rol `admin`. La migración 005 elimina la
+> columna `supervisor_id` y su restricción. Se deja el SQL original aquí
+> como referencia histórica del diseño; el estado actual está en §7.
 
 ```sql
 CREATE TABLE users (
@@ -360,9 +366,14 @@ La autorización se aplica en **tres niveles**, y ninguno sustituye a los anteri
    consulta de un teletrabajador lleva `WHERE user_id = $userId` en el propio SQL, no
    un filtro posterior en memoria.
 
-Para el supervisor, la regla es simétrica: solo accede a datos de usuarios cuyo
-`supervisor_id` coincide con su propio `id`. Se resuelve con un `JOIN` sobre `users`
-dentro de la misma consulta.
+Para el supervisor, la regla es simétrica: solo accede a datos de teletrabajadores
+cuyo proyecto activo lo tiene a él como supervisor. Se resuelve con un `JOIN` sobre
+`project_members` y `projects` dentro de la misma consulta — ver §7, que sustituye la
+versión original de esta regla (comparar `supervisor_id` directamente).
+
+El payload del JWT y el elenco de roles también cambian en §7: hay un tercer rol,
+`admin`, que no ficha ni tiene dashboard propio — solo gestiona cuentas, proyectos y
+asignaciones desde su propio panel.
 
 ---
 
@@ -431,3 +442,87 @@ por escrito una API que todavía no se ha verificado.
 5. Frontend: login y layout base con las dos vistas.
 6. Dashboards (teletrabajador y supervisor).
 7. Opcional: integración con ActivityWatch.
+
+---
+
+## 7. Ampliación: proyectos con membresía y rol admin
+
+Añadido después del núcleo inicial, a partir de un requisito nuevo: un proyecto
+tiene un único supervisor y varios teletrabajadores; un teletrabajador está en un
+proyecto como mucho a la vez, pero puede salir de uno y entrar en otro; y hace falta
+un rol por encima del supervisor que dé de alta cuentas, cree proyectos y haga las
+asignaciones. Migración `005_admin_role_and_project_members.sql`.
+
+### 7.1 `project_members`
+
+```sql
+CREATE TABLE project_members (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    left_at     TIMESTAMPTZ,
+
+    CONSTRAINT membership_ends_after_start
+        CHECK (left_at IS NULL OR left_at > joined_at)
+);
+
+CREATE UNIQUE INDEX idx_one_active_membership_per_worker
+    ON project_members(user_id)
+    WHERE left_at IS NULL;
+```
+
+Exactamente el mismo patrón que `work_sessions`: una fila por membresía, `left_at`
+nulo mientras está activa, y un índice único parcial que garantiza **a nivel de base
+de datos** "como mucho un proyecto activo por teletrabajador" — no solo comprobado en
+el servicio. "Salir de un proyecto" es poner `left_at`; "entrar en otro" es una fila
+nueva. De regalo queda el historial de por qué proyectos ha pasado cada uno, útil para
+auditoría aunque hoy no se explote en ningún dashboard.
+
+**`users.supervisor_id` se elimina.** El supervisor de un teletrabajador ya no es un
+campo propio: es *el `supervisor_id` del proyecto en el que tiene membresía activa*.
+Tenerlo como campo aparte habría sido una segunda fuente de verdad que podía
+contradecir a la primera (¿y si su proyecto lo lleva otro supervisor?). Sin proyecto
+activo, sin supervisor — estado válido, no un error. Esto también simplificó una
+validación que ya existía: si antes "¿puede este supervisor asignarte una tarea?"
+comprobaba `worker.supervisor_id === supervisorId`, ahora comprueba directamente que
+el teletrabajador es miembro activo del proyecto de la tarea — más simple y más
+correcto, porque es literalmente la pregunta que importa.
+
+### 7.2 Rol `admin`
+
+`users.role` pasa a admitir `'worker' | 'supervisor' | 'admin'`. El admin no ficha, no
+tiene dashboard de equipo ni gestiona tareas del día a día — tiene su propio panel
+(`/admin/users`, `/admin/projects`) separado de todo lo demás, reforzado en
+`authorize('admin')` en el backend igual que cualquier otro rol. No hay autoregistro
+público: la única cuenta que se crea sin pasar por el panel es el primer admin,
+mediante un script de arranque idempotente (`db/seedAdmin.ts`, variables
+`ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_FULL_NAME`) — a partir de ahí, el admin da de
+alta a supervisores y teletrabajadores desde la UI.
+
+### 7.3 Dos condiciones de carrera encontradas al probarlo (y su arreglo)
+
+Ambas aparecieron con pruebas de concurrencia real (varias peticiones simultáneas),
+no por inspección de código — vale la pena explicarlas en la defensa porque son sutiles.
+
+**a) La reasignación de proyecto necesitaba más que el índice único.**
+"Mover a alguien de proyecto" es un `UPDATE` (cerrar la membresía vieja) seguido de un
+`INSERT` (abrir la nueva) en una transacción. Si el teletrabajador no tenía membresía
+previa, el `UPDATE` no bloquea nada — y dos admins reasignándolo a la vez pueden
+llegar los dos al `INSERT` sin que ninguno vea al otro, chocando contra el índice
+único. Reintentar a ciegas no bastaba (con varias peticiones a la vez, más de dos
+podían chocar entre sí). Se resolvió con un **advisory lock de PostgreSQL** con clave
+`hashtext(userId)` como primer paso de la transacción: serializa entre sí las
+reasignaciones *de esa misma persona*, sin bloquear las de cualquier otro
+teletrabajador. Ver `reassignMembership` en `projects/repository.ts`.
+
+**b) `now()` no es el instante real dentro de una transacción bloqueada.**
+Con el advisory lock en marcha, seguía fallando: la restricción `left_at > joined_at`
+saltaba de vez en cuando. Causa: `now()` en PostgreSQL se congela al `BEGIN` de la
+transacción, no al momento en que se ejecuta cada sentencia. Una transacción que
+esperó un rato en el advisory lock puede acabar escribiendo un `left_at` (con su
+`now()` congelado, de *antes* de esperar) anterior al `joined_at` de la fila que
+otra transacción — empezada después pero que coló primero — ya confirmó. Arreglado
+usando `clock_timestamp()` en su lugar, que sí devuelve el instante real de
+ejecución. Detalle fácil de pasar por alto y que vale la pena mencionar si preguntan
+por diferencias entre `now()`, `clock_timestamp()` y `statement_timestamp()`.
