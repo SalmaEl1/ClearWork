@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 
 const ROLE_LABEL = {
@@ -21,7 +21,9 @@ export function AppLayout() {
         <span className="app-header__brand">ClearWork</span>
         {user && (
           <div className="app-header__user">
-            <span>{user.fullName}</span>
+            <Link to="/profile" className="app-header__profile-link">
+              {user.fullName}
+            </Link>
             <span className="role-badge">{ROLE_LABEL[user.role]}</span>
             <button type="button" className="secondary" onClick={handleLogout}>
               Cerrar sesión

@@ -4,6 +4,7 @@ import { RequireRole } from "./auth/RequireRole.js";
 import { useAuth } from "./auth/AuthContext.js";
 import { AppLayout } from "./layouts/AppLayout.js";
 import { Login } from "./pages/Login.js";
+import { Profile } from "./pages/Profile.js";
 import { Register } from "./pages/Register.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: "/", element: <RoleHomeRedirect /> },
+          { path: "/profile", element: <Profile /> },
           {
             element: <RequireRole role="worker" />,
             children: [{ path: "/worker", element: <WorkerHome /> }],

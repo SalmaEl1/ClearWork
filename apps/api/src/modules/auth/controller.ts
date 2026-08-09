@@ -31,3 +31,19 @@ export async function meHandler(req: Request, res: Response, next: NextFunction)
     next(err);
   }
 }
+
+export async function changePasswordHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new UnauthorizedError();
+    }
+    await authService.changePassword(req.user.id, req.body);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}

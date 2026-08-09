@@ -29,6 +29,18 @@ export type AuthResponse = {
   user: PublicUser;
 };
 
+/** Lo que devuelve GET /auth/me: el perfil público más el nombre del
+ * supervisor, útil para pantallas propias (p. ej. "Mi perfil") donde
+ * mostrar solo el UUID de supervisorId no dice nada al usuario. */
+export type MeResponse = PublicUser & {
+  supervisorName: string | null;
+};
+
+export type ChangePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export type BreakDTO = {
   id: string;
   workSessionId: string;

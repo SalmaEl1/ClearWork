@@ -55,3 +55,10 @@ export async function createUser(input: CreateUserInput): Promise<UserRow> {
   }
   return row;
 }
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await pool.query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2", [
+    passwordHash,
+    userId,
+  ]);
+}

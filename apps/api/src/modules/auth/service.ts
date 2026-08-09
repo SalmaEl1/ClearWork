@@ -1,20 +1,22 @@
 import bcrypt from "bcryptjs";
-import type { AuthResponse } from "@clearwork/shared";
+import type { AuthResponse, MeResponse } from "@clearwork/shared";
 import { BadRequestError, ConflictError, UnauthorizedError } from "../../shared/errors.js";
 import {
   createUser,
   findUserByEmail,
   findUserById,
   toPublicUser,
+  updateUserPassword,
 } from "../users/repository.js";
 import type { z } from "zod";
-import type { loginSchema, registerSchema } from "./schemas.js";
+import type { changePasswordSchema, loginSchema, registerSchema } from "./schemas.js";
 import { signToken } from "./jwt.js";
 
 const BCRYPT_ROUNDS = 12;
 
 type RegisterInput = z.infer<typeof registerSchema>;
 type LoginInput = z.infer<typeof loginSchema>;
+type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export async function register(input: RegisterInput): Promise<AuthResponse> {
   const existing = await findUserByEmail(input.email);
@@ -70,10 +72,31 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
   return { token, user: publicUser };
 }
 
-export async function getCurrentUser(userId: string) {
+export async function getCurrentUser(userId: string): Promise<MeResponse> {
   const user = await findUserById(userId);
   if (!user) {
     throw new UnauthorizedError("El usuario del token ya no existe");
   }
-  return toPublicUser(user);
+
+  const supervisor = user.supervisor_id ? await findUserById(user.supervisor_id) : null;
+
+  return { ...toPublicUser(user), supervisorName: supervisor?.full_name ?? null };
+}
+
+export async function changePassword(
+  userId: string,
+  input: ChangePasswordInput,
+): Promise<void> {
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new UnauthorizedError("El usuario del token ya no existe");
+  }
+
+  const currentMatches = await bcrypt.compare(input.currentPassword, user.password_hash);
+  if (!currentMatches) {
+    throw new BadRequestError("La contraseña actual no es correcta");
+  }
+
+  const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
+  await updateUserPassword(userId, passwordHash);
 }

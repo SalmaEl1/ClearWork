@@ -141,6 +141,15 @@ label > span {
   font-size: 0.9rem;
 }
 
+.app-header__profile-link {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.app-header__profile-link:hover {
+  text-decoration: underline;
+}
+
 .role-badge {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -338,4 +347,23 @@ label > span {
   font-size: 0.78rem;
   color: var(--color-text-muted);
   flex-wrap: wrap;
+}
+
+/* --- perfil --- */
+
+.profile-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+.profile-info dt {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.profile-info dd {
+  margin: 0;
+  font-weight: 600;
 }
