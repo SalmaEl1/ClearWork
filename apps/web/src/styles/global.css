@@ -1,0 +1,341 @@
+:root {
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-border: #dde1e6;
+  --color-text: #1f2430;
+  --color-text-muted: #5b6472;
+  --color-primary: #2f6f4f;
+  --color-primary-dark: #245a3f;
+  --color-danger: #b3413a;
+  --radius: 8px;
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  margin: 0 0 0.5rem;
+}
+
+p {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: white;
+}
+
+button:hover {
+  background: var(--color-primary-dark);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+button.secondary:hover {
+  background: var(--color-bg);
+}
+
+input, select {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  width: 100%;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+}
+
+label > span {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.error-banner {
+  background: #fbeceb;
+  color: var(--color-danger);
+  border: 1px solid #e3b8b4;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+}
+
+.auth-card__footer {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-primary-dark);
+}
+
+.app-header__user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.role-badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #e7f0eb;
+  color: var(--color-primary-dark);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.app-content {
+  flex: 1;
+  padding: 2rem 1.5rem;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.supervisor-id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* --- estados compartidos (fichaje, equipo, alertas) --- */
+
+.status-ok {
+  --status-color: var(--color-primary);
+  --status-bg: #e7f0eb;
+}
+.status-warning {
+  --status-color: #9a6b1f;
+  --status-bg: #fbeed9;
+}
+.status-danger {
+  --status-color: var(--color-danger);
+  --status-bg: #fbeceb;
+}
+.status-neutral {
+  --status-color: var(--color-text-muted);
+  --status-bg: #e9eaec;
+}
+
+.status-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  color: var(--status-color);
+  background: var(--status-bg);
+}
+
+.alert-banner {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--status-color);
+  background: var(--status-bg);
+}
+
+/* --- dashboards --- */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dashboard-grid__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.clock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.weekly-hours__figure {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+.weekly-hours__figure span {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.progress-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.progress-bar__fill {
+  height: 100%;
+  background: var(--status-color, var(--color-primary));
+  transition: width 0.2s ease;
+}
+
+.progress-bar--stacked .progress-bar__fill {
+  background: var(--status-bg);
+  border-right: 2px solid var(--color-surface);
+}
+.progress-bar--stacked .status-ok {
+  background: var(--color-primary);
+}
+.progress-bar--stacked .status-warning {
+  background: #e0a83b;
+}
+.progress-bar--stacked .status-neutral {
+  background: var(--color-border);
+}
+
+.team-list, .project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.team-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.team-list__item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.team-list__name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.team-list__hours {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.project-list__item {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.project-list__item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.project-list__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.project-list__total {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.project-list__legend {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
