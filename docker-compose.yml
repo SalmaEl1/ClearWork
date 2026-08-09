@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: clearwork-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clearwork
+      POSTGRES_PASSWORD: clearwork
+      POSTGRES_DB: clearwork
+    ports:
+      - "5432:5432"
+    volumes:
+      - clearwork-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clearwork -d clearwork"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  clearwork-db-data:

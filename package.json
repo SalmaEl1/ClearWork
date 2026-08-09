@@ -1,0 +1,17 @@
+{
+  "name": "clearwork",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build:shared": "npm run build --workspace packages/shared",
+    "build:api": "npm run build --workspace apps/api",
+    "build:web": "npm run build --workspace apps/web",
+    "migrate": "npm run migrate --workspace apps/api",
+    "test:api": "npm run test --workspace apps/api"
+  }
+}
