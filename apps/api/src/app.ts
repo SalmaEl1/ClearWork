@@ -3,6 +3,10 @@ import express from "express";
 import { corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/routes.js";
+import { dashboardRouter } from "./modules/dashboard/routes.js";
+import { projectsRouter } from "./modules/projects/routes.js";
+import { tasksRouter } from "./modules/tasks/routes.js";
+import { workSessionsRouter } from "./modules/work-sessions/routes.js";
 import { NotFoundError } from "./shared/errors.js";
 
 export function createApp() {
@@ -16,6 +20,10 @@ export function createApp() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/work-sessions", workSessionsRouter);
+  app.use("/api/projects", projectsRouter);
+  app.use("/api/tasks", tasksRouter);
+  app.use("/api/dashboard", dashboardRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`No existe la ruta ${req.method} ${req.path}`));

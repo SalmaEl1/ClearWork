@@ -26,6 +26,14 @@ export async function findUserById(id: string): Promise<UserRow | null> {
   return result.rows[0] ?? null;
 }
 
+export async function listWorkersForSupervisor(supervisorId: string): Promise<UserRow[]> {
+  const result = await pool.query<UserRow>(
+    "SELECT * FROM users WHERE supervisor_id = $1 AND role = 'worker' ORDER BY full_name ASC",
+    [supervisorId],
+  );
+  return result.rows;
+}
+
 export type CreateUserInput = {
   email: string;
   passwordHash: string;

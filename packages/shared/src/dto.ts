@@ -1,4 +1,4 @@
-import type { Role } from "./roles.js";
+import type { BreakType, Role, TaskStatus } from "./roles.js";
 
 /** Forma pública de un usuario: nunca incluye password_hash. */
 export type PublicUser = {
@@ -27,4 +27,135 @@ export type LoginRequest = {
 export type AuthResponse = {
   token: string;
   user: PublicUser;
+};
+
+export type BreakDTO = {
+  id: string;
+  workSessionId: string;
+  type: BreakType;
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type WorkSessionDTO = {
+  id: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string | null;
+  /** Minutos trabajados hasta ahora si sigue abierta, o el total si ya se cerró. */
+  workedMinutes: number;
+  breaks: BreakDTO[];
+};
+
+export type ActiveSessionResponse = {
+  activeSession: WorkSessionDTO | null;
+};
+
+export type StartBreakRequest = {
+  type: BreakType;
+};
+
+export type ProjectDTO = {
+  id: string;
+  name: string;
+  description: string | null;
+  supervisorId: string;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateProjectRequest = {
+  name: string;
+  description?: string | null;
+};
+
+export type UpdateProjectRequest = {
+  name?: string;
+  description?: string | null;
+  isArchived?: boolean;
+};
+
+export type TaskDTO = {
+  id: string;
+  projectId: string;
+  assigneeId: string | null;
+  createdBy: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  dueDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TaskStatusHistoryEntryDTO = {
+  id: string;
+  fromStatus: TaskStatus | null;
+  toStatus: TaskStatus;
+  changedBy: string;
+  workSessionId: string | null;
+  changedAt: string;
+};
+
+export type TaskDetailDTO = TaskDTO & {
+  statusHistory: TaskStatusHistoryEntryDTO[];
+};
+
+export type CreateTaskRequest = {
+  projectId: string;
+  title: string;
+  description?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+};
+
+export type UpdateTaskRequest = {
+  title?: string;
+  description?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+};
+
+export type UpdateTaskStatusRequest = {
+  status: TaskStatus;
+};
+
+/** 'ok' por debajo del 90% del objetivo, 'near_limit' entre 90-100%, 'over_limit' por encima. */
+export type WeeklyHoursStatus = "ok" | "near_limit" | "over_limit";
+
+export type WorkerDashboardResponse = {
+  weekStart: string;
+  weekEnd: string;
+  targetHours: number;
+  workedHours: number;
+  status: WeeklyHoursStatus;
+  isClockedIn: boolean;
+  isOnBreak: boolean;
+};
+
+export type TeamMemberStatus = "working" | "on_break" | "offline";
+
+export type TeamMemberSummary = {
+  id: string;
+  fullName: string;
+  status: TeamMemberStatus;
+  breakType: BreakType | null;
+  hoursThisWeek: number;
+};
+
+export type ProjectTaskSummary = {
+  projectId: string;
+  projectName: string;
+  pending: number;
+  inProgress: number;
+  done: number;
+};
+
+export type SupervisorDashboardResponse = {
+  weekStart: string;
+  weekEnd: string;
+  team: TeamMemberSummary[];
+  projects: ProjectTaskSummary[];
 };
