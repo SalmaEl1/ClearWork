@@ -247,6 +247,43 @@ export async function reassignMembership(
   }
 }
 
+export type MembershipEventRow = {
+  user_name: string;
+  project_name: string;
+  event_at: Date;
+};
+
+/** Últimas incorporaciones a un proyecto, para la actividad reciente del
+ * home de admin. */
+export async function listRecentMemberJoins(limit: number): Promise<MembershipEventRow[]> {
+  const result = await pool.query<MembershipEventRow>(
+    `SELECT u.full_name AS user_name, p.name AS project_name, pm.joined_at AS event_at
+     FROM project_members pm
+     JOIN users u ON u.id = pm.user_id
+     JOIN projects p ON p.id = pm.project_id
+     ORDER BY pm.joined_at DESC
+     LIMIT $1`,
+    [limit],
+  );
+  return result.rows;
+}
+
+/** Últimas salidas de un proyecto (incluye las provocadas por un cambio de
+ * rol, ver admin/service.ts closeActiveMembership). */
+export async function listRecentMemberLeaves(limit: number): Promise<MembershipEventRow[]> {
+  const result = await pool.query<MembershipEventRow>(
+    `SELECT u.full_name AS user_name, p.name AS project_name, pm.left_at AS event_at
+     FROM project_members pm
+     JOIN users u ON u.id = pm.user_id
+     JOIN projects p ON p.id = pm.project_id
+     WHERE pm.left_at IS NOT NULL
+     ORDER BY pm.left_at DESC
+     LIMIT $1`,
+    [limit],
+  );
+  return result.rows;
+}
+
 /** Saca a un teletrabajador de su proyecto activo, sin asignarle otro. */
 export async function closeActiveMembership(userId: string): Promise<MembershipRow | null> {
   const result = await pool.query<MembershipRow>(

@@ -5,7 +5,7 @@ import type {
   TaskStatus,
   TaskStatusHistoryEntryDTO,
 } from "@clearwork/shared";
-import { BadRequestError, NotFoundError } from "../../shared/errors.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { findActiveMembership, findProjectForSupervisor } from "../projects/repository.js";
 import { findOpenSessionForUser } from "../work-sessions/repository.js";
 import * as repo from "./repository.js";
@@ -77,6 +77,9 @@ export async function createTask(
   const project = await findProjectForSupervisor(input.projectId, supervisorId);
   if (!project) {
     throw new BadRequestError("projectId debe corresponder a un proyecto tuyo");
+  }
+  if (project.is_archived) {
+    throw new ConflictError("No se pueden crear tareas en un proyecto archivado");
   }
 
   const assigneeId = input.assigneeId ?? null;

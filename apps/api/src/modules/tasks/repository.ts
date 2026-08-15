@@ -226,6 +226,33 @@ export async function listStatusHistoryForTask(
   return result.rows;
 }
 
+export type RecentStatusChangeRow = {
+  task_title: string;
+  project_name: string;
+  changed_by_name: string;
+  to_status: TaskStatus;
+  changed_at: Date;
+};
+
+/** Últimos cambios de estado de tarea, de cualquier proyecto, para la
+ * actividad reciente del home de admin. */
+export async function listRecentStatusChanges(
+  limit: number,
+): Promise<RecentStatusChangeRow[]> {
+  const result = await pool.query<RecentStatusChangeRow>(
+    `SELECT t.title AS task_title, p.name AS project_name, u.full_name AS changed_by_name,
+            h.to_status, h.changed_at
+     FROM task_status_history h
+     JOIN tasks t ON t.id = h.task_id
+     JOIN projects p ON p.id = t.project_id
+     JOIN users u ON u.id = h.changed_by
+     ORDER BY h.changed_at DESC
+     LIMIT $1`,
+    [limit],
+  );
+  return result.rows;
+}
+
 export type TaskStatusCountRow = {
   project_id: string;
   status: TaskStatus;

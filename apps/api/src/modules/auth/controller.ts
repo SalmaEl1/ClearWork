@@ -23,6 +23,18 @@ export async function meHandler(req: Request, res: Response, next: NextFunction)
   }
 }
 
+export async function updateProfileHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) {
+      throw new UnauthorizedError();
+    }
+    const user = await authService.updateProfile(req.user.id, req.body);
+    res.status(200).json(user);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function changePasswordHandler(
   req: Request,
   res: Response,

@@ -6,7 +6,9 @@ import {
   createUserHandler,
   deleteUserHandler,
   getUserHandler,
+  listActivityHandler,
   listUsersHandler,
+  resendWelcomeHandler,
   updateUserHandler,
 } from "./controller.js";
 import { createUserSchema, updateUserSchema } from "./schemas.js";
@@ -20,3 +22,9 @@ adminUsersRouter.get("/", listUsersHandler);
 adminUsersRouter.get("/:id", getUserHandler);
 adminUsersRouter.patch("/:id", validateBody(updateUserSchema), updateUserHandler);
 adminUsersRouter.delete("/:id", deleteUserHandler);
+adminUsersRouter.post("/:id/resend-welcome", resendWelcomeHandler);
+
+export const adminActivityRouter = Router();
+
+adminActivityRouter.use(authenticate, authorize("admin"));
+adminActivityRouter.get("/", listActivityHandler);

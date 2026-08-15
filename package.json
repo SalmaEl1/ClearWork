@@ -13,5 +13,8 @@
     "build:web": "npm run build --workspace apps/web",
     "migrate": "npm run migrate --workspace apps/api",
     "test:api": "npm run test --workspace apps/api"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6"
   }
 }

@@ -22,14 +22,14 @@ async function seedAdmin() {
     );
   }
 
-  const admin = await createAccount({
+  const { user } = await createAccount({
     email: env.ADMIN_EMAIL,
     password: env.ADMIN_PASSWORD,
     fullName: env.ADMIN_FULL_NAME,
     role: "admin",
   });
 
-  console.log(`Admin creado: ${admin.email}`);
+  console.log(`Admin creado: ${user.email}`);
 }
 
 seedAdmin()

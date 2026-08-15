@@ -60,6 +60,19 @@ button.secondary:hover {
   background: var(--color-bg);
 }
 
+button.danger {
+  background: var(--color-danger);
+}
+
+button.danger:hover {
+  background: #94332d;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 input, select {
   font: inherit;
   padding: 0.5rem 0.6rem;
@@ -132,22 +145,7 @@ label > span {
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--color-primary-dark);
-}
-
-.app-header__user {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-}
-
-.app-header__profile-link {
-  color: var(--color-text);
   text-decoration: none;
-}
-
-.app-header__profile-link:hover {
-  text-decoration: underline;
 }
 
 .role-badge {
@@ -341,25 +339,6 @@ label > span {
   flex-wrap: wrap;
 }
 
-/* --- perfil --- */
-
-.profile-info {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.4rem 1rem;
-  margin: 0;
-}
-
-.profile-info dt {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-}
-
-.profile-info dd {
-  margin: 0;
-  font-weight: 600;
-}
-
 /* --- navegación del admin --- */
 
 .app-header__nav {
@@ -382,6 +361,23 @@ label > span {
 .app-header__nav a.active {
   color: var(--color-primary-dark);
   font-weight: 600;
+}
+
+/* --- buscador y filtros sobre una tabla --- */
+
+.filter-bar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.filter-bar input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+}
+
+.filter-bar select {
+  width: auto;
 }
 
 /* --- tablas --- */
@@ -416,4 +412,296 @@ th {
   align-items: center;
   gap: 0.75rem;
   white-space: nowrap;
+}
+
+/* --- botones que son enlaces (Gestionar, Ver…) --- */
+
+.link-button {
+  display: inline-block;
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+  background: transparent;
+}
+
+.link-button:hover {
+  background: var(--color-bg);
+}
+
+/* --- cabecera de página (título + acción principal) --- */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+/* --- volver --- */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.back-link:hover {
+  color: var(--color-text);
+}
+
+/* --- avatar y menú de usuario --- */
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.avatar--md {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1rem;
+}
+
+.avatar--sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.8rem;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu__trigger {
+  background: none;
+  padding: 0;
+  border-radius: 999px;
+  line-height: 0;
+}
+
+.user-menu__trigger:hover {
+  background: none;
+  opacity: 0.85;
+}
+
+.user-menu__dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(20, 24, 33, 0.12);
+  min-width: 180px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  z-index: 20;
+}
+
+.user-menu__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.6rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.25rem;
+}
+
+.user-menu__info .role-badge {
+  align-self: flex-start;
+}
+
+.user-menu__dropdown a,
+.user-menu__dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.user-menu__dropdown a:hover,
+.user-menu__dropdown button:hover {
+  background: var(--color-bg);
+}
+
+/* --- modal --- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 33, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 30;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(20, 24, 33, 0.25);
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 0;
+}
+
+.modal__header h3 {
+  margin: 0;
+}
+
+.modal__close {
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+.modal__close:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.modal__body {
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+/* --- estadísticas (home del admin) --- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.stat-tile__label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.stat-tile__value {
+  font-size: 2rem;
+  font-weight: 600;
+  font-variant-numeric: proportional-nums;
+}
+
+.admin-home__link {
+  text-decoration: none;
+  display: block;
+  transition: border-color 0.15s ease;
+}
+
+.admin-home__link:hover {
+  border-color: var(--color-primary);
+}
+
+.admin-home__link h3 {
+  color: var(--color-text);
+}
+
+.admin-home__link p {
+  margin: 0;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-list__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.activity-list__item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activity-list__time {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* --- cabecera de ficha de usuario --- */
+
+.user-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-header__name {
+  margin: 0 0 0.3rem;
+}
+
+.user-header__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.password-reveal {
+  display: inline-block;
+  font-family: ui-monospace, monospace;
+  font-size: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  user-select: all;
 }

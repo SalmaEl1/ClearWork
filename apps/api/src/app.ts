@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import { corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
-import { adminUsersRouter } from "./modules/admin/routes.js";
+import { adminActivityRouter, adminUsersRouter } from "./modules/admin/routes.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
 import { projectsRouter } from "./modules/projects/routes.js";
@@ -26,6 +26,7 @@ export function createApp() {
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/admin/users", adminUsersRouter);
   app.use("/api/admin/projects", projectsRouter);
+  app.use("/api/admin/activity", adminActivityRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`No existe la ruta ${req.method} ${req.path}`));

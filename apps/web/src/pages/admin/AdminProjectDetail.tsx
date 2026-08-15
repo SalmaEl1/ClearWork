@@ -1,7 +1,7 @@
 import type { AdminUserSummary, ProjectDetailDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import {
   assignProjectMember,
@@ -11,6 +11,8 @@ import {
   removeProjectMember,
   updateAdminProject,
 } from "../../api/admin.js";
+import { BackLink } from "../../components/BackLink.js";
+import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 
 function EditProjectForm({
   project,
@@ -181,15 +183,9 @@ function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   async function handleDelete() {
-    if (
-      !confirm(
-        `¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
     setError(null);
     setIsDeleting(true);
     try {
@@ -198,6 +194,7 @@ function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
       setIsDeleting(false);
+      setIsConfirmOpen(false);
     }
   }
 
@@ -206,9 +203,19 @@ function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
       <h3>Eliminar proyecto</h3>
       <p>Borra el proyecto, sus tareas y la membresía de su equipo. No se puede deshacer.</p>
       {error && <div className="error-banner">{error}</div>}
-      <button type="button" className="secondary" disabled={isDeleting} onClick={handleDelete}>
+      <button type="button" className="secondary" disabled={isDeleting} onClick={() => setIsConfirmOpen(true)}>
         {isDeleting ? "Eliminando…" : "Eliminar proyecto"}
       </button>
+      {isConfirmOpen && (
+        <ConfirmDialog
+          title="Eliminar proyecto"
+          message={`¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar"
+          isConfirming={isDeleting}
+          onConfirm={handleDelete}
+          onCancel={() => setIsConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -241,10 +248,11 @@ export function AdminProjectDetail() {
   return (
     <div className="dashboard-grid">
       <div>
-        <Link to="/admin/projects">← Volver a proyectos</Link>
+        <BackLink to="/admin/projects">Volver a proyectos</BackLink>
       </div>
       <h2>{project?.name ?? "Proyecto"}</h2>
       {error && <div className="error-banner">{error}</div>}
+      {!project && !error && <p>Cargando…</p>}
 
       {project && (
         <>

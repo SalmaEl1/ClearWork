@@ -36,6 +36,15 @@ export async function listUsersByRole(role: Role): Promise<UserRow[]> {
   return result.rows;
 }
 
+/** Últimas cuentas creadas, para la actividad reciente del home de admin. */
+export async function listRecentlyCreatedUsers(limit: number): Promise<UserRow[]> {
+  const result = await pool.query<UserRow>(
+    "SELECT * FROM users ORDER BY created_at DESC LIMIT $1",
+    [limit],
+  );
+  return result.rows;
+}
+
 export type CreateUserInput = {
   email: string;
   passwordHash: string;
@@ -73,6 +82,8 @@ export async function updateUserPassword(userId: string, passwordHash: string): 
 
 export type UpdateUserFields = {
   fullName?: string;
+  email?: string;
+  role?: Role;
   weeklyTargetHours?: number;
   isActive?: boolean;
 };
@@ -89,6 +100,14 @@ export async function updateUserById(
   if (fields.fullName !== undefined) {
     values.push(fields.fullName);
     setClauses.push(`full_name = $${values.length}`);
+  }
+  if (fields.email !== undefined) {
+    values.push(fields.email);
+    setClauses.push(`email = $${values.length}`);
+  }
+  if (fields.role !== undefined) {
+    values.push(fields.role);
+    setClauses.push(`role = $${values.length}`);
   }
   if (fields.weeklyTargetHours !== undefined) {
     values.push(fields.weeklyTargetHours);

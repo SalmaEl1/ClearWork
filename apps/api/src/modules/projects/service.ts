@@ -1,5 +1,5 @@
 import type { ProjectDetailDTO, ProjectDTO } from "@clearwork/shared";
-import { BadRequestError, NotFoundError } from "../../shared/errors.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { findUserById } from "../users/repository.js";
 import * as repo from "./repository.js";
 import type { ProjectRow } from "./types.js";
@@ -96,6 +96,9 @@ export async function assignMember(
 ): Promise<ProjectDetailDTO> {
   const project = await repo.findProjectById(projectId);
   if (!project) throw new NotFoundError("Proyecto no encontrado");
+  if (project.is_archived) {
+    throw new ConflictError("No se puede asignar gente a un proyecto archivado");
+  }
 
   await assertIsWorker(input.userId);
   // Mueve al teletrabajador aquí, cerrando su membresía anterior si la

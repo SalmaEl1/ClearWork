@@ -34,6 +34,11 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
+export type UpdateProfileRequest = {
+  fullName?: string;
+  email?: string;
+};
+
 export type BreakDTO = {
   id: string;
   workSessionId: string;
@@ -200,14 +205,40 @@ export type AdminUserSummary = {
 
 export type AdminCreateUserRequest = {
   email: string;
-  password: string;
   fullName: string;
   role: AdminCreatableRole;
   weeklyTargetHours?: number;
 };
 
+/** Respuesta al crear una cuenta: la contraseña provisional se genera en
+ * el servidor y se manda por correo. Si el envío falla, se devuelve en
+ * claro aquí para que el admin pueda compartirla a mano. */
+export type AdminCreateUserResponse = AdminUserSummary & {
+  passwordEmailSent: boolean;
+  temporaryPassword?: string;
+};
+
 export type AdminUpdateUserRequest = {
   fullName?: string;
+  email?: string;
+  role?: AdminCreatableRole;
   weeklyTargetHours?: number;
   isActive?: boolean;
 };
+
+/** Eventos recientes para el home del admin: altas de cuenta, cambios de
+ * estado de tarea, y entradas/salidas de un proyecto. Cada variante trae
+ * solo los datos que necesita — el frontend arma el texto a partir de
+ * ellos, igual que ya hace con ROLE_LABEL para el rol. */
+export type AdminActivityEventDTO =
+  | { type: "user_created"; occurredAt: string; userName: string; role: Role }
+  | {
+      type: "task_status_changed";
+      occurredAt: string;
+      userName: string;
+      taskTitle: string;
+      projectName: string;
+      toStatus: TaskStatus;
+    }
+  | { type: "member_joined"; occurredAt: string; userName: string; projectName: string }
+  | { type: "member_left"; occurredAt: string; userName: string; projectName: string };

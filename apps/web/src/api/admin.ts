@@ -1,5 +1,7 @@
 import type {
+  AdminActivityEventDTO,
   AdminCreateUserRequest,
+  AdminCreateUserResponse,
   AdminUpdateUserRequest,
   AdminUserSummary,
   AssignMemberRequest,
@@ -10,12 +12,18 @@ import type {
 } from "@clearwork/shared";
 import { apiFetch } from "./client.js";
 
+export function fetchAdminActivity(): Promise<AdminActivityEventDTO[]> {
+  return apiFetch<AdminActivityEventDTO[]>("/admin/activity");
+}
+
 export function fetchAdminUsers(): Promise<AdminUserSummary[]> {
   return apiFetch<AdminUserSummary[]>("/admin/users");
 }
 
-export function createAdminUser(input: AdminCreateUserRequest): Promise<AdminUserSummary> {
-  return apiFetch<AdminUserSummary>("/admin/users", { method: "POST", body: input });
+export function createAdminUser(
+  input: AdminCreateUserRequest,
+): Promise<AdminCreateUserResponse> {
+  return apiFetch<AdminCreateUserResponse>("/admin/users", { method: "POST", body: input });
 }
 
 export function fetchAdminUser(userId: string): Promise<AdminUserSummary> {

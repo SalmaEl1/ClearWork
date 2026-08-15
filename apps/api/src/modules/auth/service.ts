@@ -1,21 +1,23 @@
 import bcrypt from "bcryptjs";
 import type { AuthResponse, MeResponse } from "@clearwork/shared";
-import { BadRequestError, UnauthorizedError } from "../../shared/errors.js";
+import { BadRequestError, ConflictError, UnauthorizedError } from "../../shared/errors.js";
 import { findProjectById, findActiveMembership } from "../projects/repository.js";
 import {
   findUserByEmail,
   findUserById,
   toPublicUser,
+  updateUserById,
   updateUserPassword,
 } from "../users/repository.js";
 import type { z } from "zod";
-import type { changePasswordSchema, loginSchema } from "./schemas.js";
+import type { changePasswordSchema, loginSchema, updateProfileSchema } from "./schemas.js";
 import { signToken } from "./jwt.js";
 
 const BCRYPT_ROUNDS = 12;
 
 type LoginInput = z.infer<typeof loginSchema>;
 type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
   const user = await findUserByEmail(input.email);
@@ -56,6 +58,34 @@ export async function getCurrentUser(userId: string): Promise<MeResponse> {
   return { ...toPublicUser(user), supervisorName };
 }
 
+/**
+ * Autoedición de nombre/email, disponible para cualquier rol desde su
+ * propio perfil. Deliberadamente no toca `role`, `isActive` ni
+ * `weeklyTargetHours`: eso sigue siendo exclusivo del panel de admin
+ * sobre otras cuentas, nunca sobre la propia vía este endpoint.
+ */
+export async function updateProfile(
+  userId: string,
+  input: UpdateProfileInput,
+): Promise<MeResponse> {
+  if (input.email) {
+    const existing = await findUserByEmail(input.email);
+    if (existing && existing.id !== userId) {
+      throw new ConflictError("Ya existe una cuenta con ese email");
+    }
+  }
+
+  const updated = await updateUserById(userId, {
+    fullName: input.fullName,
+    email: input.email,
+  });
+  if (!updated) {
+    throw new UnauthorizedError("El usuario del token ya no existe");
+  }
+
+  return getCurrentUser(userId);
+}
+
 export async function changePassword(
   userId: string,
   input: ChangePasswordInput,
@@ -68,6 +98,14 @@ export async function changePassword(
   const currentMatches = await bcrypt.compare(input.currentPassword, user.password_hash);
   if (!currentMatches) {
     throw new BadRequestError("La contraseña actual no es correcta");
+  }
+
+  // Comparado contra el hash guardado, no contra currentPassword: así
+  // detecta que "la nueva es igual a la actual" aunque currentPassword
+  // no coincidiera exactamente con lo tecleado por algún motivo.
+  const isSamePassword = await bcrypt.compare(input.newPassword, user.password_hash);
+  if (isSamePassword) {
+    throw new BadRequestError("La contraseña nueva debe ser distinta a la actual");
   }
 
   const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);

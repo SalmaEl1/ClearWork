@@ -4,10 +4,12 @@ import { RequireRole } from "./auth/RequireRole.js";
 import { useAuth } from "./auth/AuthContext.js";
 import { roleHome } from "./auth/roleHome.js";
 import { AppLayout } from "./layouts/AppLayout.js";
+import { AdminHome } from "./pages/admin/AdminHome.js";
 import { AdminProjectDetail } from "./pages/admin/AdminProjectDetail.js";
 import { AdminProjects } from "./pages/admin/AdminProjects.js";
 import { AdminUserDetail } from "./pages/admin/AdminUserDetail.js";
 import { AdminUsers } from "./pages/admin/AdminUsers.js";
+import { ChangePassword } from "./pages/ChangePassword.js";
 import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
@@ -30,6 +32,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "/", element: <RoleHomeRedirect /> },
           { path: "/profile", element: <Profile /> },
+          { path: "/profile/password", element: <ChangePassword /> },
           {
             element: <RequireRole role="worker" />,
             children: [{ path: "/worker", element: <WorkerHome /> }],
@@ -41,6 +44,7 @@ export const router = createBrowserRouter([
           {
             element: <RequireRole role="admin" />,
             children: [
+              { path: "/admin", element: <AdminHome /> },
               { path: "/admin/users", element: <AdminUsers /> },
               { path: "/admin/users/:id", element: <AdminUserDetail /> },
               { path: "/admin/projects", element: <AdminProjects /> },

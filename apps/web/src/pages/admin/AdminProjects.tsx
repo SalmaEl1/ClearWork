@@ -3,12 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
-import {
-  createAdminProject,
-  deleteAdminProject,
-  fetchAdminProjects,
-  fetchAdminUsers,
-} from "../../api/admin.js";
+import { createAdminProject, fetchAdminProjects, fetchAdminUsers } from "../../api/admin.js";
+import { Modal } from "../../components/Modal.js";
 
 function CreateProjectForm({
   supervisors,
@@ -43,8 +39,6 @@ function CreateProjectForm({
     setIsSubmitting(true);
     try {
       await createAdminProject({ name, description: description || null, supervisorId });
-      setName("");
-      setDescription("");
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo crear el proyecto");
@@ -54,8 +48,7 @@ function CreateProjectForm({
   }
 
   return (
-    <div className="card">
-      <h3>Crear proyecto</h3>
+    <>
       {error && <div className="error-banner">{error}</div>}
       <form onSubmit={handleSubmit}>
         <label>
@@ -81,63 +74,34 @@ function CreateProjectForm({
           {isSubmitting ? "Creando…" : "Crear proyecto"}
         </button>
       </form>
-    </div>
+    </>
   );
 }
 
-function ProjectRow({
-  project,
-  supervisorName,
-  onChanged,
-}: {
-  project: ProjectDTO;
-  supervisorName: string;
-  onChanged: () => void;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  async function handleDelete() {
-    if (
-      !confirm(
-        `¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
-    setError(null);
-    setIsDeleting(true);
-    try {
-      await deleteAdminProject(project.id);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
-      setIsDeleting(false);
-    }
-  }
-
+function ProjectRow({ project, supervisorName }: { project: ProjectDTO; supervisorName: string }) {
   return (
     <tr>
       <td>{project.name}</td>
       <td>{supervisorName}</td>
       <td>{project.isArchived ? "Sí" : "No"}</td>
       <td>
-        <div className="row-actions">
-          <Link to={`/admin/projects/${project.id}`}>Gestionar</Link>
-          <button type="button" className="secondary" disabled={isDeleting} onClick={handleDelete}>
-            Eliminar
-          </button>
-        </div>
-        {error && <div className="error-banner">{error}</div>}
+        <Link to={`/admin/projects/${project.id}`} className="link-button">
+          Gestionar
+        </Link>
       </td>
     </tr>
   );
 }
 
+type ArchivedFilter = "all" | "active" | "archived";
+
 export function AdminProjects() {
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("all");
 
   const load = useCallback(() => {
     Promise.all([fetchAdminProjects(), fetchAdminUsers()])
@@ -152,42 +116,85 @@ export function AdminProjects() {
     load();
   }, [load]);
 
+  function handleCreated() {
+    setIsCreateOpen(false);
+    load();
+  }
+
   const supervisors = users.filter((u) => u.role === "supervisor");
   const supervisorName = (id: string) => supervisors.find((s) => s.id === id)?.fullName ?? "—";
 
+  const filteredProjects = (projects ?? []).filter((p) => {
+    if (archivedFilter === "active" && p.isArchived) return false;
+    if (archivedFilter === "archived" && !p.isArchived) return false;
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return p.name.toLowerCase().includes(term) || supervisorName(p.supervisorId).toLowerCase().includes(term);
+  });
+
   return (
     <div className="dashboard-grid">
-      <h2>Proyectos</h2>
+      <div className="page-header">
+        <h2>Proyectos</h2>
+        <button type="button" onClick={() => setIsCreateOpen(true)}>
+          + Añadir proyecto
+        </button>
+      </div>
       {error && <div className="error-banner">{error}</div>}
 
-      <CreateProjectForm supervisors={supervisors} onCreated={load} />
+      {isCreateOpen && (
+        <Modal title="Crear proyecto" onClose={() => setIsCreateOpen(false)}>
+          <CreateProjectForm supervisors={supervisors} onCreated={handleCreated} />
+        </Modal>
+      )}
 
       <div className="card">
         <h3>Todos los proyectos</h3>
+        {!projects && !error && <p>Cargando…</p>}
+
         {projects && projects.length === 0 && <p>Todavía no hay proyectos.</p>}
+
         {projects && projects.length > 0 && (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Supervisor/a</th>
-                  <th>Archivado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((p) => (
-                  <ProjectRow
-                    key={p.id}
-                    project={p}
-                    supervisorName={supervisorName(p.supervisorId)}
-                    onChanged={load}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="filter-bar">
+              <input
+                type="search"
+                placeholder="Buscar por nombre o supervisor/a…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                value={archivedFilter}
+                onChange={(e) => setArchivedFilter(e.target.value as ArchivedFilter)}
+              >
+                <option value="all">Todos</option>
+                <option value="active">Activos</option>
+                <option value="archived">Archivados</option>
+              </select>
+            </div>
+
+            {filteredProjects.length === 0 ? (
+              <p>Ningún proyecto coincide con la búsqueda.</p>
+            ) : (
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Supervisor/a</th>
+                      <th>Archivado</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProjects.map((p) => (
+                      <ProjectRow key={p.id} project={p} supervisorName={supervisorName(p.supervisorId)} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

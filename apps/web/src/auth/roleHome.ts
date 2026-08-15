@@ -7,6 +7,6 @@ export function roleHome(role: Role): string {
     case "supervisor":
       return "/supervisor";
     case "admin":
-      return "/admin/users";
+      return "/admin";
   }
 }
