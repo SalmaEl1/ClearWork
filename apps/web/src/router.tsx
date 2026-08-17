@@ -17,6 +17,7 @@ import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
+import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
 
 /** Punto de entrada "/": manda a cada usuario a la vista de su rol. */
@@ -45,7 +46,10 @@ export const router = createBrowserRouter([
           },
           {
             element: <RequireRole role="supervisor" />,
-            children: [{ path: "/supervisor", element: <SupervisorHome /> }],
+            children: [
+              { path: "/supervisor", element: <SupervisorHome /> },
+              { path: "/supervisor/tasks", element: <SupervisorTasks /> },
+            ],
           },
           {
             element: <RequireRole role="admin" />,

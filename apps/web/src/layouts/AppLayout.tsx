@@ -24,6 +24,15 @@ export function AppLayout() {
           </nav>
         )}
 
+        {user?.role === "supervisor" && (
+          <nav className="app-header__nav">
+            <NavLink to="/supervisor" end>
+              Panel
+            </NavLink>
+            <NavLink to="/supervisor/tasks">Tareas</NavLink>
+          </nav>
+        )}
+
         <UserMenu />
       </header>
       <main className="app-content">

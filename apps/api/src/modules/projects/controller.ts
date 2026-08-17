@@ -1,6 +1,13 @@
 import type { NextFunction, Request, Response } from "express";
+import { UnauthorizedError } from "../../shared/errors.js";
+import type { AuthUser } from "../auth/jwt.js";
 import { exportProjectsQuerySchema, listProjectsQuerySchema } from "./schemas.js";
 import * as service from "./service.js";
+
+function requireUser(req: Request): AuthUser {
+  if (!req.user) throw new UnauthorizedError();
+  return req.user;
+}
 
 export async function createProjectHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -86,6 +93,30 @@ export async function deleteProjectHandler(req: Request, res: Response, next: Ne
   try {
     await service.deleteProject(req.params.id as string);
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listMyProjectsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const projects = await service.listMyProjects(user.id);
+    res.status(200).json(projects);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listMyProjectMembersHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const members = await service.listMyProjectMembers(req.params.id as string, user.id);
+    res.status(200).json(members);
   } catch (err) {
     next(err);
   }

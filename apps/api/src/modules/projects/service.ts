@@ -1,4 +1,4 @@
-import type { Paginated, ProjectDetailDTO, ProjectDTO, TaskDTO } from "@clearwork/shared";
+import type { Paginated, ProjectDetailDTO, ProjectDTO, ProjectMemberDTO, TaskDTO } from "@clearwork/shared";
 import { recordActivity } from "../../shared/activityLog.js";
 import { toCsv } from "../../shared/csv.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
@@ -214,4 +214,30 @@ export async function deleteProject(projectId: string): Promise<void> {
   const project = await repo.findProjectById(projectId);
   if (!project) throw new NotFoundError("Proyecto no encontrado");
   await repo.deleteProjectById(projectId);
+}
+
+/** Proyectos que supervisa quien llama — para que elija en cuál gestionar
+ * tareas, sin necesitar el acceso de admin a /admin/projects. */
+export async function listMyProjects(supervisorId: string): Promise<ProjectDTO[]> {
+  const projects = await repo.listProjectsForSupervisor(supervisorId);
+  return projects.map(toProjectDTO);
+}
+
+/** Miembros activos de un proyecto propio, para el desplegable de
+ * "asignar a" al crear o editar una tarea. Comprobación de propiedad
+ * aparte del rol: un supervisor no puede ver el equipo de un proyecto
+ * que no es suyo. */
+export async function listMyProjectMembers(
+  projectId: string,
+  supervisorId: string,
+): Promise<ProjectMemberDTO[]> {
+  const project = await repo.findProjectForSupervisor(projectId, supervisorId);
+  if (!project) throw new NotFoundError("Proyecto no encontrado");
+
+  const members = await repo.listActiveMembersForProject(projectId);
+  return members.map((m) => ({
+    userId: m.user_id,
+    fullName: m.full_name,
+    joinedAt: m.joined_at.toISOString(),
+  }));
 }

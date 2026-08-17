@@ -9,6 +9,8 @@ import {
   exportProjectsHandler,
   getProjectHandler,
   getProjectTasksHandler,
+  listMyProjectMembersHandler,
+  listMyProjectsHandler,
   listProjectsHandler,
   removeMemberHandler,
   updateProjectHandler,
@@ -18,8 +20,8 @@ import { assignMemberSchema, createProjectSchema, updateProjectSchema } from "./
 export const projectsRouter = Router();
 
 // La gestión de proyectos (crear, editar, asignar/quitar miembros) es
-// exclusiva del admin. El supervisor los ve indirectamente a través del
-// dashboard y de sus tareas, no de este router.
+// exclusiva del admin. El supervisor tiene su propio acceso, más
+// limitado, a través de supervisorProjectsRouter (debajo).
 projectsRouter.use(authenticate, authorize("admin"));
 
 projectsRouter.post("/", validateBody(createProjectSchema), createProjectHandler);
@@ -32,3 +34,16 @@ projectsRouter.patch("/:id", validateBody(updateProjectSchema), updateProjectHan
 projectsRouter.delete("/:id", deleteProjectHandler);
 projectsRouter.post("/:id/members", validateBody(assignMemberSchema), assignMemberHandler);
 projectsRouter.delete("/:id/members/:userId", removeMemberHandler);
+
+/**
+ * Acceso de solo lectura del supervisor a sus propios proyectos: solo lo
+ * necesario para gestionar tareas (elegir en qué proyecto, y quién puede
+ * ser responsable de una tarea). Nunca ve proyectos ajenos ni puede
+ * crear/editar/borrar proyectos ni tocar la membresía — eso sigue siendo
+ * exclusivo del admin, arriba.
+ */
+export const supervisorProjectsRouter = Router();
+
+supervisorProjectsRouter.use(authenticate, authorize("supervisor"));
+supervisorProjectsRouter.get("/", listMyProjectsHandler);
+supervisorProjectsRouter.get("/:id/members", listMyProjectMembersHandler);
