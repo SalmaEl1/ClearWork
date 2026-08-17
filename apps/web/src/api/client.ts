@@ -55,3 +55,31 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   return data as T;
 }
+
+/**
+ * Para respuestas que no son JSON (de momento, solo la exportación CSV):
+ * pide el archivo con el mismo token que apiFetch, y dispara la descarga
+ * en el navegador a través de un enlace temporal — es el mecanismo
+ * estándar para forzar "guardar como" desde JavaScript, no hay una API
+ * más directa para eso.
+ */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const token = getStoredToken();
+
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.error ?? "No se pudo descargar el archivo", response.status);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

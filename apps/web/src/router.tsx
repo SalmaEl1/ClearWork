@@ -4,14 +4,18 @@ import { RequireRole } from "./auth/RequireRole.js";
 import { useAuth } from "./auth/AuthContext.js";
 import { roleHome } from "./auth/roleHome.js";
 import { AppLayout } from "./layouts/AppLayout.js";
+import { AdminActivity } from "./pages/admin/AdminActivity.js";
 import { AdminHome } from "./pages/admin/AdminHome.js";
 import { AdminProjectDetail } from "./pages/admin/AdminProjectDetail.js";
 import { AdminProjects } from "./pages/admin/AdminProjects.js";
+import { AdminSettings } from "./pages/admin/AdminSettings.js";
 import { AdminUserDetail } from "./pages/admin/AdminUserDetail.js";
 import { AdminUsers } from "./pages/admin/AdminUsers.js";
 import { ChangePassword } from "./pages/ChangePassword.js";
+import { ForgotPassword } from "./pages/ForgotPassword.js";
 import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
+import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
 
@@ -24,6 +28,8 @@ function RoleHomeRedirect() {
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
+  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/reset-password", element: <ResetPassword /> },
   {
     element: <RequireAuth />,
     children: [
@@ -45,10 +51,12 @@ export const router = createBrowserRouter([
             element: <RequireRole role="admin" />,
             children: [
               { path: "/admin", element: <AdminHome /> },
+              { path: "/admin/activity", element: <AdminActivity /> },
               { path: "/admin/users", element: <AdminUsers /> },
               { path: "/admin/users/:id", element: <AdminUserDetail /> },
               { path: "/admin/projects", element: <AdminProjects /> },
               { path: "/admin/projects/:id", element: <AdminProjectDetail /> },
+              { path: "/admin/settings", element: <AdminSettings /> },
             ],
           },
         ],

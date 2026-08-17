@@ -13,3 +13,14 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const BREAK_TYPES = ["lunch", "ergonomic"] as const;
 export type BreakType = (typeof BREAK_TYPES)[number];
+
+/** Debe coincidir con el CHECK de la columna `type` en la migración
+ * 007_activity_log.sql — un tipo de evento nuevo se añade en los dos
+ * sitios a la vez. */
+export const ACTIVITY_EVENT_TYPES = [
+  "user_created",
+  "task_status_changed",
+  "member_joined",
+  "member_left",
+] as const;
+export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];

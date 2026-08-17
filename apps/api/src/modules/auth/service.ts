@@ -1,5 +1,9 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { AuthResponse, MeResponse } from "@clearwork/shared";
+import { env } from "../../config/env.js";
+import { sendMail } from "../../email/mailer.js";
+import { passwordResetEmailTemplate } from "../../email/templates.js";
 import { BadRequestError, ConflictError, UnauthorizedError } from "../../shared/errors.js";
 import { findProjectById, findActiveMembership } from "../projects/repository.js";
 import {
@@ -9,15 +13,38 @@ import {
   updateUserById,
   updateUserPassword,
 } from "../users/repository.js";
+import {
+  createPasswordResetToken,
+  deleteUnusedPasswordResetTokensForUser,
+  findValidPasswordResetToken,
+  markPasswordResetTokenUsed,
+} from "./passwordResetRepository.js";
 import type { z } from "zod";
-import type { changePasswordSchema, loginSchema, updateProfileSchema } from "./schemas.js";
+import type {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+  updateProfileSchema,
+} from "./schemas.js";
 import { signToken } from "./jwt.js";
 
 const BCRYPT_ROUNDS = 12;
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 type LoginInput = z.infer<typeof loginSchema>;
 type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/** SHA-256, no bcrypt: el token ya es un valor aleatorio de 256 bits, no
+ * una contraseña de baja entropía — no necesita (ni conviene, por coste)
+ * un hash lento, y se busca por igualdad exacta en la base de datos. */
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
   const user = await findUserByEmail(input.email);
@@ -42,7 +69,7 @@ export async function getCurrentUser(userId: string): Promise<MeResponse> {
     throw new UnauthorizedError("El usuario del token ya no existe");
   }
 
-  // El supervisor de un teletrabajador se deriva de su membresía activa
+  // El supervisor de un trabajador se deriva de su membresía activa
   // en un proyecto, no de un campo propio: ver migración 005 y
   // projects/repository.ts.
   let supervisorName: string | null = null;
@@ -110,4 +137,49 @@ export async function changePassword(
 
   const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
   await updateUserPassword(userId, passwordHash);
+}
+
+/**
+ * Punto de entrada del "olvidé mi contraseña" del login. Responde igual
+ * (sin lanzar) exista o no la cuenta, y también si está desactivada: que
+ * este endpoint nunca sirva para averiguar qué emails están dados de
+ * alta en la aplicación.
+ */
+export async function forgotPassword(input: ForgotPasswordInput): Promise<void> {
+  const user = await findUserByEmail(input.email);
+  if (!user || !user.is_active) return;
+
+  const token = crypto.randomBytes(RESET_TOKEN_BYTES).toString("hex");
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await createPasswordResetToken(user.id, hashResetToken(token), expiresAt);
+
+  try {
+    await sendMail(
+      user.email,
+      passwordResetEmailTemplate({
+        fullName: user.full_name,
+        resetUrl: `${env.APP_URL}/reset-password?token=${token}`,
+      }),
+    );
+  } catch (err) {
+    // Mismo motivo que arriba: no se propaga el error al llamador, o un
+    // fallo de envío (distinto de "no hay cuenta") delataría qué emails
+    // sí existen.
+    console.error("No se pudo enviar el correo de recuperación de contraseña", err);
+  }
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  const tokenHash = hashResetToken(input.token);
+  const resetToken = await findValidPasswordResetToken(tokenHash);
+  if (!resetToken) {
+    throw new BadRequestError("El enlace no es válido o ha caducado. Pide uno nuevo.");
+  }
+
+  const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
+  await updateUserPassword(resetToken.user_id, passwordHash);
+  await markPasswordResetTokenUsed(resetToken.id);
+  // Cualquier otro enlace pendiente de esa persona deja de servir: ya
+  // cambió la contraseña con este.
+  await deleteUnusedPasswordResetTokensForUser(resetToken.user_id);
 }

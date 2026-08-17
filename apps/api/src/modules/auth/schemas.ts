@@ -18,3 +18,12 @@ export const updateProfileSchema = z
   .refine((body) => Object.keys(body).length > 0, {
     message: "No se ha indicado ningún campo para actualizar",
   });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email inválido"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Falta el token"),
+  newPassword: z.string().min(8, "La contraseña nueva debe tener al menos 8 caracteres"),
+});

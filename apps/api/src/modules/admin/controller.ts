@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
+import { exportUsersQuerySchema, listActivityQuerySchema, listUsersQuerySchema } from "./schemas.js";
 import * as service from "./service.js";
 
 function requireAdminId(req: Request): string {
@@ -18,8 +19,22 @@ export async function createUserHandler(req: Request, res: Response, next: NextF
 
 export async function listUsersHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const users = await service.listUsers();
+    const query = listUsersQuerySchema.parse(req.query);
+    const users = await service.listUsers(query);
     res.status(200).json(users);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportUsersHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const filters = exportUsersQuerySchema.parse(req.query);
+    const csv = await service.exportUsersCsv(filters);
+    res.status(200);
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="usuarios.csv"');
+    res.send(csv);
   } catch (err) {
     next(err);
   }
@@ -63,7 +78,8 @@ export async function resendWelcomeHandler(req: Request, res: Response, next: Ne
 
 export async function listActivityHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const events = await service.listRecentActivity();
+    const query = listActivityQuerySchema.parse(req.query);
+    const events = await service.listRecentActivity(query);
     res.status(200).json(events);
   } catch (err) {
     next(err);

@@ -1,35 +1,49 @@
-import type { AdminActivityEventDTO, AdminCreateUserResponse, AdminUserSummary } from "@clearwork/shared";
+import type {
+  AdminActivityEventDTO,
+  AdminCreateUserResponse,
+  AdminUserSummary,
+  Paginated,
+} from "@clearwork/shared";
 import { env } from "../../config/env.js";
 import { isForeignKeyViolation } from "../../db/errors.js";
 import { sendMail } from "../../email/mailer.js";
 import { welcomeEmailTemplate } from "../../email/templates.js";
+import { recordActivity } from "../../shared/activityLog.js";
+import { toCsv } from "../../shared/csv.js";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import {
   closeActiveMembership,
+  findActiveMembership,
+  findProjectById,
   listActiveMembershipsWithProjectNames,
   listAllProjects,
   listProjectsForSupervisor,
-  listRecentMemberJoins,
-  listRecentMemberLeaves,
   type WorkerCurrentProjectRow,
 } from "../projects/repository.js";
-import { listRecentStatusChanges } from "../tasks/repository.js";
+import { listActivityPage } from "./repository.js";
+import { getSettings } from "../settings/service.js";
 import {
   deleteUserById,
   findUserByEmail,
   findUserById,
-  listRecentlyCreatedUsers,
-  listUsersByRole,
+  listUsersPage,
   toPublicUser,
   updateUserById,
 } from "../users/repository.js";
 import { createAccount, regeneratePassword } from "../users/service.js";
 import type { UserRow } from "../users/types.js";
 import type { z } from "zod";
-import type { createUserSchema, updateUserSchema } from "./schemas.js";
+import type {
+  createUserSchema,
+  listActivityQuerySchema,
+  listUsersQuerySchema,
+  updateUserSchema,
+} from "./schemas.js";
 
 type CreateUserInput = z.infer<typeof createUserSchema>;
 type UpdateUserInput = z.infer<typeof updateUserSchema>;
+type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+type ListActivityQuery = z.infer<typeof listActivityQuerySchema>;
 
 type SupervisedProject = { id: string; name: string };
 
@@ -95,8 +109,14 @@ async function issuePasswordEmail(
 }
 
 export async function createUser(input: CreateUserInput): Promise<AdminCreateUserResponse> {
-  const { user, generatedPassword } = await createAccount(input);
+  // Si no se da un valor explícito, se usa el ajuste configurable del
+  // panel (ver modules/settings) en vez de la constante fija que aplica
+  // el repositorio como último recorte de seguridad.
+  const weeklyTargetHours = input.weeklyTargetHours ?? (await getSettings()).defaultWeeklyTargetHours;
+  const { user, generatedPassword } = await createAccount({ ...input, weeklyTargetHours });
   const summary = toAdminUserSummary(user, new Map(), new Map());
+
+  await recordActivity({ type: "user_created", userName: user.full_name, role: user.role });
 
   // generatedPassword siempre existe aquí: createUserSchema no acepta
   // password, así que este flujo nunca pasa una explícita.
@@ -127,18 +147,39 @@ export async function resendWelcomeEmail(userId: string): Promise<AdminCreateUse
   return issuePasswordEmail(user, password, summary);
 }
 
-export async function listUsers(): Promise<AdminUserSummary[]> {
-  const [admins, supervisors, workers, projectByUser, supervisedByUser] = await Promise.all([
-    listUsersByRole("admin"),
-    listUsersByRole("supervisor"),
-    listUsersByRole("worker"),
+export async function listUsers(query: ListUsersQuery): Promise<Paginated<AdminUserSummary>> {
+  const [{ rows, total }, projectByUser, supervisedByUser] = await Promise.all([
+    listUsersPage({ search: query.search, role: query.role }, query.page, query.pageSize),
     currentProjectsByUser(),
     supervisedProjectsByUser(),
   ]);
 
-  return [...admins, ...supervisors, ...workers].map((u) =>
-    toAdminUserSummary(u, projectByUser, supervisedByUser),
-  );
+  return {
+    items: rows.map((u) => toAdminUserSummary(u, projectByUser, supervisedByUser)),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
+}
+
+const CSV_HEADERS_USERS = ["Nombre", "Email", "Rol", "Activa", "Horas objetivo semanales", "Alta"];
+
+/** Exporta todas las cuentas que coincidan con el filtro (sin paginar:
+ * una exportación con solo la página visible no serviría para nada). */
+export async function exportUsersCsv(filters: {
+  search?: string;
+  role?: ListUsersQuery["role"];
+}): Promise<string> {
+  const { rows } = await listUsersPage(filters, 1, 1_000_000);
+  const csvRows = rows.map((u) => [
+    u.full_name,
+    u.email,
+    u.role,
+    u.is_active ? "Sí" : "No",
+    String(Number(u.weekly_target_hours)),
+    u.created_at.toISOString(),
+  ]);
+  return toCsv(CSV_HEADERS_USERS, csvRows);
 }
 
 export async function getUser(userId: string): Promise<AdminUserSummary> {
@@ -189,10 +230,21 @@ export async function updateUser(
     }
 
     // Al contrario, "ser miembro de un proyecto" solo tiene sentido para
-    // un teletrabajador. Si deja de serlo, se le saca del proyecto — es
+    // un trabajador. Si deja de serlo, se le saca del proyecto — es
     // una operación segura y reversible, no hace falta bloquear nada.
     if (existing.role === "worker") {
+      const membership = await findActiveMembership(userId);
       await closeActiveMembership(userId);
+      if (membership) {
+        const project = await findProjectById(membership.project_id);
+        if (project) {
+          await recordActivity({
+            type: "member_left",
+            userName: existing.full_name,
+            projectName: project.name,
+          });
+        }
+      }
     }
   }
 
@@ -238,53 +290,29 @@ export async function deleteUser(userId: string, actingAdminId: string): Promise
   }
 }
 
-const RECENT_ACTIVITY_LIMIT = 15;
-
 /**
- * Combina cuatro fuentes de eventos (altas de cuenta, cambios de estado de
- * tarea, entradas y salidas de proyecto) para el home del admin. Cada
- * consulta trae como mucho RECENT_ACTIVITY_LIMIT candidatos — de sobra
- * para que, tras fusionarlos y ordenarlos aquí, los más recientes en
- * total nunca falten entre esos candidatos — y se recorta al final a ese
- * mismo límite.
+ * Lee de activity_log (ver repository.ts): cada evento ya se guardó con
+ * sus datos legibles en el momento en que ocurrió (ver shared/activityLog.ts
+ * y sus llamadas en este archivo, en tasks/service.ts y en
+ * projects/service.ts), así que aquí no hace falta ningún JOIN ni
+ * recomputar nada — solo paginar y, si se pide, filtrar por tipo.
  */
-export async function listRecentActivity(): Promise<AdminActivityEventDTO[]> {
-  const [recentUsers, statusChanges, joins, leaves] = await Promise.all([
-    listRecentlyCreatedUsers(RECENT_ACTIVITY_LIMIT),
-    listRecentStatusChanges(RECENT_ACTIVITY_LIMIT),
-    listRecentMemberJoins(RECENT_ACTIVITY_LIMIT),
-    listRecentMemberLeaves(RECENT_ACTIVITY_LIMIT),
-  ]);
+export async function listRecentActivity(
+  query: ListActivityQuery,
+): Promise<Paginated<AdminActivityEventDTO>> {
+  const { rows, total } = await listActivityPage({ type: query.type }, query.page, query.pageSize);
 
-  const events: AdminActivityEventDTO[] = [
-    ...recentUsers.map((u): AdminActivityEventDTO => ({
-      type: "user_created",
-      occurredAt: u.created_at.toISOString(),
-      userName: u.full_name,
-      role: u.role,
-    })),
-    ...statusChanges.map((h): AdminActivityEventDTO => ({
-      type: "task_status_changed",
-      occurredAt: h.changed_at.toISOString(),
-      userName: h.changed_by_name,
-      taskTitle: h.task_title,
-      projectName: h.project_name,
-      toStatus: h.to_status,
-    })),
-    ...joins.map((j): AdminActivityEventDTO => ({
-      type: "member_joined",
-      occurredAt: j.event_at.toISOString(),
-      userName: j.user_name,
-      projectName: j.project_name,
-    })),
-    ...leaves.map((l): AdminActivityEventDTO => ({
-      type: "member_left",
-      occurredAt: l.event_at.toISOString(),
-      userName: l.user_name,
-      projectName: l.project_name,
-    })),
-  ];
-
-  events.sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
-  return events.slice(0, RECENT_ACTIVITY_LIMIT);
+  return {
+    items: rows.map(
+      (row) =>
+        ({
+          type: row.type,
+          occurredAt: row.occurred_at.toISOString(),
+          ...row.payload,
+        }) as AdminActivityEventDTO,
+    ),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
 }

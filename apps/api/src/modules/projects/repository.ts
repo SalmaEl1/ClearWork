@@ -48,6 +48,90 @@ export async function listAllProjects(): Promise<ProjectRow[]> {
   return result.rows;
 }
 
+export type ProjectListFilters = {
+  search?: string;
+  archived?: boolean;
+};
+
+export type ProjectListPage = {
+  rows: ProjectRow[];
+  total: number;
+};
+
+/** Compartido por listProjectsPage y listProjectsForExport: mismo filtro,
+ * dos formas distintas de consumirlo (paginado vs. todo de una vez). */
+function buildProjectFilterConditions(filters: ProjectListFilters): {
+  conditions: string[];
+  values: unknown[];
+} {
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+
+  if (filters.search) {
+    values.push(`%${filters.search}%`);
+    conditions.push(`(p.name ILIKE $${values.length} OR u.full_name ILIKE $${values.length})`);
+  }
+  if (filters.archived !== undefined) {
+    values.push(filters.archived);
+    conditions.push(`p.is_archived = $${values.length}`);
+  }
+
+  return { conditions, values };
+}
+
+/**
+ * Listado paginado para el panel de admin, con búsqueda por nombre de
+ * proyecto o de supervisor/a (de ahí el JOIN, aunque solo se seleccionan
+ * columnas de projects) y filtro por archivado, todo resuelto en SQL.
+ */
+export async function listProjectsPage(
+  filters: ProjectListFilters,
+  page: number,
+  pageSize: number,
+): Promise<ProjectListPage> {
+  const { conditions, values } = buildProjectFilterConditions(filters);
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  values.push(pageSize, (page - 1) * pageSize);
+  const limitParam = values.length - 1;
+  const offsetParam = values.length;
+
+  const result = await pool.query<ProjectRow & { total_count: string }>(
+    `SELECT p.*, COUNT(*) OVER() AS total_count
+     FROM projects p
+     JOIN users u ON u.id = p.supervisor_id
+     ${whereClause}
+     ORDER BY p.created_at DESC
+     LIMIT $${limitParam} OFFSET $${offsetParam}`,
+    values,
+  );
+
+  const total = result.rows.length > 0 ? Number(result.rows[0]!.total_count) : 0;
+  return { rows: result.rows, total };
+}
+
+export type ProjectExportRow = ProjectRow & { supervisor_name: string };
+
+/** Para la exportación CSV: mismo filtro que listProjectsPage, pero sin
+ * paginar (se exporta todo lo que coincide), y con el nombre del
+ * supervisor ya resuelto para no repetir el JOIN en el servicio. */
+export async function listProjectsForExport(
+  filters: ProjectListFilters,
+): Promise<ProjectExportRow[]> {
+  const { conditions, values } = buildProjectFilterConditions(filters);
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const result = await pool.query<ProjectExportRow>(
+    `SELECT p.*, u.full_name AS supervisor_name
+     FROM projects p
+     JOIN users u ON u.id = p.supervisor_id
+     ${whereClause}
+     ORDER BY p.created_at DESC`,
+    values,
+  );
+  return result.rows;
+}
+
 /** Borra el proyecto y, en cascada, sus tareas, su historial de tareas y
  * las membresías (activas o pasadas) que tuviera — todo declarado
  * ON DELETE CASCADE desde su creación, así que no hay clave ajena que
@@ -158,7 +242,7 @@ export async function listActiveMembersForProject(
 }
 
 /** Reemplaza a la antigua listWorkersForSupervisor: el equipo de un
- * supervisor son los teletrabajadores con membresía activa en alguno de
+ * supervisor son los trabajadores con membresía activa en alguno de
  * sus proyectos, no un campo directo en `users`. */
 export async function listActiveWorkersForSupervisor(
   supervisorId: string,
@@ -181,7 +265,7 @@ export type WorkerCurrentProjectRow = {
   project_name: string;
 };
 
-/** Proyecto activo de cada teletrabajador que tiene uno, en una sola
+/** Proyecto activo de cada trabajador que tiene uno, en una sola
  * consulta en lote (para enriquecer el listado de usuarios del admin sin
  * una consulta por persona). */
 export async function listActiveMembershipsWithProjectNames(): Promise<
@@ -197,10 +281,10 @@ export async function listActiveMembershipsWithProjectNames(): Promise<
 }
 
 /**
- * Mueve a un teletrabajador a un proyecto nuevo: cierra su membresía
+ * Mueve a un trabajador a un proyecto nuevo: cierra su membresía
  * activa (si tenía una) y abre una nueva, en una sola transacción. Es la
  * operación que expone el panel de admin como "asignar a proyecto",
- * tanto si el teletrabajador no estaba en ninguno como si venía de otro.
+ * tanto si el trabajador no estaba en ninguno como si venía de otro.
  *
  * Si no tenía ninguna fila que cerrar (caso "sin proyecto todavía"), el
  * UPDATE no bloquea nada, así que dos reasignaciones simultáneas de la
@@ -209,7 +293,7 @@ export async function listActiveMembershipsWithProjectNames(): Promise<
  * compitan y reintentar a ciegas, se toma un advisory lock de PostgreSQL
  * con clave = userId como primer paso de la transacción: solo serializa
  * entre sí las reasignaciones de esa misma persona (las de cualquier
- * otro teletrabajador siguen en paralelo sin esperar), y se libera solo
+ * otro trabajador siguen en paralelo sin esperar), y se libera solo
  * al confirmar o deshacer.
  */
 export async function reassignMembership(
@@ -247,44 +331,8 @@ export async function reassignMembership(
   }
 }
 
-export type MembershipEventRow = {
-  user_name: string;
-  project_name: string;
-  event_at: Date;
-};
 
-/** Últimas incorporaciones a un proyecto, para la actividad reciente del
- * home de admin. */
-export async function listRecentMemberJoins(limit: number): Promise<MembershipEventRow[]> {
-  const result = await pool.query<MembershipEventRow>(
-    `SELECT u.full_name AS user_name, p.name AS project_name, pm.joined_at AS event_at
-     FROM project_members pm
-     JOIN users u ON u.id = pm.user_id
-     JOIN projects p ON p.id = pm.project_id
-     ORDER BY pm.joined_at DESC
-     LIMIT $1`,
-    [limit],
-  );
-  return result.rows;
-}
-
-/** Últimas salidas de un proyecto (incluye las provocadas por un cambio de
- * rol, ver admin/service.ts closeActiveMembership). */
-export async function listRecentMemberLeaves(limit: number): Promise<MembershipEventRow[]> {
-  const result = await pool.query<MembershipEventRow>(
-    `SELECT u.full_name AS user_name, p.name AS project_name, pm.left_at AS event_at
-     FROM project_members pm
-     JOIN users u ON u.id = pm.user_id
-     JOIN projects p ON p.id = pm.project_id
-     WHERE pm.left_at IS NOT NULL
-     ORDER BY pm.left_at DESC
-     LIMIT $1`,
-    [limit],
-  );
-  return result.rows;
-}
-
-/** Saca a un teletrabajador de su proyecto activo, sin asignarle otro. */
+/** Saca a un trabajador de su proyecto activo, sin asignarle otro. */
 export async function closeActiveMembership(userId: string): Promise<MembershipRow | null> {
   const result = await pool.query<MembershipRow>(
     "UPDATE project_members SET left_at = clock_timestamp() WHERE user_id = $1 AND left_at IS NULL RETURNING *",

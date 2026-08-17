@@ -12,7 +12,7 @@ el modelo de datos y las decisiones relevantes con su justificación.
 | Organización | Monorepo con npm workspaces | Un único repositorio para entregar y desplegar; los tipos compartidos entre API y web se resuelven sin publicar paquetes. |
 | Lenguaje | TypeScript en API y web | Los tipos documentan el modelo (roles, estados de tarea, payload del JWT) y detectan errores antes de ejecutar. |
 | Acceso a datos | Driver `pg` + SQL escrito a mano | Sin capa que oculte el SQL: cada consulta e índice es visible y justificable. Migraciones en archivos `.sql` versionados. |
-| Alcance del supervisor | ~~`users.supervisor_id`~~ → derivado de `project_members` | **Superado, ver §7.** El supervisor de un teletrabajador ya no es un campo propio: se deriva de en qué proyecto tiene membresía activa. |
+| Alcance del supervisor | ~~`users.supervisor_id`~~ → derivado de `project_members` | **Superado, ver §7.** El supervisor de un trabajador ya no es un campo propio: se deriva de en qué proyecto tiene membresía activa. |
 | Vínculo tarea↔jornada | Tabla `task_status_history` con `work_session_id` | La tarea vive por encima de las jornadas; cada cambio de estado queda atribuido a la jornada abierta en ese momento. |
 | Nomenclatura | Identificadores en inglés, documentación y UI en español | Coherente con el README y con la convención habitual en el código. |
 
@@ -309,7 +309,7 @@ CREATE INDEX idx_tasks_project_status  ON tasks(project_id, status);
 
 `assignee_id` es anulable: una tarea puede existir en el proyecto sin estar todavía
 asignada. Los dos índices compuestos cubren exactamente las dos consultas del
-sistema: "mis tareas por estado" (teletrabajador) y "tareas del proyecto por estado"
+sistema: "mis tareas por estado" (trabajador) y "tareas del proyecto por estado"
 (dashboard de supervisor).
 
 ### 3.6 `task_status_history` — el vínculo con la jornada
@@ -329,9 +329,9 @@ CREATE INDEX idx_history_task    ON task_status_history(task_id, changed_at DESC
 CREATE INDEX idx_history_session ON task_status_history(work_session_id);
 ```
 
-Cuando un teletrabajador cambia el estado de una tarea, el servicio busca su jornada
+Cuando un trabajador cambia el estado de una tarea, el servicio busca su jornada
 abierta y la registra en `work_session_id`. Es **anulable a propósito**: si el cambio
-lo hace un supervisor, o un teletrabajador sin haber fichado, la fila se guarda igual
+lo hace un supervisor, o un trabajador sin haber fichado, la fila se guarda igual
 con `work_session_id = NULL`. El historial nunca bloquea la operación.
 
 Esto permite responder a "¿en qué trabajó esta persona durante la jornada de ayer?"
@@ -362,11 +362,11 @@ La autorización se aplica en **tres niveles**, y ninguno sustituye a los anteri
    la regla "un supervisor no ficha": las rutas de `/api/work-sessions` de creación
    exigen rol `worker`, de modo que el supervisor recibe `403` aunque manipule la UI.
 3. **Propiedad del recurso**, dentro del servicio: el filtro por rol no basta, porque
-   dos teletrabajadores tienen el mismo rol y no deben ver los fichajes del otro. Toda
-   consulta de un teletrabajador lleva `WHERE user_id = $userId` en el propio SQL, no
+   dos trabajadores tienen el mismo rol y no deben ver los fichajes del otro. Toda
+   consulta de un trabajador lleva `WHERE user_id = $userId` en el propio SQL, no
    un filtro posterior en memoria.
 
-Para el supervisor, la regla es simétrica: solo accede a datos de teletrabajadores
+Para el supervisor, la regla es simétrica: solo accede a datos de trabajadores
 cuyo proyecto activo lo tiene a él como supervisor. Se resuelve con un `JOIN` sobre
 `project_members` y `projects` dentro de la misma consulta — ver §7, que sustituye la
 versión original de esta regla (comparar `supervisor_id` directamente).
@@ -386,7 +386,7 @@ Requisitos innegociables del módulo:
 
 1. Solo métricas **agregadas**: tiempo activo total y distribución por categoría de
    aplicación. Nunca pulsaciones, capturas de pantalla ni URLs concretas.
-2. **Consentimiento explícito** del teletrabajador antes de activarse.
+2. **Consentimiento explícito** del trabajador antes de activarse.
 3. **Completamente opcional**: fichajes y tareas funcionan al 100% sin él.
 
 Diseño para cumplirlos:
@@ -440,7 +440,7 @@ por escrito una API que todavía no se ha verificado.
 3. Módulo de fichajes (jornada y pausas).
 4. Módulo de proyectos y tareas.
 5. Frontend: login y layout base con las dos vistas.
-6. Dashboards (teletrabajador y supervisor).
+6. Dashboards (trabajador y supervisor).
 7. Opcional: integración con ActivityWatch.
 
 ---
@@ -448,7 +448,7 @@ por escrito una API que todavía no se ha verificado.
 ## 7. Ampliación: proyectos con membresía y rol admin
 
 Añadido después del núcleo inicial, a partir de un requisito nuevo: un proyecto
-tiene un único supervisor y varios teletrabajadores; un teletrabajador está en un
+tiene un único supervisor y varios trabajadores; un trabajador está en un
 proyecto como mucho a la vez, pero puede salir de uno y entrar en otro; y hace falta
 un rol por encima del supervisor que dé de alta cuentas, cree proyectos y haga las
 asignaciones. Migración `005_admin_role_and_project_members.sql`.
@@ -474,19 +474,19 @@ CREATE UNIQUE INDEX idx_one_active_membership_per_worker
 
 Exactamente el mismo patrón que `work_sessions`: una fila por membresía, `left_at`
 nulo mientras está activa, y un índice único parcial que garantiza **a nivel de base
-de datos** "como mucho un proyecto activo por teletrabajador" — no solo comprobado en
+de datos** "como mucho un proyecto activo por trabajador" — no solo comprobado en
 el servicio. "Salir de un proyecto" es poner `left_at`; "entrar en otro" es una fila
 nueva. De regalo queda el historial de por qué proyectos ha pasado cada uno, útil para
 auditoría aunque hoy no se explote en ningún dashboard.
 
-**`users.supervisor_id` se elimina.** El supervisor de un teletrabajador ya no es un
+**`users.supervisor_id` se elimina.** El supervisor de un trabajador ya no es un
 campo propio: es *el `supervisor_id` del proyecto en el que tiene membresía activa*.
 Tenerlo como campo aparte habría sido una segunda fuente de verdad que podía
 contradecir a la primera (¿y si su proyecto lo lleva otro supervisor?). Sin proyecto
 activo, sin supervisor — estado válido, no un error. Esto también simplificó una
 validación que ya existía: si antes "¿puede este supervisor asignarte una tarea?"
 comprobaba `worker.supervisor_id === supervisorId`, ahora comprueba directamente que
-el teletrabajador es miembro activo del proyecto de la tarea — más simple y más
+el trabajador es miembro activo del proyecto de la tarea — más simple y más
 correcto, porque es literalmente la pregunta que importa.
 
 ### 7.2 Rol `admin`
@@ -498,7 +498,7 @@ tiene dashboard de equipo ni gestiona tareas del día a día — tiene su propio
 público: la única cuenta que se crea sin pasar por el panel es el primer admin,
 mediante un script de arranque idempotente (`db/seedAdmin.ts`, variables
 `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_FULL_NAME`) — a partir de ahí, el admin da de
-alta a supervisores y teletrabajadores desde la UI.
+alta a supervisores y trabajadores desde la UI.
 
 ### 7.3 Dos condiciones de carrera encontradas al probarlo (y su arreglo)
 
@@ -507,14 +507,14 @@ no por inspección de código — vale la pena explicarlas en la defensa porque 
 
 **a) La reasignación de proyecto necesitaba más que el índice único.**
 "Mover a alguien de proyecto" es un `UPDATE` (cerrar la membresía vieja) seguido de un
-`INSERT` (abrir la nueva) en una transacción. Si el teletrabajador no tenía membresía
+`INSERT` (abrir la nueva) en una transacción. Si el trabajador no tenía membresía
 previa, el `UPDATE` no bloquea nada — y dos admins reasignándolo a la vez pueden
 llegar los dos al `INSERT` sin que ninguno vea al otro, chocando contra el índice
 único. Reintentar a ciegas no bastaba (con varias peticiones a la vez, más de dos
 podían chocar entre sí). Se resolvió con un **advisory lock de PostgreSQL** con clave
 `hashtext(userId)` como primer paso de la transacción: serializa entre sí las
 reasignaciones *de esa misma persona*, sin bloquear las de cualquier otro
-teletrabajador. Ver `reassignMembership` en `projects/repository.ts`.
+trabajador. Ver `reassignMembership` en `projects/repository.ts`.
 
 **b) `now()` no es el instante real dentro de una transacción bloqueada.**
 Con el advisory lock en marcha, seguía fallando: la restricción `left_at > joined_at`

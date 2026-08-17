@@ -14,7 +14,7 @@ import { startBreakSchema } from "./schemas.js";
 
 export const workSessionsRouter = Router();
 
-// Fichar es exclusivo del teletrabajador: un supervisor no ficha, y esto
+// Fichar es exclusivo del trabajador: un supervisor no ficha, y esto
 // se aplica a nivel de ruta, no como una comprobación aparte en cada handler.
 workSessionsRouter.use(authenticate, authorize("worker"));
 

@@ -10,7 +10,7 @@ import {
   createUserViaAdmin,
 } from "./helpers.js";
 
-describe("un teletrabajador está como mucho en un proyecto a la vez", () => {
+describe("un trabajador está como mucho en un proyecto a la vez", () => {
   afterAll(closePool);
 
   it("asignaciones concurrentes a proyectos distintos dejan una única membresía activa", async () => {
@@ -22,7 +22,7 @@ describe("un teletrabajador está como mucho en un proyecto a la vez", () => {
     const projectA = await createProjectViaAdmin(admin.token, sup1.id);
     const projectB = await createProjectViaAdmin(admin.token, sup2.id);
 
-    // Ráfaga de asignaciones concurrentes al mismo teletrabajador,
+    // Ráfaga de asignaciones concurrentes al mismo trabajador,
     // alternando entre los dos proyectos: sin el advisory lock de
     // reassignMembership (ver projects/repository.ts), esto podría dejar
     // dos filas de membresía activas a la vez.

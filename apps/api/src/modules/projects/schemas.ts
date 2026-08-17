@@ -20,3 +20,23 @@ export const updateProjectSchema = z
 export const assignMemberSchema = z.object({
   userId: z.string().uuid("userId debe ser un UUID válido"),
 });
+
+/** "archived" llega como string en la query ("true"/"false"); se traduce
+ * a boolean aquí. Sin valor -> sin filtrar por archivado. */
+export const listProjectsQuerySchema = z.object({
+  search: z.string().trim().min(1).optional(),
+  archived: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(1000).default(20),
+});
+
+export const exportProjectsQuerySchema = z.object({
+  search: z.string().trim().min(1).optional(),
+  archived: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
+});

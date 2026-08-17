@@ -53,3 +53,41 @@ export function welcomeEmailTemplate(input: WelcomeEmailInput): EmailContent {
 
   return { subject, text, html };
 }
+
+export type PasswordResetEmailInput = {
+  fullName: string;
+  resetUrl: string;
+};
+
+/** Correo con el enlace de recuperación de contraseña autoservicio. El
+ * enlace caduca (ver auth/service.ts), así que aquí solo se indica que
+ * caduca, no cuándo exactamente — no vale la pena acoplar la plantilla a
+ * ese detalle. */
+export function passwordResetEmailTemplate(input: PasswordResetEmailInput): EmailContent {
+  const subject = "Recupera tu contraseña de ClearWork";
+
+  const text = [
+    `Hola ${input.fullName},`,
+    "",
+    "Has pedido restablecer tu contraseña de ClearWork.",
+    "",
+    `Elige una nueva aquí (el enlace caduca en una hora): ${input.resetUrl}`,
+    "",
+    "Si no has sido tú, puedes ignorar este correo: tu contraseña actual sigue funcionando.",
+    "",
+    "— ClearWork",
+  ].join("\n");
+
+  const html = `
+    <p>Hola ${escapeHtml(input.fullName)},</p>
+    <p>Has pedido restablecer tu contraseña de ClearWork.</p>
+    <p>
+      <a href="${escapeHtml(input.resetUrl)}">Elige una nueva contraseña</a>
+      (el enlace caduca en una hora).
+    </p>
+    <p>Si no has sido tú, puedes ignorar este correo: tu contraseña actual sigue funcionando.</p>
+    <p>— ClearWork</p>
+  `.trim();
+
+  return { subject, text, html };
+}

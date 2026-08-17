@@ -5,14 +5,22 @@ import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.js";
 import { ApiError } from "../../api/client.js";
-import { createAdminUser, deleteAdminUser, fetchAdminUsers } from "../../api/admin.js";
+import {
+  createAdminUser,
+  deleteAdminUser,
+  exportAdminUsersCsv,
+  fetchAdminUsers,
+} from "../../api/admin.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
+import { Pagination } from "../../components/Pagination.js";
 import { ROLE_LABEL } from "../../constants.js";
 
 type RoleFilter = AdminCreatableRole | "all";
 
-/** Para un teletrabajador es el proyecto del que es miembro (0 o 1); para
+const PAGE_SIZE = 20;
+
+/** Para un trabajador es el proyecto del que es miembro (0 o 1); para
  * un supervisor, los proyectos que supervisa (puede llevar varios). */
 function projectColumnText(user: AdminUserSummary): string {
   if (user.role === "worker") {
@@ -133,10 +141,14 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
 function UserRow({
   user,
   isSelf,
+  isSelected,
+  onToggleSelect,
   onChanged,
 }: {
   user: AdminUserSummary;
   isSelf: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +170,17 @@ function UserRow({
 
   return (
     <tr>
+      <td>
+        {!isSelf && (
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={isSelected}
+            onChange={onToggleSelect}
+            aria-label={`Seleccionar a ${user.fullName}`}
+          />
+        )}
+      </td>
       <td>
         {user.fullName}
         {isSelf && " (tú)"}
@@ -195,25 +218,51 @@ function UserRow({
   );
 }
 
-function matchesSearch(user: AdminUserSummary, search: string): boolean {
-  const term = search.trim().toLowerCase();
-  if (!term) return true;
-  return user.fullName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
-}
-
 export function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUserSummary[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Igual que en AdminProjects: espera una pausa al teclear antes de
+  // lanzar la búsqueda contra el servidor.
+  useEffect(() => {
+    const timeout = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, roleFilter]);
 
   const load = useCallback(() => {
-    fetchAdminUsers()
-      .then(setUsers)
+    fetchAdminUsers({
+      search: search || undefined,
+      role: roleFilter === "all" ? undefined : roleFilter,
+      page,
+      pageSize: PAGE_SIZE,
+    })
+      .then((result) => {
+        setUsers(result.items);
+        setTotal(result.total);
+        // Una página nueva (o la misma tras borrar) no comparte
+        // selección con la anterior: evita "seleccionados fantasma" que
+        // ya no están en pantalla.
+        setSelectedIds(new Set());
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la lista"));
-  }, []);
+  }, [search, roleFilter, page]);
 
   useEffect(() => {
     load();
@@ -224,17 +273,71 @@ export function AdminUsers() {
     load();
   }
 
-  const filteredUsers = (users ?? []).filter(
-    (u) => (roleFilter === "all" || u.role === roleFilter) && matchesSearch(u, search),
-  );
+  function toggleSelect(userId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
+  const selectableUsers = (users ?? []).filter((u) => u.id !== currentUser?.id);
+  const allSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedIds.has(u.id));
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableUsers.map((u) => u.id)));
+  }
+
+  async function handleBulkDelete() {
+    setError(null);
+    setIsBulkDeleting(true);
+    const failures: string[] = [];
+    // Secuencial, no en paralelo: son pocas filas a la vez (una página),
+    // y así el mensaje de error de una no se pisa con el de otra.
+    for (const id of selectedIds) {
+      const target = users?.find((u) => u.id === id);
+      try {
+        await deleteAdminUser(id);
+      } catch (err) {
+        failures.push(`${target?.fullName ?? id}: ${err instanceof ApiError ? err.message : "error desconocido"}`);
+      }
+    }
+    setIsBulkDeleting(false);
+    setIsBulkConfirmOpen(false);
+    if (failures.length > 0) {
+      setError(`No se pudieron eliminar ${failures.length} cuenta(s): ${failures.join("; ")}`);
+    }
+    load();
+  }
+
+  async function handleExport() {
+    setError(null);
+    setIsExporting(true);
+    try {
+      await exportAdminUsersCsv({
+        search: search || undefined,
+        role: roleFilter === "all" ? undefined : roleFilter,
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo exportar");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   return (
     <div className="dashboard-grid">
       <div className="page-header">
         <h2>Usuarios</h2>
-        <button type="button" onClick={() => setIsCreateOpen(true)}>
-          + Añadir cuenta
-        </button>
+        <div className="row-actions">
+          <button type="button" className="secondary" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? "Exportando…" : "Exportar CSV"}
+          </button>
+          <button type="button" onClick={() => setIsCreateOpen(true)}>
+            + Añadir cuenta
+          </button>
+        </div>
       </div>
       {error && <div className="error-banner">{error}</div>}
 
@@ -248,50 +351,85 @@ export function AdminUsers() {
         <h3>Todas las cuentas</h3>
         {!users && !error && <p>Cargando…</p>}
 
-        {users && users.length === 0 && <p>Todavía no hay supervisores ni teletrabajadores.</p>}
+        <div className="filter-bar">
+          <input
+            type="search"
+            placeholder="Buscar por nombre o email…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}>
+            <option value="all">Todos los roles</option>
+            {ADMIN_CREATABLE_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {users && users.length === 0 && (
+          <p>{search || roleFilter !== "all" ? "Ninguna cuenta coincide con la búsqueda." : "Todavía no hay supervisores ni trabajadores."}</p>
+        )}
+
+        {selectedIds.size > 0 && (
+          <div className="bulk-action-bar">
+            <span>{selectedIds.size} seleccionado(s)</span>
+            <button type="button" className="danger" onClick={() => setIsBulkConfirmOpen(true)}>
+              Eliminar seleccionados
+            </button>
+          </div>
+        )}
 
         {users && users.length > 0 && (
-          <>
-            <div className="filter-bar">
-              <input
-                type="search"
-                placeholder="Buscar por nombre o email…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}>
-                <option value="all">Todos los roles</option>
-                {ADMIN_CREATABLE_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABEL[r]}
-                  </option>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      style={{ width: "auto" }}
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Seleccionar todos"
+                      disabled={selectableUsers.length === 0}
+                    />
+                  </th>
+                  <th>Nombre</th>
+                  <th>Rol</th>
+                  <th>Proyecto</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    isSelf={u.id === currentUser?.id}
+                    isSelected={selectedIds.has(u.id)}
+                    onToggleSelect={() => toggleSelect(u.id)}
+                    onChanged={load}
+                  />
                 ))}
-              </select>
-            </div>
-
-            {filteredUsers.length === 0 ? (
-              <p>Ninguna cuenta coincide con la búsqueda.</p>
-            ) : (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Rol</th>
-                      <th>Proyecto</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map((u) => (
-                      <UserRow key={u.id} user={u} isSelf={u.id === currentUser?.id} onChanged={load} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
+              </tbody>
+            </table>
+          </div>
         )}
+
+        {isBulkConfirmOpen && (
+          <ConfirmDialog
+            title="Eliminar cuentas seleccionadas"
+            message={`¿Eliminar ${selectedIds.size} cuenta(s)? Las que tengan proyectos, tareas o historial asociado no se podrán eliminar. Esta acción no se puede deshacer.`}
+            confirmLabel="Eliminar"
+            isConfirming={isBulkDeleting}
+            onConfirm={handleBulkDelete}
+            onCancel={() => setIsBulkConfirmOpen(false)}
+          />
+        )}
+
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       </div>
     </div>
   );

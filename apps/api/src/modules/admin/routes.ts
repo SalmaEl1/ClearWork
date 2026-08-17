@@ -5,6 +5,7 @@ import { validateBody } from "../../middleware/validate.js";
 import {
   createUserHandler,
   deleteUserHandler,
+  exportUsersHandler,
   getUserHandler,
   listActivityHandler,
   listUsersHandler,
@@ -19,6 +20,8 @@ adminUsersRouter.use(authenticate, authorize("admin"));
 
 adminUsersRouter.post("/", validateBody(createUserSchema), createUserHandler);
 adminUsersRouter.get("/", listUsersHandler);
+// Antes de "/:id": si no, Express trataría "export" como un id.
+adminUsersRouter.get("/export", exportUsersHandler);
 adminUsersRouter.get("/:id", getUserHandler);
 adminUsersRouter.patch("/:id", validateBody(updateUserSchema), updateUserHandler);
 adminUsersRouter.delete("/:id", deleteUserHandler);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 
@@ -62,6 +62,9 @@ export function Login() {
             {isSubmitting ? "Entrando…" : "Entrar"}
           </button>
         </form>
+        <div className="auth-card__footer">
+          <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
+        </div>
       </div>
     </div>
   );

@@ -50,3 +50,21 @@ export async function changePasswordHandler(
     next(err);
   }
 }
+
+export async function forgotPasswordHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    await authService.forgotPassword(req.body);
+    res.status(200).json({ message: "Si esa cuenta existe, hemos enviado un enlace para restablecer la contraseña." });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPasswordHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    await authService.resetPassword(req.body);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}

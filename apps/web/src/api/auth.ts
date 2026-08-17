@@ -1,8 +1,10 @@
 import type {
   AuthResponse,
   ChangePasswordRequest,
+  ForgotPasswordRequest,
   LoginRequest,
   MeResponse,
+  ResetPasswordRequest,
   UpdateProfileRequest,
 } from "@clearwork/shared";
 import { apiFetch } from "./client.js";
@@ -21,4 +23,12 @@ export function updateProfile(input: UpdateProfileRequest): Promise<MeResponse> 
 
 export function changePassword(input: ChangePasswordRequest): Promise<void> {
   return apiFetch<void>("/auth/password", { method: "PATCH", body: input });
+}
+
+export function forgotPassword(input: ForgotPasswordRequest): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/auth/forgot-password", { method: "POST", body: input });
+}
+
+export function resetPassword(input: ResetPasswordRequest): Promise<void> {
+  return apiFetch<void>("/auth/reset-password", { method: "POST", body: input });
 }

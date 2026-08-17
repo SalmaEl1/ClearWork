@@ -6,7 +6,9 @@ import {
   assignMemberHandler,
   createProjectHandler,
   deleteProjectHandler,
+  exportProjectsHandler,
   getProjectHandler,
+  getProjectTasksHandler,
   listProjectsHandler,
   removeMemberHandler,
   updateProjectHandler,
@@ -22,7 +24,10 @@ projectsRouter.use(authenticate, authorize("admin"));
 
 projectsRouter.post("/", validateBody(createProjectSchema), createProjectHandler);
 projectsRouter.get("/", listProjectsHandler);
+// Antes de "/:id": si no, Express trataría "export" como un id.
+projectsRouter.get("/export", exportProjectsHandler);
 projectsRouter.get("/:id", getProjectHandler);
+projectsRouter.get("/:id/tasks", getProjectTasksHandler);
 projectsRouter.patch("/:id", validateBody(updateProjectSchema), updateProjectHandler);
 projectsRouter.delete("/:id", deleteProjectHandler);
 projectsRouter.post("/:id/members", validateBody(assignMemberSchema), assignMemberHandler);

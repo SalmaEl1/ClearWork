@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { exportProjectsQuerySchema, listProjectsQuerySchema } from "./schemas.js";
 import * as service from "./service.js";
 
 export async function createProjectHandler(req: Request, res: Response, next: NextFunction) {
@@ -12,8 +13,22 @@ export async function createProjectHandler(req: Request, res: Response, next: Ne
 
 export async function listProjectsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const projects = await service.listProjects();
+    const query = listProjectsQuerySchema.parse(req.query);
+    const projects = await service.listProjects(query);
     res.status(200).json(projects);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportProjectsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const filters = exportProjectsQuerySchema.parse(req.query);
+    const csv = await service.exportProjectsCsv(filters);
+    res.status(200);
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="proyectos.csv"');
+    res.send(csv);
   } catch (err) {
     next(err);
   }
@@ -23,6 +38,15 @@ export async function getProjectHandler(req: Request, res: Response, next: NextF
   try {
     const project = await service.getProject(req.params.id as string);
     res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getProjectTasksHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const tasks = await service.getProjectTasks(req.params.id as string);
+    res.status(200).json(tasks);
   } catch (err) {
     next(err);
   }

@@ -22,7 +22,7 @@ tasksRouter.get("/", listTasksHandler);
 tasksRouter.get("/:id", getTaskHandler);
 
 // Cambiar el estado también está disponible para ambos roles: es la
-// interacción diaria del teletrabajador con sus tareas.
+// interacción diaria del trabajador con sus tareas.
 tasksRouter.patch(
   "/:id/status",
   validateBody(updateTaskStatusSchema),

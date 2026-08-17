@@ -16,7 +16,7 @@ export function TeamStatusList({ team }: { team: TeamMemberSummary[] }) {
     return (
       <div className="card">
         <h3>Tu equipo</h3>
-        <p>Todavía no tienes teletrabajadores a tu cargo.</p>
+        <p>Todavía no tienes trabajadores a tu cargo.</p>
       </div>
     );
   }

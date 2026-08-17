@@ -5,8 +5,10 @@ import type {
   TaskStatus,
   TaskStatusHistoryEntryDTO,
 } from "@clearwork/shared";
+import { recordActivity } from "../../shared/activityLog.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
-import { findActiveMembership, findProjectForSupervisor } from "../projects/repository.js";
+import { findActiveMembership, findProjectById, findProjectForSupervisor } from "../projects/repository.js";
+import { findUserById } from "../users/repository.js";
 import { findOpenSessionForUser } from "../work-sessions/repository.js";
 import * as repo from "./repository.js";
 import type { TaskRow, TaskStatusHistoryRow } from "./types.js";
@@ -21,7 +23,9 @@ type CreateTaskInput = z.infer<typeof createTaskSchema>;
 type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 type TaskListFilters = z.infer<typeof taskListQuerySchema>;
 
-function toTaskDTO(row: TaskRow): TaskDTO {
+/** Exportado: lo reutiliza projects/service.ts para el listado de tareas
+ * de un proyecto que ve el admin, en vez de duplicar el mapeo. */
+export function toTaskDTO(row: TaskRow): TaskDTO {
   return {
     id: row.id,
     projectId: row.project_id,
@@ -53,7 +57,7 @@ function toHistoryDTO(row: TaskStatusHistoryRow): TaskStatusHistoryEntryDTO {
 async function assertIsProjectMember(workerId: string, projectId: string): Promise<void> {
   const membership = await findActiveMembership(workerId);
   if (!membership || membership.project_id !== projectId) {
-    throw new BadRequestError("assigneeId debe ser un teletrabajador miembro de este proyecto");
+    throw new BadRequestError("assigneeId debe ser un trabajador miembro de este proyecto");
   }
 }
 
@@ -149,7 +153,7 @@ export async function updateTaskStatus(
   const updated = await repo.updateTaskStatusById(taskId, status);
   if (!updated) throw new NotFoundError("Tarea no encontrada");
 
-  // Solo el teletrabajador tiene jornadas; para un supervisor esta consulta
+  // Solo el trabajador tiene jornadas; para un supervisor esta consulta
   // siempre devuelve null, así que no hace falta ramificar por rol aquí.
   const openSession = await findOpenSessionForUser(userId);
   await repo.insertStatusHistory({
@@ -159,6 +163,21 @@ export async function updateTaskStatus(
     changedBy: userId,
     workSessionId: openSession ? openSession.id : null,
   });
+
+  // Best-effort para la actividad del admin: si por lo que sea no se
+  // resuelve el nombre de quien cambió el estado o el del proyecto (no
+  // debería pasar, pero ninguno es imprescindible para el cambio en sí),
+  // no se bloquea la operación por eso.
+  const [actor, project] = await Promise.all([findUserById(userId), findProjectById(existing.project_id)]);
+  if (actor && project) {
+    await recordActivity({
+      type: "task_status_changed",
+      userName: actor.full_name,
+      taskTitle: existing.title,
+      projectName: project.name,
+      toStatus: status,
+    });
+  }
 
   return toTaskDTO(updated);
 }

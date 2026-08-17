@@ -36,13 +36,61 @@ export async function listUsersByRole(role: Role): Promise<UserRow[]> {
   return result.rows;
 }
 
-/** Últimas cuentas creadas, para la actividad reciente del home de admin. */
-export async function listRecentlyCreatedUsers(limit: number): Promise<UserRow[]> {
-  const result = await pool.query<UserRow>(
-    "SELECT * FROM users ORDER BY created_at DESC LIMIT $1",
-    [limit],
+export type UserListFilters = {
+  search?: string;
+  role?: Role;
+};
+
+export type UserListPage = {
+  rows: UserRow[];
+  total: number;
+};
+
+/**
+ * Listado paginado para el panel de admin, con búsqueda por nombre/email
+ * y filtro por rol resueltos en SQL (antes se traía todo y se filtraba
+ * en el cliente). El total se calcula con COUNT(*) OVER() en la misma
+ * consulta, para no pagar una segunda ida y vuelta a la base de datos
+ * solo por el número total de filas.
+ *
+ * El orden agrupa por rol (admin, luego supervisor, luego trabajador)
+ * y dentro de cada grupo por nombre — el mismo orden que tenía el listado
+ * sin paginar, que concatenaba tres listas por rol.
+ */
+export async function listUsersPage(
+  filters: UserListFilters,
+  page: number,
+  pageSize: number,
+): Promise<UserListPage> {
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+
+  if (filters.search) {
+    values.push(`%${filters.search}%`);
+    conditions.push(`(full_name ILIKE $${values.length} OR email ILIKE $${values.length})`);
+  }
+  if (filters.role) {
+    values.push(filters.role);
+    conditions.push(`role = $${values.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  values.push(pageSize, (page - 1) * pageSize);
+  const limitParam = values.length - 1;
+  const offsetParam = values.length;
+
+  const result = await pool.query<UserRow & { total_count: string }>(
+    `SELECT *, COUNT(*) OVER() AS total_count
+     FROM users
+     ${whereClause}
+     ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'supervisor' THEN 1 ELSE 2 END, full_name ASC
+     LIMIT $${limitParam} OFFSET $${offsetParam}`,
+    values,
   );
-  return result.rows;
+
+  const total = result.rows.length > 0 ? Number(result.rows[0]!.total_count) : 0;
+  return { rows: result.rows, total };
 }
 
 export type CreateUserInput = {

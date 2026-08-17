@@ -1,4 +1,4 @@
-import type { AdminUserSummary, ProjectDetailDTO } from "@clearwork/shared";
+import type { AdminUserSummary, ProjectDetailDTO, TaskDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -7,12 +7,14 @@ import {
   assignProjectMember,
   deleteAdminProject,
   fetchAdminProject,
-  fetchAdminUsers,
+  fetchAdminProjectTasks,
+  fetchAllAdminUsers,
   removeProjectMember,
   updateAdminProject,
 } from "../../api/admin.js";
 import { BackLink } from "../../components/BackLink.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
+import { TASK_STATUS_LABEL, TASK_STATUS_PILL_CLASS } from "../../constants.js";
 
 function EditProjectForm({
   project,
@@ -144,7 +146,7 @@ function MembersCard({
       <h3>Miembros ({project.members.length})</h3>
       {error && <div className="error-banner">{error}</div>}
 
-      {project.members.length === 0 && <p>Todavía no hay teletrabajadores en este proyecto.</p>}
+      {project.members.length === 0 && <p>Todavía no hay trabajadores en este proyecto.</p>}
       {project.members.length > 0 && (
         <ul className="team-list">
           {project.members.map((m) => (
@@ -164,7 +166,7 @@ function MembersCard({
           onChange={(e) => setSelectedWorkerId(e.target.value)}
           style={{ flex: 1 }}
         >
-          {available.length === 0 && <option value="">No hay teletrabajadores disponibles</option>}
+          {available.length === 0 && <option value="">No hay trabajadores disponibles</option>}
           {available.map((w) => (
             <option key={w.id} value={w.id}>
               {w.fullName} {w.currentProjectName ? `(en ${w.currentProjectName})` : "(sin proyecto)"}
@@ -179,7 +181,57 @@ function MembersCard({
   );
 }
 
-function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
+/**
+ * Solo lectura: gestionar tareas (crearlas, reasignarlas, borrarlas) sigue
+ * siendo cosa del supervisor. El admin las necesita ver para saber en qué
+ * punto está el proyecto, no para tocarlas.
+ */
+function TasksCard({ project, tasks }: { project: ProjectDetailDTO; tasks: TaskDTO[] | null }) {
+  const memberName = (userId: string) =>
+    project.members.find((m) => m.userId === userId)?.fullName ?? "Sin asignar";
+
+  const counts = {
+    pending: tasks?.filter((t) => t.status === "pending").length ?? 0,
+    in_progress: tasks?.filter((t) => t.status === "in_progress").length ?? 0,
+    done: tasks?.filter((t) => t.status === "done").length ?? 0,
+  };
+
+  return (
+    <div className="card">
+      <h3>Tareas ({tasks?.length ?? 0})</h3>
+      {!tasks && <p>Cargando…</p>}
+
+      {tasks && tasks.length === 0 && <p>Todavía no hay tareas en este proyecto.</p>}
+
+      {tasks && tasks.length > 0 && (
+        <>
+          <p style={{ fontSize: "0.85rem" }}>
+            {counts.pending} pendiente(s) · {counts.in_progress} en curso · {counts.done} hecha(s)
+          </p>
+          <ul className="team-list">
+            {tasks.map((t) => (
+              <li key={t.id} className="team-list__item">
+                <span className="team-list__name">{t.title}</span>
+                <span className="team-list__hours">{t.assigneeId ? memberName(t.assigneeId) : "Sin asignar"}</span>
+                <span className={`status-pill ${TASK_STATUS_PILL_CLASS[t.status]}`}>
+                  {TASK_STATUS_LABEL[t.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DeleteProjectCard({
+  project,
+  taskCount,
+}: {
+  project: ProjectDetailDTO;
+  taskCount: number | null;
+}) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -198,6 +250,12 @@ function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
     }
   }
 
+  const memberCount = project.members.length;
+  const impact =
+    taskCount === null
+      ? "sus tareas y la membresía de su equipo"
+      : `${taskCount} tarea(s) y la membresía de ${memberCount} persona(s)`;
+
   return (
     <div className="card">
       <h3>Eliminar proyecto</h3>
@@ -209,7 +267,7 @@ function DeleteProjectCard({ project }: { project: ProjectDetailDTO }) {
       {isConfirmOpen && (
         <ConfirmDialog
           title="Eliminar proyecto"
-          message={`¿Eliminar "${project.name}"? Se borrarán también sus tareas y la membresía de su equipo. Esta acción no se puede deshacer.`}
+          message={`¿Eliminar "${project.name}"? Se borrarán también ${impact}. Esta acción no se puede deshacer.`}
           confirmLabel="Eliminar"
           isConfirming={isDeleting}
           onConfirm={handleDelete}
@@ -224,14 +282,16 @@ export function AdminProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<ProjectDetailDTO | null>(null);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
+  const [tasks, setTasks] = useState<TaskDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
-    Promise.all([fetchAdminProject(id), fetchAdminUsers()])
-      .then(([projectDetail, userList]) => {
+    Promise.all([fetchAdminProject(id), fetchAllAdminUsers(), fetchAdminProjectTasks(id)])
+      .then(([projectDetail, userList, taskList]) => {
         setProject(projectDetail);
         setUsers(userList);
+        setTasks(taskList);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar el proyecto"));
   }, [id]);
@@ -260,7 +320,8 @@ export function AdminProjectDetail() {
             <EditProjectForm project={project} supervisors={supervisors} onSaved={load} />
             <MembersCard project={project} workers={workers} onChanged={load} />
           </div>
-          <DeleteProjectCard project={project} />
+          <TasksCard project={project} tasks={tasks} />
+          <DeleteProjectCard project={project} taskCount={tasks?.length ?? null} />
         </>
       )}
     </div>

@@ -22,15 +22,24 @@ export type AuthResponse = {
 };
 
 /** Lo que devuelve GET /auth/me: el perfil público más el nombre del
- * supervisor, derivado de la membresía activa del teletrabajador en un
+ * supervisor, derivado de la membresía activa del trabajador en un
  * proyecto (ver ProjectMemberDTO). Null si no está en ningún proyecto o
- * si el usuario no es un teletrabajador. */
+ * si el usuario no es un trabajador. */
 export type MeResponse = PublicUser & {
   supervisorName: string | null;
 };
 
 export type ChangePasswordRequest = {
   currentPassword: string;
+  newPassword: string;
+};
+
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type ResetPasswordRequest = {
+  token: string;
   newPassword: string;
 };
 
@@ -187,6 +196,16 @@ export type SupervisorDashboardResponse = {
   projects: ProjectTaskSummary[];
 };
 
+/** Envoltorio genérico de una respuesta paginada, usado tanto por el
+ * listado de usuarios como por el de proyectos del admin — misma forma,
+ * para no repetir `total`/`page`/`pageSize` en cada DTO de lista. */
+export type Paginated<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 /* --- Panel de administración --- */
 
 export type AdminUserSummary = {
@@ -196,7 +215,7 @@ export type AdminUserSummary = {
   role: Role;
   isActive: boolean;
   weeklyTargetHours: number;
-  /** Solo relevante para teletrabajadores: su proyecto activo, si tiene. */
+  /** Solo relevante para trabajadores: su proyecto activo, si tiene. */
   currentProjectId: string | null;
   currentProjectName: string | null;
   /** Solo relevante para supervisores: los proyectos que supervisa (puede ser más de uno). */
@@ -224,6 +243,15 @@ export type AdminUpdateUserRequest = {
   role?: AdminCreatableRole;
   weeklyTargetHours?: number;
   isActive?: boolean;
+};
+
+export type AppSettingsDTO = {
+  defaultWeeklyTargetHours: number;
+  updatedAt: string;
+};
+
+export type UpdateAppSettingsRequest = {
+  defaultWeeklyTargetHours: number;
 };
 
 /** Eventos recientes para el home del admin: altas de cuenta, cambios de
