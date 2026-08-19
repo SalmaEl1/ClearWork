@@ -30,6 +30,7 @@ export function AppLayout() {
               Panel
             </NavLink>
             <NavLink to="/worker/tasks">Tareas</NavLink>
+            <NavLink to="/worker/history">Historial</NavLink>
           </nav>
         )}
 

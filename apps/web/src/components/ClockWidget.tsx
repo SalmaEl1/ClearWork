@@ -1,4 +1,4 @@
-import type { BreakType, WorkSessionDTO } from "@clearwork/shared";
+import type { WorkSessionDTO } from "@clearwork/shared";
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client.js";
 import {
@@ -8,11 +8,7 @@ import {
   fetchActiveSession,
   startBreak,
 } from "../api/workSessions.js";
-
-const BREAK_LABEL: Record<BreakType, string> = {
-  lunch: "Pausa para comer",
-  ergonomic: "Pausa ergonómica",
-};
+import { BREAK_TYPE_LABEL } from "../constants.js";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -81,7 +77,7 @@ export function ClockWidget({ onSessionChange }: { onSessionChange?: () => void 
               disabled={isSubmitting}
               onClick={() => run(() => startBreak("lunch"))}
             >
-              {BREAK_LABEL.lunch}
+              {BREAK_TYPE_LABEL.lunch}
             </button>
             <button
               type="button"
@@ -89,7 +85,7 @@ export function ClockWidget({ onSessionChange }: { onSessionChange?: () => void 
               disabled={isSubmitting}
               onClick={() => run(() => startBreak("ergonomic"))}
             >
-              {BREAK_LABEL.ergonomic}
+              {BREAK_TYPE_LABEL.ergonomic}
             </button>
             <button type="button" disabled={isSubmitting} onClick={() => run(clockOut, true)}>
               Fichar salida
@@ -101,7 +97,7 @@ export function ClockWidget({ onSessionChange }: { onSessionChange?: () => void 
       {session && openBreak && (
         <>
           <p>
-            En {BREAK_LABEL[openBreak.type].toLowerCase()} desde las{" "}
+            En {BREAK_TYPE_LABEL[openBreak.type].toLowerCase()} desde las{" "}
             <strong>{formatTime(openBreak.startedAt)}</strong>.
           </p>
           <button type="button" disabled={isSubmitting} onClick={() => run(endBreak)}>

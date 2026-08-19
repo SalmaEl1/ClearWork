@@ -23,3 +23,8 @@ export function startBreak(type: BreakType): Promise<WorkSessionDTO> {
 export function endBreak(): Promise<WorkSessionDTO> {
   return apiFetch<WorkSessionDTO>("/work-sessions/breaks/end", { method: "POST" });
 }
+
+export function fetchWorkSessionHistory(limit?: number): Promise<WorkSessionDTO[]> {
+  const qs = limit ? `?limit=${limit}` : "";
+  return apiFetch<WorkSessionDTO[]>(`/work-sessions${qs}`);
+}

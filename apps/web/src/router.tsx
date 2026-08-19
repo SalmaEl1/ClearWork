@@ -18,6 +18,7 @@ import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
+import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
 import { WorkerTasks } from "./pages/worker/WorkerTasks.js";
 
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "/worker", element: <WorkerHome /> },
               { path: "/worker/tasks", element: <WorkerTasks /> },
+              { path: "/worker/history", element: <WorkerHistory /> },
             ],
           },
           {

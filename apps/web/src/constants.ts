@@ -1,4 +1,4 @@
-import type { ActivityEventType, Role, TaskStatus } from "@clearwork/shared";
+import type { ActivityEventType, BreakType, Role, TaskStatus } from "@clearwork/shared";
 
 /** Usado en cualquier pantalla que muestre el rol de un usuario: cabecera,
  * perfil, panel de admin. Un único sitio para no repetir el mapeo. */
@@ -21,6 +21,13 @@ export const TASK_STATUS_PILL_CLASS: Record<TaskStatus, string> = {
   pending: "status-neutral",
   in_progress: "status-warning",
   done: "status-ok",
+};
+
+/** Compartido por ClockWidget (fichaje en curso) y el historial de
+ * jornadas del trabajador. */
+export const BREAK_TYPE_LABEL: Record<BreakType, string> = {
+  lunch: "Pausa para comer",
+  ergonomic: "Pausa ergonómica",
 };
 
 /** Para el filtro por tipo en /admin/activity. */
