@@ -131,6 +131,7 @@ export type TaskStatusHistoryEntryDTO = {
   fromStatus: TaskStatus | null;
   toStatus: TaskStatus;
   changedBy: string;
+  changedByName: string;
   workSessionId: string | null;
   changedAt: string;
 };

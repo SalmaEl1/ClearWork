@@ -227,11 +227,20 @@ export async function insertStatusHistory(
   return row;
 }
 
+export type TaskStatusHistoryWithNameRow = TaskStatusHistoryRow & { changed_by_name: string };
+
+/** JOIN con users para el nombre de quien hizo el cambio: la vista de
+ * detalle de tarea lo necesita ("Salma cambió el estado..."), y guardar
+ * solo el id obligaría a resolverlo aparte para cada fila. */
 export async function listStatusHistoryForTask(
   taskId: string,
-): Promise<TaskStatusHistoryRow[]> {
-  const result = await pool.query<TaskStatusHistoryRow>(
-    "SELECT * FROM task_status_history WHERE task_id = $1 ORDER BY changed_at ASC",
+): Promise<TaskStatusHistoryWithNameRow[]> {
+  const result = await pool.query<TaskStatusHistoryWithNameRow>(
+    `SELECT h.*, u.full_name AS changed_by_name
+     FROM task_status_history h
+     JOIN users u ON u.id = h.changed_by
+     WHERE h.task_id = $1
+     ORDER BY h.changed_at ASC`,
     [taskId],
   );
   return result.rows;

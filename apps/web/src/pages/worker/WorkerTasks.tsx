@@ -1,6 +1,7 @@
 import type { TaskDTO, TaskStatus } from "@clearwork/shared";
 import { TASK_STATUSES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import { fetchTasks, updateTaskStatus } from "../../api/tasks.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
@@ -65,6 +66,7 @@ export function WorkerTasks() {
                     <th>Título</th>
                     <th>Estado</th>
                     <th>Fecha límite</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -91,6 +93,11 @@ export function WorkerTasks() {
                         </select>
                       </td>
                       <td>{t.dueDate ?? "—"}</td>
+                      <td>
+                        <Link to={`/worker/tasks/${t.id}`} className="link-button">
+                          Ver
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

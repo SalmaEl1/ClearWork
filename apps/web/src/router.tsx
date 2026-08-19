@@ -17,9 +17,11 @@ import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
+import { SupervisorTaskDetail } from "./pages/supervisor/SupervisorTaskDetail.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
+import { WorkerTaskDetail } from "./pages/worker/WorkerTaskDetail.js";
 import { WorkerTasks } from "./pages/worker/WorkerTasks.js";
 
 /** Punto de entrada "/": manda a cada usuario a la vista de su rol. */
@@ -47,6 +49,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "/worker", element: <WorkerHome /> },
               { path: "/worker/tasks", element: <WorkerTasks /> },
+              { path: "/worker/tasks/:id", element: <WorkerTaskDetail /> },
               { path: "/worker/history", element: <WorkerHistory /> },
             ],
           },
@@ -55,6 +58,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "/supervisor", element: <SupervisorHome /> },
               { path: "/supervisor/tasks", element: <SupervisorTasks /> },
+              { path: "/supervisor/tasks/:id", element: <SupervisorTaskDetail /> },
             ],
           },
           {

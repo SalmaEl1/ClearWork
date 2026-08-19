@@ -11,7 +11,8 @@ import { findActiveMembership, findProjectById, findProjectForSupervisor } from 
 import { findUserById } from "../users/repository.js";
 import { findOpenSessionForUser } from "../work-sessions/repository.js";
 import * as repo from "./repository.js";
-import type { TaskRow, TaskStatusHistoryRow } from "./types.js";
+import type { TaskStatusHistoryWithNameRow } from "./repository.js";
+import type { TaskRow } from "./types.js";
 import type { z } from "zod";
 import type {
   createTaskSchema,
@@ -41,12 +42,13 @@ export function toTaskDTO(row: TaskRow): TaskDTO {
   };
 }
 
-function toHistoryDTO(row: TaskStatusHistoryRow): TaskStatusHistoryEntryDTO {
+function toHistoryDTO(row: TaskStatusHistoryWithNameRow): TaskStatusHistoryEntryDTO {
   return {
     id: row.id,
     fromStatus: row.from_status,
     toStatus: row.to_status,
     changedBy: row.changed_by,
+    changedByName: row.changed_by_name,
     workSessionId: row.work_session_id,
     changedAt: row.changed_at.toISOString(),
   };

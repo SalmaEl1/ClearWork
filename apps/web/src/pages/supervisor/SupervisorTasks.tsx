@@ -2,6 +2,7 @@ import type { ProjectDTO, ProjectMemberDTO, TaskDTO, TaskStatus } from "@clearwo
 import { TASK_STATUSES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import {
   createTask,
@@ -241,6 +242,9 @@ export function SupervisorTasks() {
                       <td>{t.dueDate ?? "—"}</td>
                       <td>
                         <div className="row-actions">
+                          <Link to={`/supervisor/tasks/${t.id}`} className="link-button">
+                            Ver
+                          </Link>
                           <button type="button" className="secondary" onClick={() => setEditingTask(t)}>
                             Editar
                           </button>
