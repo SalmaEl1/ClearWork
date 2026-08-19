@@ -19,6 +19,7 @@ import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
+import { WorkerTasks } from "./pages/worker/WorkerTasks.js";
 
 /** Punto de entrada "/": manda a cada usuario a la vista de su rol. */
 function RoleHomeRedirect() {
@@ -42,7 +43,10 @@ export const router = createBrowserRouter([
           { path: "/profile/password", element: <ChangePassword /> },
           {
             element: <RequireRole role="worker" />,
-            children: [{ path: "/worker", element: <WorkerHome /> }],
+            children: [
+              { path: "/worker", element: <WorkerHome /> },
+              { path: "/worker/tasks", element: <WorkerTasks /> },
+            ],
           },
           {
             element: <RequireRole role="supervisor" />,
