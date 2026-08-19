@@ -410,6 +410,23 @@ label > span {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- navegación de semana (dashboards) --- */
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.week-nav__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 12ch;
+  text-align: center;
+}
+
 /* --- tablas --- */
 
 .table-scroll {

@@ -1,10 +1,14 @@
 import type { SupervisorDashboardResponse, WorkerDashboardResponse } from "@clearwork/shared";
 import { apiFetch } from "./client.js";
 
-export function fetchWorkerDashboard(): Promise<WorkerDashboardResponse> {
-  return apiFetch<WorkerDashboardResponse>("/dashboard/worker");
+function weekOffsetQuery(weekOffset: number): string {
+  return weekOffset !== 0 ? `?weekOffset=${weekOffset}` : "";
 }
 
-export function fetchSupervisorDashboard(): Promise<SupervisorDashboardResponse> {
-  return apiFetch<SupervisorDashboardResponse>("/dashboard/supervisor");
+export function fetchWorkerDashboard(weekOffset = 0): Promise<WorkerDashboardResponse> {
+  return apiFetch<WorkerDashboardResponse>(`/dashboard/worker${weekOffsetQuery(weekOffset)}`);
+}
+
+export function fetchSupervisorDashboard(weekOffset = 0): Promise<SupervisorDashboardResponse> {
+  return apiFetch<SupervisorDashboardResponse>(`/dashboard/supervisor${weekOffsetQuery(weekOffset)}`);
 }
