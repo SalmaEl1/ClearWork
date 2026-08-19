@@ -261,6 +261,9 @@ export type UpdateAppSettingsRequest = {
  * ellos, igual que ya hace con ROLE_LABEL para el rol. */
 export type AdminActivityEventDTO =
   | { type: "user_created"; occurredAt: string; userName: string; role: Role }
+  | { type: "user_updated"; occurredAt: string; userName: string }
+  | { type: "user_role_changed"; occurredAt: string; userName: string; fromRole: Role; toRole: Role }
+  | { type: "user_deleted"; occurredAt: string; userName: string; role: Role }
   | {
       type: "task_status_changed";
       occurredAt: string;

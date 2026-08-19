@@ -7,6 +7,12 @@ export function activityMessage(event: AdminActivityEventDTO): string {
   switch (event.type) {
     case "user_created":
       return `${event.userName} se dio de alta como ${ROLE_LABEL[event.role].toLowerCase()}`;
+    case "user_updated":
+      return `Se editó la cuenta de ${event.userName}`;
+    case "user_role_changed":
+      return `${event.userName} pasó de ${ROLE_LABEL[event.fromRole].toLowerCase()} a ${ROLE_LABEL[event.toRole].toLowerCase()}`;
+    case "user_deleted":
+      return `Se eliminó la cuenta de ${event.userName} (${ROLE_LABEL[event.role].toLowerCase()})`;
     case "task_status_changed":
       return `${event.userName} movió "${event.taskTitle}" (${event.projectName}) a ${TASK_STATUS_LABEL[event.toStatus]}`;
     case "member_joined":

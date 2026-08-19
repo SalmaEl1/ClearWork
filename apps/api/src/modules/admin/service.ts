@@ -258,6 +258,20 @@ export async function updateUser(
   const updated = await updateUserById(userId, input);
   if (!updated) throw new NotFoundError("Usuario no encontrado");
 
+  // Dos eventos distintos y no excluyentes: un PATCH puede traer un
+  // cambio de rol, otros campos, o ambos a la vez.
+  if (input.role && input.role !== existing.role) {
+    await recordActivity({
+      type: "user_role_changed",
+      userName: updated.full_name,
+      fromRole: existing.role,
+      toRole: updated.role,
+    });
+  }
+  if (input.fullName !== undefined || input.email !== undefined || input.isActive !== undefined) {
+    await recordActivity({ type: "user_updated", userName: updated.full_name });
+  }
+
   const [projectByUser, supervisedByUser] = await Promise.all([
     currentProjectsByUser(),
     supervisedProjectsByUser(),
@@ -288,6 +302,10 @@ export async function deleteUser(userId: string, actingAdminId: string): Promise
     }
     throw err;
   }
+
+  // Se registra con los datos ya en mano (user), porque tras el borrado
+  // ya no hay ninguna fila que consultar.
+  await recordActivity({ type: "user_deleted", userName: user.full_name, role: user.role });
 }
 
 /**

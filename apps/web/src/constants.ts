@@ -33,6 +33,9 @@ export const BREAK_TYPE_LABEL: Record<BreakType, string> = {
 /** Para el filtro por tipo en /admin/activity. */
 export const ACTIVITY_EVENT_TYPE_LABEL: Record<ActivityEventType, string> = {
   user_created: "Altas de cuenta",
+  user_updated: "Ediciones de cuenta",
+  user_role_changed: "Cambios de rol",
+  user_deleted: "Bajas de cuenta",
   task_status_changed: "Cambios de estado de tarea",
   member_joined: "Entradas a un proyecto",
   member_left: "Salidas de un proyecto",
