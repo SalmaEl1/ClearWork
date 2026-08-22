@@ -216,4 +216,77 @@ describe("tareas", () => {
       .set(...authHeader(supervisorToken));
     expect(detail.status).toBe(404);
   });
+
+  it("una tarea nueva empieza al 0% de avance", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project, worker } = await setupProjectWithMember(admin.token);
+
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, assigneeId: worker.id, title: "Nueva" });
+
+    expect(created.body.progressPercentage).toBe(0);
+  });
+
+  it("el trabajador asignado y el supervisor pueden actualizar el porcentaje de avance", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project, worker } = await setupProjectWithMember(admin.token);
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, assigneeId: worker.id, title: "Con avance" });
+
+    const byWorker = await request(app)
+      .patch(`/api/tasks/${created.body.id}/progress`)
+      .set(...authHeader(worker.token))
+      .send({ progressPercentage: 40 });
+    expect(byWorker.status).toBe(200);
+    expect(byWorker.body.progressPercentage).toBe(40);
+
+    const bySupervisor = await request(app)
+      .patch(`/api/tasks/${created.body.id}/progress`)
+      .set(...authHeader(supervisorToken))
+      .send({ progressPercentage: 75 });
+    expect(bySupervisor.status).toBe(200);
+    expect(bySupervisor.body.progressPercentage).toBe(75);
+  });
+
+  it("el porcentaje de avance se rechaza fuera de 0-100", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project, worker } = await setupProjectWithMember(admin.token);
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, assigneeId: worker.id, title: "Con límites" });
+
+    const tooHigh = await request(app)
+      .patch(`/api/tasks/${created.body.id}/progress`)
+      .set(...authHeader(supervisorToken))
+      .send({ progressPercentage: 101 });
+    expect(tooHigh.status).toBe(400);
+
+    const negative = await request(app)
+      .patch(`/api/tasks/${created.body.id}/progress`)
+      .set(...authHeader(supervisorToken))
+      .send({ progressPercentage: -1 });
+    expect(negative.status).toBe(400);
+  });
+
+  it("un trabajador no puede tocar el avance de una tarea que no es suya", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project, worker } = await setupProjectWithMember(admin.token);
+    const outsider = await createWorker(admin.token);
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, assigneeId: worker.id, title: "Ajena" });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${created.body.id}/progress`)
+      .set(...authHeader(outsider.token))
+      .send({ progressPercentage: 50 });
+
+    expect(res.status).toBe(404);
+  });
 });

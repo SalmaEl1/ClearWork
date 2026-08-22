@@ -217,6 +217,7 @@ export function SupervisorTasks() {
                   <tr>
                     <th>Título</th>
                     <th>Estado</th>
+                    <th>Avance</th>
                     <th>Responsable</th>
                     <th>Fecha límite</th>
                     <th></th>
@@ -237,6 +238,12 @@ export function SupervisorTasks() {
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td>
+                        <div className="progress-bar" style={{ width: "5rem" }}>
+                          <div className="progress-bar__fill" style={{ width: `${t.progressPercentage}%` }} />
+                        </div>
+                        <span style={{ fontSize: "0.8rem" }}>{t.progressPercentage}%</span>
                       </td>
                       <td>{memberName(t.assigneeId)}</td>
                       <td>{t.dueDate ?? "—"}</td>

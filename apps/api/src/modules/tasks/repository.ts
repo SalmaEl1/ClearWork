@@ -200,6 +200,21 @@ export async function updateTaskStatusById(
   return result.rows[0] ?? null;
 }
 
+export async function updateTaskProgressById(
+  taskId: string,
+  progressPercentage: number,
+): Promise<TaskRow | null> {
+  const result = await pool.query<TaskRow>(
+    `UPDATE tasks
+     SET progress_percentage = $2,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [taskId, progressPercentage],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function deleteTaskById(taskId: string): Promise<boolean> {
   const result = await pool.query("DELETE FROM tasks WHERE id = $1", [taskId]);
   return (result.rowCount ?? 0) > 0;

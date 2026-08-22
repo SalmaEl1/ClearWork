@@ -69,6 +69,25 @@ export async function updateTaskStatusHandler(
   }
 }
 
+export async function updateTaskProgressHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const task = await service.updateTaskProgress(
+      req.params.id as string,
+      user.id,
+      user.role,
+      req.body.progressPercentage,
+    );
+    res.status(200).json(task);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteTaskHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);

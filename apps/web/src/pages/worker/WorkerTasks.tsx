@@ -65,6 +65,7 @@ export function WorkerTasks() {
                   <tr>
                     <th>Título</th>
                     <th>Estado</th>
+                    <th>Avance</th>
                     <th>Fecha límite</th>
                     <th></th>
                   </tr>
@@ -91,6 +92,12 @@ export function WorkerTasks() {
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td>
+                        <div className="progress-bar" style={{ width: "5rem" }}>
+                          <div className="progress-bar__fill" style={{ width: `${t.progressPercentage}%` }} />
+                        </div>
+                        <span style={{ fontSize: "0.8rem" }}>{t.progressPercentage}%</span>
                       </td>
                       <td>{t.dueDate ?? "—"}</td>
                       <td>

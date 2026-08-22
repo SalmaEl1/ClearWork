@@ -6,6 +6,7 @@ import { ApiError } from "../../api/client.js";
 import { fetchTask, updateTaskStatus } from "../../api/tasks.js";
 import { BackLink } from "../../components/BackLink.js";
 import { TaskHistoryList } from "../../components/TaskHistoryList.js";
+import { TaskProgressControl } from "../../components/TaskProgressControl.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
 
 export function WorkerTaskDetail() {
@@ -60,7 +61,12 @@ export function WorkerTaskDetail() {
                 ))}
               </select>
             </label>
-            <p style={{ marginBottom: 0 }}>Fecha límite: {task.dueDate ?? "sin fecha límite"}</p>
+            <p>Fecha límite: {task.dueDate ?? "sin fecha límite"}</p>
+            <TaskProgressControl
+              taskId={task.id}
+              progressPercentage={task.progressPercentage}
+              onSaved={load}
+            />
           </div>
 
           <div className="card">

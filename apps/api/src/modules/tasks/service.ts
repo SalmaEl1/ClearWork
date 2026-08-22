@@ -38,6 +38,7 @@ export function toTaskDTO(row: TaskRow): TaskDTO {
     title: row.title,
     description: row.description,
     status: row.status,
+    progressPercentage: row.progress_percentage,
     dueDate: row.due_date,
     completedAt: row.completed_at ? row.completed_at.toISOString() : null,
     createdAt: row.created_at.toISOString(),
@@ -275,6 +276,24 @@ export async function updateTaskStatus(
       await notifyTaskStatusChanged(recipientId, actor.full_name, taskId, existing.title, project.name, status, taskUrl);
     }
   }
+
+  return toTaskDTO(updated);
+}
+
+/** Mismo alcance que updateTaskStatus (findScopedTask): el trabajador
+ * solo su propia tarea asignada, el supervisor solo las de su equipo.
+ * Independiente del estado, así que no toca el historial ni el correo
+ * de cambio de estado. */
+export async function updateTaskProgress(
+  taskId: string,
+  userId: string,
+  role: Role,
+  progressPercentage: number,
+): Promise<TaskDTO> {
+  await findScopedTask(taskId, userId, role);
+
+  const updated = await repo.updateTaskProgressById(taskId, progressPercentage);
+  if (!updated) throw new NotFoundError("Tarea no encontrada");
 
   return toTaskDTO(updated);
 }

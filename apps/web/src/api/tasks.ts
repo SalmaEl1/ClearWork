@@ -43,6 +43,13 @@ export function updateTaskStatus(id: string, status: TaskStatus): Promise<TaskDT
   return apiFetch<TaskDTO>(`/tasks/${id}/status`, { method: "PATCH", body: { status } });
 }
 
+export function updateTaskProgress(id: string, progressPercentage: number): Promise<TaskDTO> {
+  return apiFetch<TaskDTO>(`/tasks/${id}/progress`, {
+    method: "PATCH",
+    body: { progressPercentage },
+  });
+}
+
 export function deleteTask(id: string): Promise<void> {
   return apiFetch<void>(`/tasks/${id}`, { method: "DELETE" });
 }

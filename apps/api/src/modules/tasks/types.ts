@@ -8,6 +8,7 @@ export type TaskRow = {
   title: string;
   description: string | null;
   status: TaskStatus;
+  progress_percentage: number;
   /** 'AAAA-MM-DD', tal cual la devuelve PostgreSQL (ver db/pool.ts). */
   due_date: string | null;
   completed_at: Date | null;

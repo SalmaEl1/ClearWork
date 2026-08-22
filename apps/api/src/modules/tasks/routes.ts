@@ -8,9 +8,15 @@ import {
   getTaskHandler,
   listTasksHandler,
   updateTaskHandler,
+  updateTaskProgressHandler,
   updateTaskStatusHandler,
 } from "./controller.js";
-import { createTaskSchema, updateTaskSchema, updateTaskStatusSchema } from "./schemas.js";
+import {
+  createTaskSchema,
+  updateTaskProgressSchema,
+  updateTaskSchema,
+  updateTaskStatusSchema,
+} from "./schemas.js";
 
 export const tasksRouter = Router();
 
@@ -27,6 +33,14 @@ tasksRouter.patch(
   "/:id/status",
   validateBody(updateTaskStatusSchema),
   updateTaskStatusHandler,
+);
+
+// El porcentaje de avance también lo puede tocar cualquiera de los dos:
+// es informativo, independiente del estado.
+tasksRouter.patch(
+  "/:id/progress",
+  validateBody(updateTaskProgressSchema),
+  updateTaskProgressHandler,
 );
 
 // Crear, editar el resto de campos y borrar son exclusivos del supervisor.

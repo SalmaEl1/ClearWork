@@ -138,6 +138,9 @@ export type TaskDTO = {
   title: string;
   description: string | null;
   status: TaskStatus;
+  /** Independiente del estado: el trabajador o el supervisor lo pueden
+   * ajustar libremente (0-100), no lo calcula el estado en sí. */
+  progressPercentage: number;
   dueDate: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -171,6 +174,10 @@ export type UpdateTaskRequest = {
   description?: string | null;
   assigneeId?: string | null;
   dueDate?: string | null;
+};
+
+export type UpdateTaskProgressRequest = {
+  progressPercentage: number;
 };
 
 export type UpdateTaskStatusRequest = {

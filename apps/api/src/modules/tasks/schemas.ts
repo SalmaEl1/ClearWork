@@ -24,6 +24,10 @@ export const updateTaskStatusSchema = z.object({
   status: z.enum(TASK_STATUSES),
 });
 
+export const updateTaskProgressSchema = z.object({
+  progressPercentage: z.coerce.number().int().min(0).max(100),
+});
+
 export const taskListQuerySchema = z.object({
   status: z.enum(TASK_STATUSES).optional(),
   projectId: z.string().uuid().optional(),
