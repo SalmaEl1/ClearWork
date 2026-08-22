@@ -5,13 +5,12 @@ import crypto from "node:crypto";
 const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 /** Contraseña provisional aleatoria para cuentas creadas desde el panel
- * de admin. crypto.randomBytes, no Math.random: es la que se manda por
+ * de admin. crypto.randomInt, no Math.random: es la que se manda por
  * correo, tiene que ser impredecible de verdad. */
 export function generatePassword(length = 12): string {
-  const bytes = crypto.randomBytes(length);
   let password = "";
   for (let i = 0; i < length; i++) {
-    password += CHARSET[bytes[i]! % CHARSET.length];
+    password += CHARSET[crypto.randomInt(CHARSET.length)]!;
   }
   return password;
 }
