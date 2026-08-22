@@ -91,3 +91,40 @@ export function passwordResetEmailTemplate(input: PasswordResetEmailInput): Emai
 
   return { subject, text, html };
 }
+
+export type TaskAssignedEmailInput = {
+  fullName: string;
+  taskTitle: string;
+  projectName: string;
+  dueDate: string | null;
+  taskUrl: string;
+};
+
+/** Correo al trabajador cuando una tarea se le asigna (al crearla o al
+ * reasignarla), tanto desde tasks/service.ts. */
+export function taskAssignedEmailTemplate(input: TaskAssignedEmailInput): EmailContent {
+  const subject = `Nueva tarea asignada: ${input.taskTitle}`;
+
+  const dueDateLine = input.dueDate ? `Fecha límite: ${input.dueDate}` : null;
+
+  const text = [
+    `Hola ${input.fullName},`,
+    "",
+    `Se te ha asignado la tarea "${input.taskTitle}" en el proyecto ${input.projectName}.`,
+    ...(dueDateLine ? [dueDateLine] : []),
+    "",
+    `Puedes verla aquí: ${input.taskUrl}`,
+    "",
+    "— ClearWork",
+  ].join("\n");
+
+  const html = `
+    <p>Hola ${escapeHtml(input.fullName)},</p>
+    <p>Se te ha asignado la tarea <strong>${escapeHtml(input.taskTitle)}</strong> en el proyecto ${escapeHtml(input.projectName)}.</p>
+    ${dueDateLine ? `<p>${escapeHtml(dueDateLine)}</p>` : ""}
+    <p><a href="${escapeHtml(input.taskUrl)}">Ver la tarea</a></p>
+    <p>— ClearWork</p>
+  `.trim();
+
+  return { subject, text, html };
+}

@@ -5,6 +5,9 @@ import type {
   TaskStatus,
   TaskStatusHistoryEntryDTO,
 } from "@clearwork/shared";
+import { env } from "../../config/env.js";
+import { sendMail } from "../../email/mailer.js";
+import { taskAssignedEmailTemplate } from "../../email/templates.js";
 import { recordActivity } from "../../shared/activityLog.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { findActiveMembership, findProjectById, findProjectForSupervisor } from "../projects/repository.js";
@@ -63,6 +66,34 @@ async function assertIsProjectMember(workerId: string, projectId: string): Promi
   }
 }
 
+/** Best-effort: un fallo de envío no debe tumbar la creación/edición de
+ * la tarea, igual que en auth/service.ts's forgotPassword. */
+async function notifyTaskAssigned(
+  assigneeId: string,
+  taskId: string,
+  taskTitle: string,
+  dueDate: string | null,
+  projectName: string,
+): Promise<void> {
+  const assignee = await findUserById(assigneeId);
+  if (!assignee) return;
+
+  try {
+    await sendMail(
+      assignee.email,
+      taskAssignedEmailTemplate({
+        fullName: assignee.full_name,
+        taskTitle,
+        projectName,
+        dueDate,
+        taskUrl: `${env.APP_URL}/worker/tasks/${taskId}`,
+      }),
+    );
+  } catch (err) {
+    console.error("No se pudo enviar el correo de tarea asignada", err);
+  }
+}
+
 async function findScopedTask(
   taskId: string,
   userId: string,
@@ -101,6 +132,21 @@ export async function createTask(
     description: input.description ?? null,
     dueDate: input.dueDate ?? null,
   });
+
+  const supervisor = await findUserById(supervisorId);
+  if (supervisor) {
+    await recordActivity({
+      type: "task_created",
+      userName: supervisor.full_name,
+      taskTitle: task.title,
+      projectName: project.name,
+    });
+  }
+
+  if (assigneeId) {
+    await notifyTaskAssigned(assigneeId, task.id, task.title, task.due_date, project.name);
+  }
+
   return toTaskDTO(task);
 }
 
@@ -141,6 +187,15 @@ export async function updateTask(
 
   const updated = await repo.updateTaskById(taskId, input);
   if (!updated) throw new NotFoundError("Tarea no encontrada");
+
+  const isReassignment = input.assigneeId && input.assigneeId !== existing.assignee_id;
+  if (isReassignment) {
+    const project = await findProjectById(existing.project_id);
+    if (project) {
+      await notifyTaskAssigned(input.assigneeId!, updated.id, updated.title, updated.due_date, project.name);
+    }
+  }
+
   return toTaskDTO(updated);
 }
 
@@ -188,4 +243,17 @@ export async function deleteTask(taskId: string, supervisorId: string): Promise<
   const existing = await repo.findTaskForSupervisor(taskId, supervisorId);
   if (!existing) throw new NotFoundError("Tarea no encontrada");
   await repo.deleteTaskById(taskId);
+
+  const [supervisor, project] = await Promise.all([
+    findUserById(supervisorId),
+    findProjectById(existing.project_id),
+  ]);
+  if (supervisor && project) {
+    await recordActivity({
+      type: "task_deleted",
+      userName: supervisor.full_name,
+      taskTitle: existing.title,
+      projectName: project.name,
+    });
+  }
 }

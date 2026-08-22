@@ -60,6 +60,14 @@ export async function loginAs(email: string, password: string): Promise<string> 
   return res.body.token as string;
 }
 
+/** Crea un trabajador vía admin y ya devuelve su token: el atajo que
+ * necesita casi cualquier test que no sea del propio módulo de admin. */
+export async function createWorker(adminToken: string) {
+  const worker = await createUserViaAdmin(adminToken, "worker");
+  const token = await loginAs(worker.email, worker.password);
+  return { ...worker, token };
+}
+
 export async function createProjectViaAdmin(
   adminToken: string,
   supervisorId: string,

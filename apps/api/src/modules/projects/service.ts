@@ -80,6 +80,12 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectD
     description: input.description ?? null,
     supervisorId: input.supervisorId,
   });
+
+  const supervisorName = await resolveUserName(input.supervisorId);
+  if (supervisorName) {
+    await recordActivity({ type: "project_created", projectName: project.name, supervisorName });
+  }
+
   return toProjectDTO(project);
 }
 
@@ -135,12 +141,45 @@ export async function updateProject(
   projectId: string,
   input: UpdateProjectInput,
 ): Promise<ProjectDTO> {
+  // Se necesita el "antes" para saber qué cambió de verdad (archivado,
+  // supervisor) y no solo qué campos llegaron en el PATCH.
+  const existing = await repo.findProjectById(projectId);
+  if (!existing) throw new NotFoundError("Proyecto no encontrado");
+
   if (input.supervisorId) {
     await assertIsSupervisor(input.supervisorId);
   }
 
   const updated = await repo.updateProjectById(projectId, input);
   if (!updated) throw new NotFoundError("Proyecto no encontrado");
+
+  // Tres eventos distintos y no excluyentes: un mismo PATCH puede traer
+  // cualquier combinación de estos cambios a la vez.
+  if (input.name !== undefined || input.description !== undefined) {
+    await recordActivity({ type: "project_updated", projectName: updated.name });
+  }
+  if (input.isArchived !== undefined && input.isArchived !== existing.is_archived) {
+    await recordActivity({
+      type: "project_archived",
+      projectName: updated.name,
+      archived: input.isArchived,
+    });
+  }
+  if (input.supervisorId !== undefined && input.supervisorId !== existing.supervisor_id) {
+    const [fromSupervisorName, toSupervisorName] = await Promise.all([
+      resolveUserName(existing.supervisor_id),
+      resolveUserName(input.supervisorId),
+    ]);
+    if (fromSupervisorName && toSupervisorName) {
+      await recordActivity({
+        type: "project_supervisor_changed",
+        projectName: updated.name,
+        fromSupervisorName,
+        toSupervisorName,
+      });
+    }
+  }
+
   return toProjectDTO(updated);
 }
 
@@ -214,6 +253,7 @@ export async function deleteProject(projectId: string): Promise<void> {
   const project = await repo.findProjectById(projectId);
   if (!project) throw new NotFoundError("Proyecto no encontrado");
   await repo.deleteProjectById(projectId);
+  await recordActivity({ type: "project_deleted", projectName: project.name });
 }
 
 /** Proyectos que supervisa quien llama — para que elija en cuál gestionar

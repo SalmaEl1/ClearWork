@@ -13,8 +13,22 @@ export function activityMessage(event: AdminActivityEventDTO): string {
       return `${event.userName} pasó de ${ROLE_LABEL[event.fromRole].toLowerCase()} a ${ROLE_LABEL[event.toRole].toLowerCase()}`;
     case "user_deleted":
       return `Se eliminó la cuenta de ${event.userName} (${ROLE_LABEL[event.role].toLowerCase()})`;
+    case "project_created":
+      return `Se creó el proyecto ${event.projectName}, a cargo de ${event.supervisorName}`;
+    case "project_updated":
+      return `Se editó el proyecto ${event.projectName}`;
+    case "project_archived":
+      return `${event.projectName} se ${event.archived ? "archivó" : "desarchivó"}`;
+    case "project_supervisor_changed":
+      return `${event.projectName} pasó de ${event.fromSupervisorName} a ${event.toSupervisorName}`;
+    case "project_deleted":
+      return `Se eliminó el proyecto ${event.projectName}`;
+    case "task_created":
+      return `${event.userName} creó la tarea "${event.taskTitle}" en ${event.projectName}`;
     case "task_status_changed":
       return `${event.userName} movió "${event.taskTitle}" (${event.projectName}) a ${TASK_STATUS_LABEL[event.toStatus]}`;
+    case "task_deleted":
+      return `${event.userName} eliminó la tarea "${event.taskTitle}" de ${event.projectName}`;
     case "member_joined":
       return `${event.userName} se incorporó a ${event.projectName}`;
     case "member_left":

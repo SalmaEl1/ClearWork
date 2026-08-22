@@ -264,6 +264,18 @@ export type AdminActivityEventDTO =
   | { type: "user_updated"; occurredAt: string; userName: string }
   | { type: "user_role_changed"; occurredAt: string; userName: string; fromRole: Role; toRole: Role }
   | { type: "user_deleted"; occurredAt: string; userName: string; role: Role }
+  | { type: "project_created"; occurredAt: string; projectName: string; supervisorName: string }
+  | { type: "project_updated"; occurredAt: string; projectName: string }
+  | { type: "project_archived"; occurredAt: string; projectName: string; archived: boolean }
+  | {
+      type: "project_supervisor_changed";
+      occurredAt: string;
+      projectName: string;
+      fromSupervisorName: string;
+      toSupervisorName: string;
+    }
+  | { type: "project_deleted"; occurredAt: string; projectName: string }
+  | { type: "task_created"; occurredAt: string; userName: string; taskTitle: string; projectName: string }
   | {
       type: "task_status_changed";
       occurredAt: string;
@@ -272,5 +284,6 @@ export type AdminActivityEventDTO =
       projectName: string;
       toStatus: TaskStatus;
     }
+  | { type: "task_deleted"; occurredAt: string; userName: string; taskTitle: string; projectName: string }
   | { type: "member_joined"; occurredAt: string; userName: string; projectName: string }
   | { type: "member_left"; occurredAt: string; userName: string; projectName: string };
