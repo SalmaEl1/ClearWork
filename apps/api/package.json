@@ -10,7 +10,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seedAdmin.ts",
     "pretest": "tsx src/db/ensureTestDb.ts && tsx src/db/migrateTest.ts && tsx src/db/resetTestDb.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@clearwork/shared": "*",
@@ -33,6 +34,7 @@
     "@types/node": "^20.14.10",
     "@types/pg": "^8.11.6",
     "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "supertest": "^7.2.2",
     "tsx": "^4.16.2",
     "typescript": "^5.5.3",

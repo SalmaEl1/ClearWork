@@ -10,6 +10,12 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
+    env:
+      # Expuesto a nivel de job para poder comprobarlo en el `if` del
+      # paso de SonarCloud (los steps no pueden leer `secrets` en su
+      # propio `if`, solo `env`).
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
     services:
       postgres:
         image: postgres:16
@@ -26,6 +32,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historial completo: SonarCloud lo necesita para el análisis
+          # de "new code" y el blame por línea.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -34,11 +44,17 @@ jobs:
 
       - run: npm ci
 
-      - name: Tests de integración (apps/api)
-        run: npm run test:api
+      - name: Tests de integración (apps/api), con cobertura
+        run: npm run test:api:coverage
 
       - name: Compilar apps/api
         run: npm run build:api
 
       - name: Compilar apps/web
         run: npm run build:web
+
+      - name: SonarCloud Scan
+        # Se salta sin fallar el job hasta que exista el secret
+        # SONAR_TOKEN (hace falta una cuenta de SonarCloud, ver README).
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5

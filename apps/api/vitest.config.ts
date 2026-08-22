@@ -9,5 +9,11 @@ export default defineConfig({
     fileParallelism: false,
     hookTimeout: 20_000,
     testTimeout: 20_000,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "./coverage",
+      include: ["src/**"],
+    },
   },
 });
