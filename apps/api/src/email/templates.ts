@@ -1,3 +1,11 @@
+import type { TaskStatus } from "@clearwork/shared";
+
+const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  pending: "pendiente",
+  in_progress: "en curso",
+  done: "hecha",
+};
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -122,6 +130,42 @@ export function taskAssignedEmailTemplate(input: TaskAssignedEmailInput): EmailC
     <p>Hola ${escapeHtml(input.fullName)},</p>
     <p>Se te ha asignado la tarea <strong>${escapeHtml(input.taskTitle)}</strong> en el proyecto ${escapeHtml(input.projectName)}.</p>
     ${dueDateLine ? `<p>${escapeHtml(dueDateLine)}</p>` : ""}
+    <p><a href="${escapeHtml(input.taskUrl)}">Ver la tarea</a></p>
+    <p>— ClearWork</p>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export type TaskStatusChangedEmailInput = {
+  fullName: string;
+  actorName: string;
+  taskTitle: string;
+  projectName: string;
+  status: TaskStatus;
+  taskUrl: string;
+};
+
+/** Correo a "la otra parte" cuando cambia el estado de una tarea: al
+ * supervisor si cambia el trabajador, al trabajador asignado si cambia
+ * el supervisor. Ver tasks/service.ts's updateTaskStatus. */
+export function taskStatusChangedEmailTemplate(input: TaskStatusChangedEmailInput): EmailContent {
+  const statusLabel = TASK_STATUS_LABEL[input.status];
+  const subject = `Cambio de estado: ${input.taskTitle}`;
+
+  const text = [
+    `Hola ${input.fullName},`,
+    "",
+    `${input.actorName} ha movido la tarea "${input.taskTitle}" (${input.projectName}) a ${statusLabel}.`,
+    "",
+    `Puedes verla aquí: ${input.taskUrl}`,
+    "",
+    "— ClearWork",
+  ].join("\n");
+
+  const html = `
+    <p>Hola ${escapeHtml(input.fullName)},</p>
+    <p>${escapeHtml(input.actorName)} ha movido la tarea <strong>${escapeHtml(input.taskTitle)}</strong> (${escapeHtml(input.projectName)}) a <strong>${escapeHtml(statusLabel)}</strong>.</p>
     <p><a href="${escapeHtml(input.taskUrl)}">Ver la tarea</a></p>
     <p>— ClearWork</p>
   `.trim();

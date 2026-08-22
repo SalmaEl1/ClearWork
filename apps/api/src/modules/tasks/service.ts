@@ -7,7 +7,7 @@ import type {
 } from "@clearwork/shared";
 import { env } from "../../config/env.js";
 import { sendMail } from "../../email/mailer.js";
-import { taskAssignedEmailTemplate } from "../../email/templates.js";
+import { taskAssignedEmailTemplate, taskStatusChangedEmailTemplate } from "../../email/templates.js";
 import { recordActivity } from "../../shared/activityLog.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { findActiveMembership, findProjectById, findProjectForSupervisor } from "../projects/repository.js";
@@ -91,6 +91,37 @@ async function notifyTaskAssigned(
     );
   } catch (err) {
     console.error("No se pudo enviar el correo de tarea asignada", err);
+  }
+}
+
+/** Best-effort, igual que notifyTaskAssigned: a "la otra parte" del
+ * cambio de estado (al supervisor si cambia el trabajador, y viceversa). */
+async function notifyTaskStatusChanged(
+  recipientId: string,
+  actorName: string,
+  taskId: string,
+  taskTitle: string,
+  projectName: string,
+  status: TaskStatus,
+  taskUrl: string,
+): Promise<void> {
+  const recipient = await findUserById(recipientId);
+  if (!recipient) return;
+
+  try {
+    await sendMail(
+      recipient.email,
+      taskStatusChangedEmailTemplate({
+        fullName: recipient.full_name,
+        actorName,
+        taskTitle,
+        projectName,
+        status,
+        taskUrl: `${env.APP_URL}${taskUrl}`,
+      }),
+    );
+  } catch (err) {
+    console.error("No se pudo enviar el correo de cambio de estado de tarea", err);
   }
 }
 
@@ -234,6 +265,15 @@ export async function updateTaskStatus(
       projectName: project.name,
       toStatus: status,
     });
+
+    // A "la otra parte": si cambia el trabajador se notifica al
+    // supervisor del proyecto, y si cambia el supervisor se notifica al
+    // trabajador asignado (si tiene uno).
+    const recipientId = role === "worker" ? project.supervisor_id : existing.assignee_id;
+    if (recipientId && recipientId !== userId) {
+      const taskUrl = role === "worker" ? `/supervisor/tasks/${taskId}` : `/worker/tasks/${taskId}`;
+      await notifyTaskStatusChanged(recipientId, actor.full_name, taskId, existing.title, project.name, status, taskUrl);
+    }
   }
 
   return toTaskDTO(updated);
