@@ -90,9 +90,19 @@ function TaskForm({
   );
 }
 
+type StatusFilter = TaskStatus | "all";
+
+const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
+  all: "Todas",
+  pending: "Pendiente",
+  in_progress: "En curso",
+  done: "Completada",
+};
+
 export function SupervisorTasks() {
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [tasks, setTasks] = useState<TaskDTO[] | null>(null);
   const [members, setMembers] = useState<ProjectMemberDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -112,13 +122,14 @@ export function SupervisorTasks() {
 
   const loadTasksAndMembers = useCallback(() => {
     if (!selectedProjectId) return;
-    Promise.all([fetchTasks({ projectId: selectedProjectId }), fetchMyProjectMembers(selectedProjectId)])
+    const filters = statusFilter === "all" ? { projectId: selectedProjectId } : { projectId: selectedProjectId, status: statusFilter };
+    Promise.all([fetchTasks(filters), fetchMyProjectMembers(selectedProjectId)])
       .then(([taskList, memberList]) => {
         setTasks(taskList);
         setMembers(memberList);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las tareas"));
-  }, [selectedProjectId]);
+  }, [selectedProjectId, statusFilter]);
 
   useEffect(() => {
     loadTasksAndMembers();
@@ -190,6 +201,20 @@ export function SupervisorTasks() {
           </button>
         )}
       </div>
+
+      <div className="filter-bar">
+        {(["all", ...TASK_STATUSES] as StatusFilter[]).map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={s === statusFilter ? undefined : "secondary"}
+            onClick={() => setStatusFilter(s)}
+          >
+            {STATUS_FILTER_LABEL[s]}
+          </button>
+        ))}
+      </div>
+
       {error && <div className="error-banner">{error}</div>}
       {!projects && !error && <p>Cargando…</p>}
       {projects && projects.length === 0 && <p>Todavía no supervisas ningún proyecto.</p>}
@@ -209,7 +234,13 @@ export function SupervisorTasks() {
           </label>
 
           {!tasks && <p>Cargando tareas…</p>}
-          {tasks && tasks.length === 0 && <p>Todavía no hay tareas en este proyecto.</p>}
+          {tasks && tasks.length === 0 && (
+            <p>
+              {statusFilter === "all"
+                ? "Todavía no hay tareas en este proyecto."
+                : "No hay tareas en ese estado."}
+            </p>
+          )}
           {tasks && tasks.length > 0 && (
             <div className="table-scroll">
               <table>
