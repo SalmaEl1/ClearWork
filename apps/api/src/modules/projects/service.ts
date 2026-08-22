@@ -1,10 +1,17 @@
-import type { Paginated, ProjectDetailDTO, ProjectDTO, ProjectMemberDTO, TaskDTO } from "@clearwork/shared";
+import type {
+  Paginated,
+  ProjectDetailDTO,
+  ProjectDTO,
+  ProjectMemberDTO,
+  SupervisorWorkerOptionDTO,
+  TaskDTO,
+} from "@clearwork/shared";
 import { recordActivity } from "../../shared/activityLog.js";
 import { toCsv } from "../../shared/csv.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { listTasksForProject } from "../tasks/repository.js";
 import { toTaskDTO } from "../tasks/service.js";
-import { findUserById } from "../users/repository.js";
+import { findUserById, listUsersByRole } from "../users/repository.js";
 import * as repo from "./repository.js";
 import type { ProjectRow } from "./types.js";
 import type { z } from "zod";
@@ -12,11 +19,13 @@ import type {
   assignMemberSchema,
   createProjectSchema,
   listProjectsQuerySchema,
+  updateMyProjectSchema,
   updateProjectSchema,
 } from "./schemas.js";
 
 type CreateProjectInput = z.infer<typeof createProjectSchema>;
 type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+type UpdateMyProjectInput = z.infer<typeof updateMyProjectSchema>;
 type AssignMemberInput = z.infer<typeof assignMemberSchema>;
 type ListProjectsQuery = z.infer<typeof listProjectsQuerySchema>;
 
@@ -280,4 +289,78 @@ export async function listMyProjectMembers(
     fullName: m.full_name,
     joinedAt: m.joined_at.toISOString(),
   }));
+}
+
+/** Para el desplegable de "añadir miembro" del supervisor: todos los
+ * trabajadores activos, con su proyecto actual si tienen uno (para poder
+ * avisar en el formulario de que ya están en otro sitio antes de
+ * intentar asignarlos, en vez de que el 400 de assignMember sea la
+ * primera noticia). */
+export async function listWorkersForAssignment(): Promise<SupervisorWorkerOptionDTO[]> {
+  const [workers, memberships] = await Promise.all([
+    listUsersByRole("worker"),
+    repo.listActiveMembershipsWithProjectNames(),
+  ]);
+  const projectByUser = new Map(memberships.map((m) => [m.user_id, m]));
+
+  return workers
+    .filter((w) => w.is_active)
+    .map((w) => {
+      const membership = projectByUser.get(w.id);
+      return {
+        id: w.id,
+        fullName: w.full_name,
+        currentProjectId: membership?.project_id ?? null,
+        currentProjectName: membership?.project_name ?? null,
+      };
+    });
+}
+
+/** Detalle de un proyecto propio, con miembros incluidos — lo que
+ * necesita la pantalla de gestión del supervisor. */
+export async function getMyProject(
+  projectId: string,
+  supervisorId: string,
+): Promise<ProjectDetailDTO> {
+  const project = await repo.findProjectForSupervisor(projectId, supervisorId);
+  if (!project) throw new NotFoundError("Proyecto no encontrado");
+  return toProjectDetailDTO(project);
+}
+
+/** Igual que updateProject, pero solo si el proyecto es del supervisor
+ * que llama; updateMyProjectSchema ya impide que el body traiga
+ * isArchived o supervisorId, así que aquí solo hace falta la comprobación
+ * de propiedad antes de delegar en la misma lógica que usa el admin. */
+export async function updateMyProject(
+  projectId: string,
+  supervisorId: string,
+  input: UpdateMyProjectInput,
+): Promise<ProjectDTO> {
+  const owned = await repo.findProjectForSupervisor(projectId, supervisorId);
+  if (!owned) throw new NotFoundError("Proyecto no encontrado");
+  return updateProject(projectId, input);
+}
+
+/** Igual que assignMember, pero solo si el proyecto es del supervisor
+ * que llama. */
+export async function assignMemberToMyProject(
+  projectId: string,
+  supervisorId: string,
+  input: AssignMemberInput,
+): Promise<ProjectDetailDTO> {
+  const owned = await repo.findProjectForSupervisor(projectId, supervisorId);
+  if (!owned) throw new NotFoundError("Proyecto no encontrado");
+  return assignMember(projectId, input);
+}
+
+/** Igual que removeMember, pero solo si el proyecto es del supervisor
+ * que llama. */
+export async function removeMemberFromMyProject(
+  projectId: string,
+  supervisorId: string,
+  userId: string,
+): Promise<ProjectDetailDTO> {
+  const owned = await repo.findProjectForSupervisor(projectId, supervisorId);
+  if (!owned) throw new NotFoundError("Proyecto no encontrado");
+  return removeMember(projectId, userId);
 }

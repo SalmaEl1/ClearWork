@@ -95,6 +95,17 @@ export type ProjectDetailDTO = ProjectDTO & {
   members: ProjectMemberDTO[];
 };
 
+/** Para el desplegable de "añadir miembro" del supervisor: no necesita
+ * ver el resto de datos de un trabajador (email, activo/no...), solo
+ * quién es y si ya está en otro proyecto, para no poder añadir a quien
+ * ya está en uno propio o ajeno sin saberlo. */
+export type SupervisorWorkerOptionDTO = {
+  id: string;
+  fullName: string;
+  currentProjectId: string | null;
+  currentProjectName: string | null;
+};
+
 export type CreateProjectRequest = {
   name: string;
   description?: string | null;
@@ -110,6 +121,13 @@ export type UpdateProjectRequest = {
 
 export type AssignMemberRequest = {
   userId: string;
+};
+
+/** Igual que UpdateProjectRequest, pero sin isArchived ni supervisorId:
+ * lo que puede tocar el supervisor de sus propios proyectos. */
+export type UpdateMyProjectRequest = {
+  name?: string;
+  description?: string | null;
 };
 
 export type TaskDTO = {

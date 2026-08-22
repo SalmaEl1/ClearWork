@@ -121,3 +121,72 @@ export async function listMyProjectMembersHandler(
     next(err);
   }
 }
+
+export async function listWorkersForAssignmentHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const workers = await service.listWorkersForAssignment();
+    res.status(200).json(workers);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyProjectHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const project = await service.getMyProject(req.params.id as string, user.id);
+    res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateMyProjectHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const project = await service.updateMyProject(req.params.id as string, user.id, req.body);
+    res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function assignMemberToMyProjectHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const project = await service.assignMemberToMyProject(
+      req.params.id as string,
+      user.id,
+      req.body,
+    );
+    res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeMemberFromMyProjectHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const project = await service.removeMemberFromMyProject(
+      req.params.id as string,
+      user.id,
+      req.params.userId as string,
+    );
+    res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}

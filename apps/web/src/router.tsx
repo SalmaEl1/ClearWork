@@ -17,6 +17,8 @@ import { Login } from "./pages/Login.js";
 import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
+import { SupervisorProjectDetail } from "./pages/supervisor/SupervisorProjectDetail.js";
+import { SupervisorProjects } from "./pages/supervisor/SupervisorProjects.js";
 import { SupervisorTaskDetail } from "./pages/supervisor/SupervisorTaskDetail.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
@@ -59,6 +61,8 @@ export const router = createBrowserRouter([
               { path: "/supervisor", element: <SupervisorHome /> },
               { path: "/supervisor/tasks", element: <SupervisorTasks /> },
               { path: "/supervisor/tasks/:id", element: <SupervisorTaskDetail /> },
+              { path: "/supervisor/projects", element: <SupervisorProjects /> },
+              { path: "/supervisor/projects/:id", element: <SupervisorProjectDetail /> },
             ],
           },
           {

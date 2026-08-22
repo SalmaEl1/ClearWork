@@ -40,6 +40,7 @@ export function AppLayout() {
               Panel
             </NavLink>
             <NavLink to="/supervisor/tasks">Tareas</NavLink>
+            <NavLink to="/supervisor/projects">Proyectos</NavLink>
           </nav>
         )}
 

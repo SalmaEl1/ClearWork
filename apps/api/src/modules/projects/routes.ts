@@ -4,18 +4,28 @@ import { authorize } from "../../middleware/authorize.js";
 import { validateBody } from "../../middleware/validate.js";
 import {
   assignMemberHandler,
+  assignMemberToMyProjectHandler,
   createProjectHandler,
   deleteProjectHandler,
   exportProjectsHandler,
+  getMyProjectHandler,
   getProjectHandler,
   getProjectTasksHandler,
   listMyProjectMembersHandler,
   listMyProjectsHandler,
   listProjectsHandler,
+  listWorkersForAssignmentHandler,
+  removeMemberFromMyProjectHandler,
   removeMemberHandler,
+  updateMyProjectHandler,
   updateProjectHandler,
 } from "./controller.js";
-import { assignMemberSchema, createProjectSchema, updateProjectSchema } from "./schemas.js";
+import {
+  assignMemberSchema,
+  createProjectSchema,
+  updateMyProjectSchema,
+  updateProjectSchema,
+} from "./schemas.js";
 
 export const projectsRouter = Router();
 
@@ -36,14 +46,27 @@ projectsRouter.post("/:id/members", validateBody(assignMemberSchema), assignMemb
 projectsRouter.delete("/:id/members/:userId", removeMemberHandler);
 
 /**
- * Acceso de solo lectura del supervisor a sus propios proyectos: solo lo
- * necesario para gestionar tareas (elegir en qué proyecto, y quién puede
- * ser responsable de una tarea). Nunca ve proyectos ajenos ni puede
- * crear/editar/borrar proyectos ni tocar la membresía — eso sigue siendo
- * exclusivo del admin, arriba.
+ * Acceso del supervisor a sus propios proyectos: puede editar nombre y
+ * descripción, y asignar/quitar miembros, pero nunca ve proyectos ajenos
+ * ni puede crearlos, archivarlos, borrarlos o reasignar quién los
+ * supervisa — eso sigue siendo exclusivo del admin, arriba.
  */
 export const supervisorProjectsRouter = Router();
 
 supervisorProjectsRouter.use(authenticate, authorize("supervisor"));
 supervisorProjectsRouter.get("/", listMyProjectsHandler);
+// Antes de "/:id": si no, Express trataría "workers" como un id.
+supervisorProjectsRouter.get("/workers", listWorkersForAssignmentHandler);
+supervisorProjectsRouter.get("/:id", getMyProjectHandler);
 supervisorProjectsRouter.get("/:id/members", listMyProjectMembersHandler);
+supervisorProjectsRouter.patch(
+  "/:id",
+  validateBody(updateMyProjectSchema),
+  updateMyProjectHandler,
+);
+supervisorProjectsRouter.post(
+  "/:id/members",
+  validateBody(assignMemberSchema),
+  assignMemberToMyProjectHandler,
+);
+supervisorProjectsRouter.delete("/:id/members/:userId", removeMemberFromMyProjectHandler);
