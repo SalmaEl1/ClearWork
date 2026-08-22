@@ -14,6 +14,7 @@ import {
 } from "../../api/admin.js";
 import { BackLink } from "../../components/BackLink.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
+import { ProjectMembersCard } from "../../components/ProjectMembersCard.js";
 import { TASK_STATUS_LABEL, TASK_STATUS_PILL_CLASS } from "../../constants.js";
 
 function EditProjectForm({
@@ -85,96 +86,6 @@ function EditProjectForm({
         </label>
         <button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar cambios"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function MembersCard({
-  project,
-  workers,
-  onChanged,
-}: {
-  project: ProjectDetailDTO;
-  workers: AdminUserSummary[];
-  onChanged: () => void;
-}) {
-  const memberIds = new Set(project.members.map((m) => m.userId));
-  const available = workers.filter((w) => !memberIds.has(w.id));
-  const [selectedWorkerId, setSelectedWorkerId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Si la selección actual ya no está disponible (recién asignada, o la
-  // lista todavía no había cargado cuando se montó el componente), se
-  // recoloca sobre el primer disponible en vez de quedarse congelada.
-  const availableIdsKey = available.map((w) => w.id).join(",");
-  useEffect(() => {
-    if (!available.some((w) => w.id === selectedWorkerId)) {
-      setSelectedWorkerId(available[0]?.id ?? "");
-    }
-  }, [availableIdsKey]);
-
-  async function handleAssign(event: FormEvent) {
-    event.preventDefault();
-    if (!selectedWorkerId) return;
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await assignProjectMember(project.id, { userId: selectedWorkerId });
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo asignar");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleRemove(userId: string) {
-    setError(null);
-    try {
-      await removeProjectMember(project.id, userId);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo quitar");
-    }
-  }
-
-  return (
-    <div className="card">
-      <h3>Miembros ({project.members.length})</h3>
-      {error && <div className="error-banner">{error}</div>}
-
-      {project.members.length === 0 && <p>Todavía no hay trabajadores en este proyecto.</p>}
-      {project.members.length > 0 && (
-        <ul className="team-list">
-          {project.members.map((m) => (
-            <li key={m.userId} className="team-list__item">
-              <span className="team-list__name">{m.fullName}</span>
-              <button type="button" className="secondary" onClick={() => handleRemove(m.userId)}>
-                Quitar del proyecto
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <form onSubmit={handleAssign} style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
-        <select
-          value={selectedWorkerId}
-          onChange={(e) => setSelectedWorkerId(e.target.value)}
-          style={{ flex: 1 }}
-        >
-          {available.length === 0 && <option value="">No hay trabajadores disponibles</option>}
-          {available.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.fullName} {w.currentProjectName ? `(en ${w.currentProjectName})` : "(sin proyecto)"}
-            </option>
-          ))}
-        </select>
-        <button type="submit" disabled={isSubmitting || !selectedWorkerId}>
-          Asignar
         </button>
       </form>
     </div>
@@ -318,7 +229,13 @@ export function AdminProjectDetail() {
         <>
           <div className="dashboard-grid__row">
             <EditProjectForm project={project} supervisors={supervisors} onSaved={load} />
-            <MembersCard project={project} workers={workers} onChanged={load} />
+            <ProjectMembersCard
+              project={project}
+              workers={workers}
+              onAssign={(userId) => assignProjectMember(project.id, { userId })}
+              onRemove={(userId) => removeProjectMember(project.id, userId)}
+              onChanged={load}
+            />
           </div>
           <TasksCard project={project} tasks={tasks} />
           <DeleteProjectCard project={project} taskCount={tasks?.length ?? null} />

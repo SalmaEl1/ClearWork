@@ -41,6 +41,9 @@ jobs:
       - name: Tests de integración (apps/api), con cobertura
         run: npm run test:api:coverage
 
+      - name: Tests unitarios (apps/web), con cobertura
+        run: npm run test:web:coverage
+
       - name: Compilar apps/api
         run: npm run build:api
 
