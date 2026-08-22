@@ -11,6 +11,12 @@ import {
   loginAs,
 } from "./helpers.js";
 
+function isoDateOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Deja listo un supervisor con proyecto y un trabajador ya asignado a
  * ese proyecto: el punto de partida de casi todos los tests de tareas. */
 async function setupProjectWithMember(adminToken: string) {
@@ -288,5 +294,68 @@ describe("tareas", () => {
       .send({ progressPercentage: 50 });
 
     expect(res.status).toBe(404);
+  });
+
+  it("no se puede crear una tarea con fecha límite anterior a hoy", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project } = await setupProjectWithMember(admin.token);
+
+    const res = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, title: "Con fecha pasada", dueDate: isoDateOffset(-1) });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("se puede crear una tarea con fecha límite de hoy o posterior", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project } = await setupProjectWithMember(admin.token);
+
+    const today = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, title: "Para hoy", dueDate: isoDateOffset(0) });
+    expect(today.status).toBe(201);
+
+    const future = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, title: "Para mañana", dueDate: isoDateOffset(1) });
+    expect(future.status).toBe(201);
+  });
+
+  it("no se puede editar una tarea poniéndole una fecha límite anterior a hoy", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project } = await setupProjectWithMember(admin.token);
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, title: "Sin fecha" });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${created.body.id}`)
+      .set(...authHeader(supervisorToken))
+      .send({ dueDate: isoDateOffset(-1) });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("editar otros campos sin tocar la fecha límite no la revalida", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, project } = await setupProjectWithMember(admin.token);
+    const created = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, title: "Original", dueDate: isoDateOffset(0) });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${created.body.id}`)
+      .set(...authHeader(supervisorToken))
+      .send({ title: "Renombrada" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("Renombrada");
+    expect(res.body.dueDate).toBe(isoDateOffset(0));
   });
 });

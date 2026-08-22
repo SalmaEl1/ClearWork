@@ -16,6 +16,7 @@ import {
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
+import { todayDateString } from "../../lib/dates.js";
 
 type TaskFormValues = {
   title: string;
@@ -42,9 +43,21 @@ function TaskForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Sin min si la tarea ya tenía una fecha límite pasada: si no, el propio
+  // <input> quedaría inválido con su valor actual y el navegador bloquearía
+  // el envío del formulario aunque solo se quisiera cambiar otro campo.
+  const dateMin = !initial?.dueDate || initial.dueDate >= todayDateString() ? todayDateString() : undefined;
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    // Solo se exige "hoy o posterior" cuando la fecha límite cambia a un
+    // valor nuevo; si no se toca, no bloquea la edición de una tarea que
+    // ya venció por el simple paso del tiempo.
+    if (dueDate && dueDate !== (initial?.dueDate ?? "") && dueDate < todayDateString()) {
+      setError("La fecha límite no puede ser anterior a hoy");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({ title, description, assigneeId, dueDate });
@@ -80,7 +93,7 @@ function TaskForm({
         </label>
         <label>
           <span>Fecha límite (opcional)</span>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <input type="date" min={dateMin} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </label>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Guardando…" : submitLabel}
@@ -156,11 +169,16 @@ export function SupervisorTasks() {
 
   async function handleEdit(values: TaskFormValues) {
     if (!editingTask) return;
+    // dueDate solo se manda si cambió: así se puede editar el resto de
+    // campos de una tarea cuya fecha límite ya venció sin verse obligado
+    // a moverla también (la API exige "hoy o posterior" para un valor
+    // nuevo, no para uno que ya estaba guardado).
+    const dueDateChanged = (values.dueDate || null) !== editingTask.dueDate;
     await updateTask(editingTask.id, {
       title: values.title,
       description: values.description || null,
       assigneeId: values.assigneeId || null,
-      dueDate: values.dueDate || null,
+      ...(dueDateChanged ? { dueDate: values.dueDate || null } : {}),
     });
     setEditingTask(null);
     loadTasksAndMembers();

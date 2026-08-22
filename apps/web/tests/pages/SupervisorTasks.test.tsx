@@ -1,5 +1,5 @@
 import type { ProjectDTO, ProjectMemberDTO, TaskDTO } from "@clearwork/shared";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,12 @@ function project(overrides: Partial<ProjectDTO> = {}): ProjectDTO {
 }
 
 const members: ProjectMemberDTO[] = [{ userId: "u1", fullName: "Juan Worker", joinedAt: "2026-01-01T00:00:00.000Z" }];
+
+function isoOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
   return {
@@ -134,5 +140,72 @@ describe("SupervisorTasks — filtros de estado", () => {
 
     expect(pendingButton).not.toHaveClass("secondary");
     expect(allButton).toHaveClass("secondary");
+  });
+});
+
+describe("SupervisorTasks — fecha límite hoy o posterior", () => {
+  beforeEach(() => {
+    fetchMyProjects.mockReset().mockResolvedValue([project()]);
+    fetchMyProjectMembers.mockReset().mockResolvedValue(members);
+    fetchTasks.mockReset().mockResolvedValue([task()]);
+    createTask.mockReset().mockResolvedValue(task());
+    updateTask.mockReset().mockResolvedValue(task());
+  });
+
+  it("no crea la tarea si la fecha límite es anterior a hoy", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    await user.type(screen.getByLabelText("Título"), "Nueva");
+    fireEvent.change(screen.getByLabelText("Fecha límite (opcional)"), { target: { value: isoOffset(-1) } });
+    await user.click(screen.getByRole("button", { name: "Crear tarea" }));
+
+    await waitFor(() => expect(createTask).not.toHaveBeenCalled());
+  });
+
+  it("crea la tarea si la fecha límite es hoy", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    await user.type(screen.getByLabelText("Título"), "Nueva");
+    fireEvent.change(screen.getByLabelText("Fecha límite (opcional)"), { target: { value: isoOffset(0) } });
+    await user.click(screen.getByRole("button", { name: "Crear tarea" }));
+
+    await waitFor(() => expect(createTask).toHaveBeenCalledWith(expect.objectContaining({ dueDate: isoOffset(0) })));
+  });
+
+  it("permite editar otros campos de una tarea ya vencida sin tocar su fecha límite", async () => {
+    const user = userEvent.setup();
+    fetchTasks.mockResolvedValue([task({ dueDate: isoOffset(-5) })]);
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    const titleInput = screen.getByLabelText("Título");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Renombrada");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(updateTask).toHaveBeenCalled());
+    const [, body] = updateTask.mock.calls[0];
+    expect(body).not.toHaveProperty("dueDate");
+  });
+
+  it("no permite mover la fecha límite de una tarea vencida a otra fecha pasada", async () => {
+    const user = userEvent.setup();
+    fetchTasks.mockResolvedValue([task({ dueDate: isoOffset(-5) })]);
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.change(screen.getByLabelText("Fecha límite (opcional)"), { target: { value: isoOffset(-2) } });
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByText("La fecha límite no puede ser anterior a hoy")).toBeInTheDocument();
+    expect(updateTask).not.toHaveBeenCalled();
   });
 });
