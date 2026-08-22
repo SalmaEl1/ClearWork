@@ -11,6 +11,7 @@
     "seed:admin": "tsx src/db/seedAdmin.ts",
     "pretest": "tsx src/db/ensureTestDb.ts && tsx src/db/migrateTest.ts && tsx src/db/resetTestDb.ts",
     "test": "vitest run",
+    "pretest:coverage": "npm run pretest",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
