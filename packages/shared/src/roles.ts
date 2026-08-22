@@ -34,3 +34,17 @@ export const ACTIVITY_EVENT_TYPES = [
   "member_left",
 ] as const;
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
+
+/** Debe coincidir con el CHECK de la columna `type` en la migración 013
+ * de notifications — un tipo de notificación nuevo se añade en los dos
+ * sitios a la vez. A diferencia de ACTIVITY_EVENT_TYPES (para el admin),
+ * estas son las que ve trabajador/supervisor sobre su propio trabajo. */
+export const NOTIFICATION_TYPES = [
+  "task_assigned",
+  "task_unassigned",
+  "task_status_changed",
+  "project_member_added",
+  "project_member_removed",
+  "project_supervisor_removed",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

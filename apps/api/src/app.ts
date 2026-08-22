@@ -6,6 +6,7 @@ import { generalRateLimit } from "./middleware/rateLimit.js";
 import { adminActivityRouter, adminUsersRouter } from "./modules/admin/routes.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
+import { notificationsRouter } from "./modules/notifications/routes.js";
 import { projectsRouter, supervisorProjectsRouter } from "./modules/projects/routes.js";
 import { settingsRouter } from "./modules/settings/routes.js";
 import { tasksRouter } from "./modules/tasks/routes.js";
@@ -35,6 +36,7 @@ export function createApp() {
   app.use("/api/admin/activity", adminActivityRouter);
   app.use("/api/admin/settings", settingsRouter);
   app.use("/api/supervisor/projects", supervisorProjectsRouter);
+  app.use("/api/notifications", notificationsRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`No existe la ruta ${req.method} ${req.path}`));

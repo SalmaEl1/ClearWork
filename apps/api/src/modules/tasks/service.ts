@@ -10,6 +10,7 @@ import { sendMail } from "../../email/mailer.js";
 import { taskAssignedEmailTemplate, taskStatusChangedEmailTemplate } from "../../email/templates.js";
 import { recordActivity } from "../../shared/activityLog.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
+import { notify } from "../../shared/notifications.js";
 import { findActiveMembership, findProjectById, findProjectForSupervisor } from "../projects/repository.js";
 import { findUserById } from "../users/repository.js";
 import { findOpenSessionForUser } from "../work-sessions/repository.js";
@@ -177,6 +178,12 @@ export async function createTask(
 
   if (assigneeId) {
     await notifyTaskAssigned(assigneeId, task.id, task.title, task.due_date, project.name);
+    await notify(assigneeId, {
+      type: "task_assigned",
+      taskId: task.id,
+      taskTitle: task.title,
+      projectName: project.name,
+    });
   }
 
   return toTaskDTO(task);
@@ -220,11 +227,30 @@ export async function updateTask(
   const updated = await repo.updateTaskById(taskId, input);
   if (!updated) throw new NotFoundError("Tarea no encontrada");
 
-  const isReassignment = input.assigneeId && input.assigneeId !== existing.assignee_id;
-  if (isReassignment) {
+  // input.assigneeId !== undefined: el campo venía en la petición (a
+  // diferencia de "no tocado"), sea con un id nuevo o explícitamente a
+  // null. input.assigneeId (truthy) por sí solo no distinguía "lo quité"
+  // de "no lo toqué", y por tanto nunca notificaba una desasignación.
+  const assigneeChanged = input.assigneeId !== undefined && input.assigneeId !== existing.assignee_id;
+  if (assigneeChanged) {
     const project = await findProjectById(existing.project_id);
     if (project) {
-      await notifyTaskAssigned(input.assigneeId!, updated.id, updated.title, updated.due_date, project.name);
+      if (input.assigneeId) {
+        await notifyTaskAssigned(input.assigneeId, updated.id, updated.title, updated.due_date, project.name);
+        await notify(input.assigneeId, {
+          type: "task_assigned",
+          taskId: updated.id,
+          taskTitle: updated.title,
+          projectName: project.name,
+        });
+      }
+      if (existing.assignee_id) {
+        await notify(existing.assignee_id, {
+          type: "task_unassigned",
+          taskTitle: updated.title,
+          projectName: project.name,
+        });
+      }
     }
   }
 
@@ -274,6 +300,14 @@ export async function updateTaskStatus(
     if (recipientId && recipientId !== userId) {
       const taskUrl = role === "worker" ? `/supervisor/tasks/${taskId}` : `/worker/tasks/${taskId}`;
       await notifyTaskStatusChanged(recipientId, actor.full_name, taskId, existing.title, project.name, status, taskUrl);
+      await notify(recipientId, {
+        type: "task_status_changed",
+        taskId,
+        taskTitle: existing.title,
+        projectName: project.name,
+        status,
+        actorName: actor.full_name,
+      });
     }
   }
 

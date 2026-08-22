@@ -9,6 +9,7 @@ import type {
 import { recordActivity } from "../../shared/activityLog.js";
 import { toCsv } from "../../shared/csv.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
+import { notify } from "../../shared/notifications.js";
 import { listTasksForProject } from "../tasks/repository.js";
 import { toTaskDTO } from "../tasks/service.js";
 import { findUserById, listUsersByRole } from "../users/repository.js";
@@ -187,6 +188,10 @@ export async function updateProject(
         toSupervisorName,
       });
     }
+    await notify(existing.supervisor_id, {
+      type: "project_supervisor_removed",
+      projectName: updated.name,
+    });
   }
 
   return toProjectDTO(updated);
@@ -228,9 +233,14 @@ export async function assignMember(
           userName: workerName,
           projectName: previousProject.name,
         });
+        await notify(input.userId, {
+          type: "project_member_removed",
+          projectName: previousProject.name,
+        });
       }
     }
     await recordActivity({ type: "member_joined", userName: workerName, projectName: project.name });
+    await notify(input.userId, { type: "project_member_added", projectName: project.name });
   }
 
   return toProjectDetailDTO(project);
@@ -254,6 +264,7 @@ export async function removeMember(
   if (workerName) {
     await recordActivity({ type: "member_left", userName: workerName, projectName: project.name });
   }
+  await notify(userId, { type: "project_member_removed", projectName: project.name });
 
   return toProjectDetailDTO(project);
 }

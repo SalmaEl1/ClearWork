@@ -312,3 +312,28 @@ export type AdminActivityEventDTO =
   | { type: "task_deleted"; occurredAt: string; userName: string; taskTitle: string; projectName: string }
   | { type: "member_joined"; occurredAt: string; userName: string; projectName: string }
   | { type: "member_left"; occurredAt: string; userName: string; projectName: string };
+
+/* --- Notificaciones dentro de la plataforma (trabajador y supervisor) --- */
+
+/** A diferencia de AdminActivityEventDTO (el feed del admin, sobre todo el
+ * mundo), estas son personales: cada una pertenece a quien la recibe, y
+ * se puede marcar como leída. taskId solo está presente en los tipos
+ * donde quien la recibe todavía puede ver esa tarea (asignación y cambio
+ * de estado); en los demás la persona ya perdió el acceso al recurso
+ * (se la desasignaron, o salió del proyecto), así que no hay a dónde
+ * enlazar. */
+export type NotificationDTO = { id: string; readAt: string | null; createdAt: string } & (
+  | { type: "task_assigned"; taskId: string; taskTitle: string; projectName: string }
+  | { type: "task_unassigned"; taskTitle: string; projectName: string }
+  | {
+      type: "task_status_changed";
+      taskId: string;
+      taskTitle: string;
+      projectName: string;
+      status: TaskStatus;
+      actorName: string;
+    }
+  | { type: "project_member_added"; projectName: string }
+  | { type: "project_member_removed"; projectName: string }
+  | { type: "project_supervisor_removed"; projectName: string }
+);

@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
+import { NotificationBell } from "../components/NotificationBell.js";
 import { UserMenu } from "../components/UserMenu.js";
 
 export function AppLayout() {
@@ -44,6 +45,9 @@ export function AppLayout() {
           </nav>
         )}
 
+        {(user?.role === "worker" || user?.role === "supervisor") && (
+          <NotificationBell role={user.role} />
+        )}
         <UserMenu />
       </header>
       <main className="app-content">
