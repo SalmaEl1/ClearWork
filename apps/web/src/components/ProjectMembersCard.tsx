@@ -6,7 +6,7 @@ import { ApiError } from "../api/client.js";
 type AssignableWorker = {
   id: string;
   fullName: string;
-  currentProjectName: string | null;
+  currentProjectId: string | null;
 };
 
 /**
@@ -27,8 +27,10 @@ export function ProjectMembersCard({
   onRemove: (userId: string) => Promise<unknown>;
   onChanged: () => void;
 }) {
-  const memberIds = new Set(project.members.map((m) => m.userId));
-  const available = workers.filter((w) => !memberIds.has(w.id));
+  // Solo trabajadores sin proyecto: quien ya está en uno (este incluido,
+  // que por eso ni hace falta comprobarlo aparte) se reasigna editando
+  // el proyecto en el que ya está, no desde aquí.
+  const available = workers.filter((w) => w.currentProjectId === null);
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,7 +98,7 @@ export function ProjectMembersCard({
           {available.length === 0 && <option value="">No hay trabajadores disponibles</option>}
           {available.map((w) => (
             <option key={w.id} value={w.id}>
-              {w.fullName} {w.currentProjectName ? `(en ${w.currentProjectName})` : "(sin proyecto)"}
+              {w.fullName}
             </option>
           ))}
         </select>

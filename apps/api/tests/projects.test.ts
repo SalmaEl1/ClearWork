@@ -302,6 +302,7 @@ describe("proyectos", () => {
     expect(res.status).toBe(200);
     const assignedEntry = res.body.find((w: { id: string }) => w.id === worker.id);
     expect(assignedEntry.currentProjectId).toBe(project.id);
+    expect(assignedEntry).not.toHaveProperty("currentProjectName");
     const unassignedEntry = res.body.find((w: { id: string }) => w.id === unassignedWorker.id);
     expect(unassignedEntry.currentProjectId).toBeNull();
   });

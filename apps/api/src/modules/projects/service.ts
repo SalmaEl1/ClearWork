@@ -303,10 +303,8 @@ export async function listMyProjectMembers(
 }
 
 /** Para el desplegable de "añadir miembro" del supervisor: todos los
- * trabajadores activos, con su proyecto actual si tienen uno (para poder
- * avisar en el formulario de que ya están en otro sitio antes de
- * intentar asignarlos, en vez de que el 400 de assignMember sea la
- * primera noticia). */
+ * trabajadores activos, con su proyecto actual si tienen uno — el
+ * frontend solo ofrece como opción a quien no tiene ninguno. */
 export async function listWorkersForAssignment(): Promise<SupervisorWorkerOptionDTO[]> {
   const [workers, memberships] = await Promise.all([
     listUsersByRole("worker"),
@@ -316,15 +314,11 @@ export async function listWorkersForAssignment(): Promise<SupervisorWorkerOption
 
   return workers
     .filter((w) => w.is_active)
-    .map((w) => {
-      const membership = projectByUser.get(w.id);
-      return {
-        id: w.id,
-        fullName: w.full_name,
-        currentProjectId: membership?.project_id ?? null,
-        currentProjectName: membership?.project_name ?? null,
-      };
-    });
+    .map((w) => ({
+      id: w.id,
+      fullName: w.full_name,
+      currentProjectId: projectByUser.get(w.id)?.project_id ?? null,
+    }));
 }
 
 /** Detalle de un proyecto propio, con miembros incluidos — lo que

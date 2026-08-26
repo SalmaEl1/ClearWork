@@ -97,13 +97,12 @@ export type ProjectDetailDTO = ProjectDTO & {
 
 /** Para el desplegable de "añadir miembro" del supervisor: no necesita
  * ver el resto de datos de un trabajador (email, activo/no...), solo
- * quién es y si ya está en otro proyecto, para no poder añadir a quien
- * ya está en uno propio o ajeno sin saberlo. */
+ * quién es y si ya está en algún proyecto, para poder ofrecer como
+ * opción únicamente a quien no tiene ninguno todavía. */
 export type SupervisorWorkerOptionDTO = {
   id: string;
   fullName: string;
   currentProjectId: string | null;
-  currentProjectName: string | null;
 };
 
 export type CreateProjectRequest = {

@@ -21,13 +21,13 @@ function makeProject(overrides: Partial<ProjectDetailDTO> = {}): ProjectDetailDT
 }
 
 const workers = [
-  { id: "u1", fullName: "Juan Worker", currentProjectName: "Proyecto Web" },
-  { id: "u2", fullName: "María Worker", currentProjectName: null },
-  { id: "u3", fullName: "Luis Worker", currentProjectName: "Otro Proyecto" },
+  { id: "u1", fullName: "Juan Worker", currentProjectId: "p1" },
+  { id: "u2", fullName: "María Worker", currentProjectId: null },
+  { id: "u3", fullName: "Luis Worker", currentProjectId: "p2" },
 ];
 
 describe("ProjectMembersCard", () => {
-  it("lista los miembros actuales y excluye del desplegable a quien ya está dentro", () => {
+  it("lista los miembros actuales y en el desplegable solo ofrece trabajadores sin proyecto", () => {
     render(
       <ProjectMembersCard
         project={makeProject()}
@@ -41,12 +41,11 @@ describe("ProjectMembersCard", () => {
     expect(screen.getByText("Miembros (1)")).toBeInTheDocument();
     expect(screen.getByText("Juan Worker")).toBeInTheDocument();
 
+    // u1 ya es miembro de este proyecto y u3 está en otro: ninguno de los
+    // dos debe aparecer como opción, solo u2 (sin proyecto).
     const select = screen.getByRole("combobox");
     const options = within(select).getAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual([
-      "María Worker (sin proyecto)",
-      "Luis Worker (en Otro Proyecto)",
-    ]);
+    expect(options.map((o) => o.textContent)).toEqual(["María Worker"]);
   });
 
   it("muestra el estado vacío cuando el proyecto no tiene miembros", () => {
@@ -72,10 +71,10 @@ describe("ProjectMembersCard", () => {
       <ProjectMembersCard project={makeProject()} workers={workers} onAssign={onAssign} onRemove={vi.fn()} onChanged={onChanged} />,
     );
 
-    await user.selectOptions(screen.getByRole("combobox"), "u3");
+    await user.selectOptions(screen.getByRole("combobox"), "u2");
     await user.click(screen.getByRole("button", { name: "Asignar" }));
 
-    await waitFor(() => expect(onAssign).toHaveBeenCalledWith("u3"));
+    await waitFor(() => expect(onAssign).toHaveBeenCalledWith("u2"));
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 

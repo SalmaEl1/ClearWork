@@ -34,9 +34,7 @@ function makeProject(overrides: Partial<ProjectDetailDTO> = {}): ProjectDetailDT
   };
 }
 
-const workers: SupervisorWorkerOptionDTO[] = [
-  { id: "u1", fullName: "Juan Worker", currentProjectId: null, currentProjectName: null },
-];
+const workers: SupervisorWorkerOptionDTO[] = [{ id: "u1", fullName: "Juan Worker", currentProjectId: null }];
 
 function renderPage() {
   return render(
@@ -62,7 +60,7 @@ describe("SupervisorProjectDetail", () => {
     expect(await screen.findByRole("heading", { name: "Proyecto Web" })).toBeInTheDocument();
     expect(fetchMyProject).toHaveBeenCalledWith("p1");
     expect(fetchWorkersForAssignment).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("option", { name: "Juan Worker (sin proyecto)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Juan Worker" })).toBeInTheDocument();
   });
 
   it("guarda los cambios de nombre/descripción sin tocar supervisor ni archivado", async () => {
