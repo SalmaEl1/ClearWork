@@ -41,3 +41,17 @@ export function calculateWorkedMinutes(
   const workedMs = Math.max(0, totalMs - nonWorkedBreakMs);
   return Math.round(workedMs / 60_000);
 }
+
+/** Fecha de hoy en formato AAAA-MM-DD, comparable directamente con una
+ * columna DATE (que `pool.ts` deja como cadena, sin convertir a Date). */
+export function todayDateString(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+/** Hora actual en formato HH:MM (UTC), comparable con una columna TIME.
+ * Misma simplificación que getCurrentWeekRange en dashboard/service.ts:
+ * en una app real habría que ajustarlo a la zona horaria de cada
+ * usuario, fuera del alcance de este TFG. */
+export function nowTimeString(now: Date = new Date()): string {
+  return now.toISOString().slice(11, 16);
+}

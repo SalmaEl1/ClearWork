@@ -1,14 +1,12 @@
 import { z } from "zod";
 import { TASK_STATUSES } from "@clearwork/shared";
+import { todayDateString } from "../../shared/time.js";
 
 /** Comparación lexicográfica de cadenas AAAA-MM-DD: es válida porque ese
- * formato ordena igual como texto que como fecha. Se recalcula en cada
- * llamada (no es una constante de módulo) para que "hoy" sea el día real
- * en el momento de la petición, no en el arranque del servidor. */
+ * formato ordena igual como texto que como fecha. */
 function isDueDateOnOrAfterToday(dueDate: string | null | undefined): boolean {
   if (!dueDate) return true;
-  const today = new Date().toISOString().slice(0, 10);
-  return dueDate >= today;
+  return dueDate >= todayDateString();
 }
 
 export const createTaskSchema = z

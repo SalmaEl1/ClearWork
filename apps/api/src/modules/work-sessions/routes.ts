@@ -9,6 +9,7 @@ import {
   getActiveSessionHandler,
   getHistoryHandler,
   startBreakHandler,
+  switchTaskHandler,
 } from "./controller.js";
 import { startBreakSchema } from "./schemas.js";
 
@@ -24,3 +25,4 @@ workSessionsRouter.post("/clock-in", clockInHandler);
 workSessionsRouter.post("/clock-out", clockOutHandler);
 workSessionsRouter.post("/breaks/start", validateBody(startBreakSchema), startBreakHandler);
 workSessionsRouter.post("/breaks/end", endBreakHandler);
+workSessionsRouter.post("/task", switchTaskHandler);

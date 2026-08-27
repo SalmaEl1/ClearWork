@@ -6,11 +6,15 @@ import type {
   WeeklyHoursStatus,
   WorkerDashboardResponse,
 } from "@clearwork/shared";
+import { findActiveLeavesForUsers } from "../leaves/repository.js";
 import { listActiveWorkersForSupervisor, listProjectsForSupervisor } from "../projects/repository.js";
-import { countTaskStatusesForSupervisor } from "../tasks/repository.js";
+import { findActiveScheduledAbsencesForUsers } from "../scheduled-absences/repository.js";
+import { countTaskStatusesForSupervisor, findTaskById } from "../tasks/repository.js";
 import { findUserById } from "../users/repository.js";
+import { findActiveApprovedVacationsForUsers } from "../vacations/repository.js";
 import {
   findOpenBreakForSession,
+  findOpenSegmentsForSessions,
   findOpenSessionForUser,
   listBreaksForSessions,
   listOpenSessionsForUsers,
@@ -19,7 +23,7 @@ import {
 } from "../work-sessions/repository.js";
 import type { BreakRow, WorkSessionRow } from "../work-sessions/types.js";
 import { UnauthorizedError } from "../../shared/errors.js";
-import { calculateWorkedMinutes } from "../../shared/time.js";
+import { calculateWorkedMinutes, nowTimeString, todayDateString } from "../../shared/time.js";
 
 /** Por debajo del 90% del objetivo semanal no hay alerta. */
 const NEAR_LIMIT_RATIO = 0.9;
@@ -116,12 +120,19 @@ export async function getSupervisorDashboard(
 
   const { start, end } = getCurrentWeekRange(now);
 
-  const [weekSessions, openSessions, projects, taskCounts] = await Promise.all([
-    listSessionsForUsersInRange(workerIds, start, end),
-    listOpenSessionsForUsers(workerIds),
-    listProjectsForSupervisor(supervisorId),
-    countTaskStatusesForSupervisor(supervisorId),
-  ]);
+  const [weekSessions, openSessions, projects, taskCounts, activeLeaves, activeVacations, activeScheduledAbsences] =
+    await Promise.all([
+      listSessionsForUsersInRange(workerIds, start, end),
+      listOpenSessionsForUsers(workerIds),
+      listProjectsForSupervisor(supervisorId),
+      countTaskStatusesForSupervisor(supervisorId),
+      findActiveLeavesForUsers(workerIds, todayDateString(now)),
+      findActiveApprovedVacationsForUsers(workerIds, todayDateString(now)),
+      findActiveScheduledAbsencesForUsers(workerIds, todayDateString(now), nowTimeString(now)),
+    ]);
+  const leaveByUser = new Map(activeLeaves.map((l) => [l.user_id, l]));
+  const vacationUserIds = new Set(activeVacations.map((v) => v.user_id));
+  const scheduledAbsenceByUser = new Map(activeScheduledAbsences.map((a) => [a.user_id, a]));
 
   const weekBreaks = await listBreaksForSessions(weekSessions.map((s) => s.id));
   const weekBreaksBySession = groupBy(weekBreaks, (b) => b.work_session_id);
@@ -133,23 +144,49 @@ export async function getSupervisorDashboard(
     openSessionBreaks.filter((b) => b.ended_at === null).map((b) => [b.work_session_id, b]),
   );
 
+  // Para "en qué tarea está trabajando cada persona": el tramo abierto
+  // de cada jornada abierta, con el título de su tarea ya resuelto.
+  const openSegments = await findOpenSegmentsForSessions(openSessions.map((s) => s.id));
+  const openSegmentBySession = new Map(openSegments.map((s) => [s.work_session_id, s]));
+  const activeTaskIds = [...new Set(openSegments.map((s) => s.task_id).filter((id): id is string => id !== null))];
+  const activeTasks = await Promise.all(activeTaskIds.map((id) => findTaskById(id)));
+  const taskTitleById = new Map(activeTasks.filter((t) => t !== null).map((t) => [t.id, t.title]));
+
   const team: TeamMemberSummary[] = workers.map((worker) => {
     const hoursThisWeek =
       sumWorkedMinutes(weekSessionsByUser.get(worker.id) ?? [], weekBreaksBySession) / 60;
 
     const openSession = openSessionsByUser.get(worker.id);
     const openBreak = openSession ? openBreakBySession.get(openSession.id) : undefined;
+    const activeLeave = leaveByUser.get(worker.id);
+    const activeScheduledAbsence = scheduledAbsenceByUser.get(worker.id);
 
+    // De baja o de vacaciones tiene prioridad sobre una ausencia puntual,
+    // y esta a su vez sobre el fichaje: son cada vez más específicos en
+    // el tiempo, así que el más concreto es el que manda.
     let status: TeamMemberStatus = "offline";
-    if (openSession) {
+    if (activeLeave) {
+      status = "on_leave";
+    } else if (vacationUserIds.has(worker.id)) {
+      status = "on_vacation";
+    } else if (activeScheduledAbsence) {
+      status = "on_scheduled_absence";
+    } else if (openSession) {
       status = openBreak ? "on_break" : "working";
     }
+
+    const openSegment = openSession ? openSegmentBySession.get(openSession.id) : undefined;
+    const activeTaskTitle =
+      status === "working" && openSegment?.task_id ? (taskTitleById.get(openSegment.task_id) ?? null) : null;
 
     return {
       id: worker.id,
       fullName: worker.full_name,
       status,
       breakType: openBreak?.type ?? null,
+      leaveType: activeLeave?.type ?? null,
+      scheduledAbsenceReason: activeScheduledAbsence?.reason ?? null,
+      activeTaskTitle,
       hoursThisWeek,
     };
   });

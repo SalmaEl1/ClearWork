@@ -162,6 +162,45 @@ describe("dashboard del supervisor", () => {
     expect(teamOnBreak.find((m) => m.id === workerA.id)?.status).toBe("on_break");
   });
 
+  it("muestra en qué tarea está trabajando cada persona conectada", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+    const project = await createProjectViaAdmin(admin.token, supervisor.id);
+    const worker = await createWorker(admin.token);
+    await request(app)
+      .post(`/api/admin/projects/${project.id}/members`)
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id });
+    const task = await request(app)
+      .post("/api/tasks")
+      .set(...authHeader(supervisorToken))
+      .send({ projectId: project.id, assigneeId: worker.id, title: "Preparar demo" });
+
+    await request(app)
+      .post("/api/work-sessions/clock-in")
+      .set(...authHeader(worker.token))
+      .send({ taskId: task.body.id });
+
+    const withTask = await request(app)
+      .get("/api/dashboard/supervisor")
+      .set(...authHeader(supervisorToken));
+    const entryWithTask = withTask.body.team.find((m: { id: string }) => m.id === worker.id);
+    expect(entryWithTask.status).toBe("working");
+    expect(entryWithTask.activeTaskTitle).toBe("Preparar demo");
+
+    await request(app)
+      .post("/api/work-sessions/task")
+      .set(...authHeader(worker.token))
+      .send({});
+
+    const withoutTask = await request(app)
+      .get("/api/dashboard/supervisor")
+      .set(...authHeader(supervisorToken));
+    const entryWithoutTask = withoutTask.body.team.find((m: { id: string }) => m.id === worker.id);
+    expect(entryWithoutTask.activeTaskTitle).toBeNull();
+  });
+
   it("el resumen de tareas por proyecto cuenta correctamente cada estado", async () => {
     const admin = await createAdmin();
     const supervisor = await createUserViaAdmin(admin.token, "supervisor");

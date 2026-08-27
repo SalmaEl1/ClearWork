@@ -6,6 +6,9 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   done: "hecha",
 };
 
+const SIGNATURE_TEXT = "Atentamente,\nEl equipo de ClearWork";
+const SIGNATURE_HTML = "<p>Atentamente,<br>El equipo de ClearWork</p>";
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -30,33 +33,33 @@ export type EmailContent = {
 /** Correo de bienvenida con la contraseña provisional, al crear una
  * cuenta desde el panel de admin. */
 export function welcomeEmailTemplate(input: WelcomeEmailInput): EmailContent {
-  const subject = "Tu cuenta en ClearWork";
+  const subject = "Creación de su cuenta en ClearWork";
 
   const text = [
-    `Hola ${input.fullName},`,
+    `Estimado/a ${input.fullName}:`,
     "",
-    "Se ha creado tu cuenta en ClearWork.",
+    "Le confirmamos que se ha creado su cuenta en ClearWork.",
     "",
-    `Email: ${input.email}`,
+    `Correo electrónico: ${input.email}`,
     `Contraseña provisional: ${input.password}`,
     "",
-    `Inicia sesión aquí y cámbiala cuanto antes desde tu perfil: ${input.loginUrl}`,
+    `Puede acceder desde el siguiente enlace y le recomendamos cambiar la contraseña provisional en cuanto inicie sesión: ${input.loginUrl}`,
     "",
-    "— ClearWork",
+    SIGNATURE_TEXT,
   ].join("\n");
 
   const html = `
-    <p>Hola ${escapeHtml(input.fullName)},</p>
-    <p>Se ha creado tu cuenta en ClearWork.</p>
+    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
+    <p>Le confirmamos que se ha creado su cuenta en ClearWork.</p>
     <p>
-      <strong>Email:</strong> ${escapeHtml(input.email)}<br>
+      <strong>Correo electrónico:</strong> ${escapeHtml(input.email)}<br>
       <strong>Contraseña provisional:</strong> ${escapeHtml(input.password)}
     </p>
     <p>
-      <a href="${escapeHtml(input.loginUrl)}">Inicia sesión</a>
-      y cámbiala cuanto antes desde tu perfil.
+      Puede <a href="${escapeHtml(input.loginUrl)}">iniciar sesión aquí</a>.
+      Le recomendamos cambiar la contraseña provisional en cuanto acceda, desde su perfil.
     </p>
-    <p>— ClearWork</p>
+    ${SIGNATURE_HTML}
   `.trim();
 
   return { subject, text, html };
@@ -72,29 +75,29 @@ export type PasswordResetEmailInput = {
  * caduca, no cuándo exactamente — no vale la pena acoplar la plantilla a
  * ese detalle. */
 export function passwordResetEmailTemplate(input: PasswordResetEmailInput): EmailContent {
-  const subject = "Recupera tu contraseña de ClearWork";
+  const subject = "Restablecimiento de su contraseña de ClearWork";
 
   const text = [
-    `Hola ${input.fullName},`,
+    `Estimado/a ${input.fullName}:`,
     "",
-    "Has pedido restablecer tu contraseña de ClearWork.",
+    "Hemos recibido una solicitud para restablecer la contraseña de su cuenta en ClearWork.",
     "",
-    `Elige una nueva aquí (el enlace caduca en una hora): ${input.resetUrl}`,
+    `Puede elegir una nueva contraseña desde el siguiente enlace (caduca en una hora): ${input.resetUrl}`,
     "",
-    "Si no has sido tú, puedes ignorar este correo: tu contraseña actual sigue funcionando.",
+    "Si no ha realizado esta solicitud, puede ignorar este correo: su contraseña actual seguirá siendo válida.",
     "",
-    "— ClearWork",
+    SIGNATURE_TEXT,
   ].join("\n");
 
   const html = `
-    <p>Hola ${escapeHtml(input.fullName)},</p>
-    <p>Has pedido restablecer tu contraseña de ClearWork.</p>
+    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
+    <p>Hemos recibido una solicitud para restablecer la contraseña de su cuenta en ClearWork.</p>
     <p>
-      <a href="${escapeHtml(input.resetUrl)}">Elige una nueva contraseña</a>
+      Puede <a href="${escapeHtml(input.resetUrl)}">elegir una nueva contraseña aquí</a>
       (el enlace caduca en una hora).
     </p>
-    <p>Si no has sido tú, puedes ignorar este correo: tu contraseña actual sigue funcionando.</p>
-    <p>— ClearWork</p>
+    <p>Si no ha realizado esta solicitud, puede ignorar este correo: su contraseña actual seguirá siendo válida.</p>
+    ${SIGNATURE_HTML}
   `.trim();
 
   return { subject, text, html };
@@ -111,27 +114,27 @@ export type TaskAssignedEmailInput = {
 /** Correo al trabajador cuando una tarea se le asigna (al crearla o al
  * reasignarla), tanto desde tasks/service.ts. */
 export function taskAssignedEmailTemplate(input: TaskAssignedEmailInput): EmailContent {
-  const subject = `Nueva tarea asignada: ${input.taskTitle}`;
+  const subject = `Se le ha asignado una nueva tarea: ${input.taskTitle}`;
 
   const dueDateLine = input.dueDate ? `Fecha límite: ${input.dueDate}` : null;
 
   const text = [
-    `Hola ${input.fullName},`,
+    `Estimado/a ${input.fullName}:`,
     "",
-    `Se te ha asignado la tarea "${input.taskTitle}" en el proyecto ${input.projectName}.`,
+    `Se le ha asignado la tarea "${input.taskTitle}" en el proyecto ${input.projectName}.`,
     ...(dueDateLine ? [dueDateLine] : []),
     "",
-    `Puedes verla aquí: ${input.taskUrl}`,
+    `Puede consultarla en el siguiente enlace: ${input.taskUrl}`,
     "",
-    "— ClearWork",
+    SIGNATURE_TEXT,
   ].join("\n");
 
   const html = `
-    <p>Hola ${escapeHtml(input.fullName)},</p>
-    <p>Se te ha asignado la tarea <strong>${escapeHtml(input.taskTitle)}</strong> en el proyecto ${escapeHtml(input.projectName)}.</p>
+    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
+    <p>Se le ha asignado la tarea <strong>${escapeHtml(input.taskTitle)}</strong> en el proyecto ${escapeHtml(input.projectName)}.</p>
     ${dueDateLine ? `<p>${escapeHtml(dueDateLine)}</p>` : ""}
-    <p><a href="${escapeHtml(input.taskUrl)}">Ver la tarea</a></p>
-    <p>— ClearWork</p>
+    <p><a href="${escapeHtml(input.taskUrl)}">Consultar la tarea</a></p>
+    ${SIGNATURE_HTML}
   `.trim();
 
   return { subject, text, html };
@@ -151,23 +154,50 @@ export type TaskStatusChangedEmailInput = {
  * el supervisor. Ver tasks/service.ts's updateTaskStatus. */
 export function taskStatusChangedEmailTemplate(input: TaskStatusChangedEmailInput): EmailContent {
   const statusLabel = TASK_STATUS_LABEL[input.status];
-  const subject = `Cambio de estado: ${input.taskTitle}`;
+  const subject = `Actualización del estado de la tarea: ${input.taskTitle}`;
 
   const text = [
-    `Hola ${input.fullName},`,
+    `Estimado/a ${input.fullName}:`,
     "",
-    `${input.actorName} ha movido la tarea "${input.taskTitle}" (${input.projectName}) a ${statusLabel}.`,
+    `Le informamos de que ${input.actorName} ha actualizado el estado de la tarea "${input.taskTitle}" (${input.projectName}) a ${statusLabel}.`,
     "",
-    `Puedes verla aquí: ${input.taskUrl}`,
+    `Puede consultarla en el siguiente enlace: ${input.taskUrl}`,
     "",
-    "— ClearWork",
+    SIGNATURE_TEXT,
   ].join("\n");
 
   const html = `
-    <p>Hola ${escapeHtml(input.fullName)},</p>
-    <p>${escapeHtml(input.actorName)} ha movido la tarea <strong>${escapeHtml(input.taskTitle)}</strong> (${escapeHtml(input.projectName)}) a <strong>${escapeHtml(statusLabel)}</strong>.</p>
-    <p><a href="${escapeHtml(input.taskUrl)}">Ver la tarea</a></p>
-    <p>— ClearWork</p>
+    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
+    <p>Le informamos de que ${escapeHtml(input.actorName)} ha actualizado el estado de la tarea <strong>${escapeHtml(input.taskTitle)}</strong> (${escapeHtml(input.projectName)}) a <strong>${escapeHtml(statusLabel)}</strong>.</p>
+    <p><a href="${escapeHtml(input.taskUrl)}">Consultar la tarea</a></p>
+    ${SIGNATURE_HTML}
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export type TrainingAssignedEmailInput = {
+  fullName: string;
+  trainingTitle: string;
+};
+
+/** Correo al trabajador cuando su supervisor le asigna una formación del
+ * catálogo. Ver trainings-assignments/service.ts. */
+export function trainingAssignedEmailTemplate(input: TrainingAssignedEmailInput): EmailContent {
+  const subject = `Se le ha asignado una formación: ${input.trainingTitle}`;
+
+  const text = [
+    `Estimado/a ${input.fullName}:`,
+    "",
+    `Se le ha asignado la formación "${input.trainingTitle}".`,
+    "",
+    SIGNATURE_TEXT,
+  ].join("\n");
+
+  const html = `
+    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
+    <p>Se le ha asignado la formación <strong>${escapeHtml(input.trainingTitle)}</strong>.</p>
+    ${SIGNATURE_HTML}
   `.trim();
 
   return { subject, text, html };

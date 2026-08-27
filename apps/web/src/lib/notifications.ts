@@ -7,17 +7,23 @@ import { TASK_STATUS_LABEL } from "../constants.js";
 export function notificationMessage(notification: NotificationDTO): string {
   switch (notification.type) {
     case "task_assigned":
-      return `Se te ha asignado la tarea "${notification.taskTitle}" (${notification.projectName})`;
+      return `Se le ha asignado la tarea "${notification.taskTitle}" (${notification.projectName}).`;
     case "task_unassigned":
-      return `Se te ha quitado la tarea "${notification.taskTitle}" (${notification.projectName})`;
+      return `Se le ha retirado la tarea "${notification.taskTitle}" (${notification.projectName}).`;
     case "task_status_changed":
-      return `${notification.actorName} movió "${notification.taskTitle}" (${notification.projectName}) a ${TASK_STATUS_LABEL[notification.status]}`;
+      return `${notification.actorName} ha actualizado el estado de "${notification.taskTitle}" (${notification.projectName}) a ${TASK_STATUS_LABEL[notification.status]}.`;
     case "project_member_added":
-      return `Te han incorporado al proyecto ${notification.projectName}`;
+      return `Se le ha incorporado al proyecto ${notification.projectName}.`;
     case "project_member_removed":
-      return `Te han quitado del proyecto ${notification.projectName}`;
+      return `Se le ha retirado del proyecto ${notification.projectName}.`;
     case "project_supervisor_removed":
-      return `Ya no supervisas el proyecto ${notification.projectName}`;
+      return `Ya no supervisa el proyecto ${notification.projectName}.`;
+    case "vacation_decided":
+      return notification.status === "approved"
+        ? `Su solicitud de vacaciones (${notification.startDate} a ${notification.endDate}) ha sido aprobada.`
+        : `Su solicitud de vacaciones (${notification.startDate} a ${notification.endDate}) ha sido rechazada.`;
+    case "training_assigned":
+      return `Se le ha asignado la formación "${notification.trainingTitle}".`;
   }
 }
 
@@ -31,6 +37,10 @@ export function notificationLink(
     case "task_assigned":
     case "task_status_changed":
       return `/${role}/tasks/${notification.taskId}`;
+    case "vacation_decided":
+      return role === "worker" ? "/worker/vacations" : null;
+    case "training_assigned":
+      return role === "worker" ? "/worker/trainings" : null;
     default:
       return null;
   }

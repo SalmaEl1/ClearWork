@@ -1,4 +1,11 @@
-import type { ActivityEventType, BreakType, Role, TaskStatus } from "@clearwork/shared";
+import type {
+  ActivityEventType,
+  BreakType,
+  LeaveType,
+  Role,
+  TaskStatus,
+  VacationStatus,
+} from "@clearwork/shared";
 
 /** Usado en cualquier pantalla que muestre el rol de un usuario: cabecera,
  * perfil, panel de admin. Un único sitio para no repetir el mapeo. */
@@ -28,6 +35,28 @@ export const TASK_STATUS_PILL_CLASS: Record<TaskStatus, string> = {
 export const BREAK_TYPE_LABEL: Record<BreakType, string> = {
   lunch: "Pausa para comer",
   ergonomic: "Pausa ergonómica",
+};
+
+/** Etiqueta de cada tipo de baja/ausencia prolongada, usada tanto en la
+ * ficha del admin como en el estado que ve el supervisor de su equipo. */
+export const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
+  maternity_paternity: "Maternidad/paternidad",
+  sick_leave: "Enfermedad",
+  temporary_leave: "Ausencia temporal",
+};
+
+export const VACATION_STATUS_LABEL: Record<VacationStatus, string> = {
+  pending: "Pendiente",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+  cancelled: "Cancelada",
+};
+
+export const VACATION_STATUS_PILL_CLASS: Record<VacationStatus, string> = {
+  pending: "status-warning",
+  approved: "status-ok",
+  rejected: "status-danger",
+  cancelled: "status-neutral",
 };
 
 /** Para el filtro por tipo en /admin/activity. */

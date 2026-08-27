@@ -14,12 +14,12 @@ function base(overrides: Partial<NotificationDTO> & Pick<NotificationDTO, "type"
 describe("notificationMessage", () => {
   it("describe una asignación de tarea", () => {
     const n = base({ type: "task_assigned", taskId: "t1", taskTitle: "Diseñar login", projectName: "Web" });
-    expect(notificationMessage(n)).toBe('Se te ha asignado la tarea "Diseñar login" (Web)');
+    expect(notificationMessage(n)).toBe('Se le ha asignado la tarea "Diseñar login" (Web).');
   });
 
   it("describe una desasignación de tarea", () => {
     const n = base({ type: "task_unassigned", taskTitle: "Diseñar login", projectName: "Web" });
-    expect(notificationMessage(n)).toBe('Se te ha quitado la tarea "Diseñar login" (Web)');
+    expect(notificationMessage(n)).toBe('Se le ha retirado la tarea "Diseñar login" (Web).');
   });
 
   it("describe un cambio de estado con quién lo hizo y la etiqueta en español", () => {
@@ -31,22 +31,36 @@ describe("notificationMessage", () => {
       status: "done",
       actorName: "Ana Supervisor",
     });
-    expect(notificationMessage(n)).toBe('Ana Supervisor movió "Diseñar login" (Web) a hecha');
+    expect(notificationMessage(n)).toBe('Ana Supervisor ha actualizado el estado de "Diseñar login" (Web) a hecha.');
   });
 
-  it("describe que te han añadido a un proyecto", () => {
+  it("describe que ha sido incorporado a un proyecto", () => {
     const n = base({ type: "project_member_added", projectName: "Web" });
-    expect(notificationMessage(n)).toBe("Te han incorporado al proyecto Web");
+    expect(notificationMessage(n)).toBe("Se le ha incorporado al proyecto Web.");
   });
 
-  it("describe que te han quitado de un proyecto", () => {
+  it("describe que ha sido retirado de un proyecto", () => {
     const n = base({ type: "project_member_removed", projectName: "Web" });
-    expect(notificationMessage(n)).toBe("Te han quitado del proyecto Web");
+    expect(notificationMessage(n)).toBe("Se le ha retirado del proyecto Web.");
   });
 
-  it("describe que ya no supervisas un proyecto", () => {
+  it("describe que ya no supervisa un proyecto", () => {
     const n = base({ type: "project_supervisor_removed", projectName: "Web" });
-    expect(notificationMessage(n)).toBe("Ya no supervisas el proyecto Web");
+    expect(notificationMessage(n)).toBe("Ya no supervisa el proyecto Web.");
+  });
+
+  it("describe una solicitud de vacaciones aprobada", () => {
+    const n = base({ type: "vacation_decided", status: "approved", startDate: "2026-03-01", endDate: "2026-03-10" });
+    expect(notificationMessage(n)).toBe(
+      "Su solicitud de vacaciones (2026-03-01 a 2026-03-10) ha sido aprobada.",
+    );
+  });
+
+  it("describe una solicitud de vacaciones rechazada", () => {
+    const n = base({ type: "vacation_decided", status: "rejected", startDate: "2026-03-01", endDate: "2026-03-10" });
+    expect(notificationMessage(n)).toBe(
+      "Su solicitud de vacaciones (2026-03-01 a 2026-03-10) ha sido rechazada.",
+    );
   });
 });
 
@@ -76,5 +90,11 @@ describe("notificationLink", () => {
     expect(
       notificationLink(base({ type: "project_supervisor_removed", projectName: "P" }), "supervisor"),
     ).toBeNull();
+  });
+
+  it("enlaza a /worker/vacations para vacation_decided, solo si quien la recibe es worker", () => {
+    const n = base({ type: "vacation_decided", status: "approved", startDate: "2026-03-01", endDate: "2026-03-10" });
+    expect(notificationLink(n, "worker")).toBe("/worker/vacations");
+    expect(notificationLink(n, "supervisor")).toBeNull();
   });
 });

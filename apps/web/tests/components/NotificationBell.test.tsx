@@ -80,8 +80,8 @@ describe("NotificationBell", () => {
 
     await user.click(screen.getByRole("button", { name: "Notificaciones" }));
 
-    expect(await screen.findByText(/Se te ha asignado la tarea/)).toBeInTheDocument();
-    expect(screen.getByText(/Te han incorporado al proyecto/)).toBeInTheDocument();
+    expect(await screen.findByText(/Se le ha asignado la tarea/)).toBeInTheDocument();
+    expect(screen.getByText(/Se le ha incorporado al proyecto/)).toBeInTheDocument();
   });
 
   it("al hacer clic en una notificación sin leer, la marca como leída y navega a su enlace", async () => {
@@ -89,7 +89,7 @@ describe("NotificationBell", () => {
     renderBell();
 
     await user.click(screen.getByRole("button", { name: "Notificaciones" }));
-    await user.click(await screen.findByText(/Se te ha asignado la tarea/));
+    await user.click(await screen.findByText(/Se le ha asignado la tarea/));
 
     expect(markNotificationRead).toHaveBeenCalledWith("n1");
     expect(navigate).toHaveBeenCalledWith("/worker/tasks/t1");

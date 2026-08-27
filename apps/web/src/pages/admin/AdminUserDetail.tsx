@@ -1,14 +1,17 @@
-import type { AdminUserSummary } from "@clearwork/shared";
+import type { AdminUserSummary, LeaveDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.js";
 import { ApiError } from "../../api/client.js";
 import { deleteAdminUser, fetchAdminUser, updateAdminUser } from "../../api/admin.js";
+import { deleteLeave, fetchLeaves } from "../../api/leaves.js";
 import { Avatar } from "../../components/Avatar.js";
 import { BackLink } from "../../components/BackLink.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
-import { ROLE_LABEL } from "../../constants.js";
+import { Modal } from "../../components/Modal.js";
+import { RegisterLeaveForm } from "../../components/RegisterLeaveForm.js";
+import { LEAVE_TYPE_LABEL, ROLE_LABEL } from "../../constants.js";
 
 function UserHeaderCard({ user, isSelf }: { user: AdminUserSummary; isSelf: boolean }) {
   return (
@@ -158,6 +161,71 @@ function ProjectInfoCard({ user }: { user: AdminUserSummary }) {
   return null;
 }
 
+function LeavesCard({ userId }: { userId: string }) {
+  const [leaves, setLeaves] = useState<LeaveDTO[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const load = useCallback(() => {
+    fetchLeaves(userId)
+      .then(setLeaves)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las bajas"));
+  }, [userId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleDelete(leaveId: string) {
+    setError(null);
+    try {
+      await deleteLeave(leaveId);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Bajas y ausencias</h3>
+      {error && <div className="error-banner">{error}</div>}
+      {!leaves && <p>Cargando…</p>}
+      {leaves && leaves.length === 0 && <p>No hay bajas ni ausencias registradas.</p>}
+      {leaves && leaves.length > 0 && (
+        <ul className="team-list">
+          {leaves.map((l) => (
+            <li key={l.id} className="team-list__item">
+              <span className="team-list__name">{LEAVE_TYPE_LABEL[l.type]}</span>
+              <span className="team-list__hours">
+                {l.startDate} – {l.endDate ?? "en curso"}
+              </span>
+              <button type="button" className="secondary" onClick={() => handleDelete(l.id)}>
+                Eliminar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" style={{ marginTop: "1rem" }} onClick={() => setIsRegistering(true)}>
+        Registrar baja
+      </button>
+
+      {isRegistering && (
+        <Modal title="Registrar baja" onClose={() => setIsRegistering(false)}>
+          <RegisterLeaveForm
+            userId={userId}
+            onSaved={() => {
+              setIsRegistering(false);
+              load();
+            }}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function DeleteUserCard({ user, isSelf }: { user: AdminUserSummary; isSelf: boolean }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -249,6 +317,8 @@ export function AdminUserDetail() {
             <EditUserForm user={user} isSelf={isSelf} onSaved={load} />
             <DeleteUserCard user={user} isSelf={isSelf} />
           </div>
+
+          {user.role !== "admin" && <LeavesCard userId={user.id} />}
         </>
       )}
     </div>

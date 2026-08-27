@@ -38,7 +38,7 @@ export function SupervisorHome() {
 
       {dashboard && (
         <div className="dashboard-grid__row">
-          <TeamStatusList team={dashboard.team} />
+          <TeamStatusList team={dashboard.team} onChanged={loadDashboard} />
           <ProjectProgressList projects={dashboard.projects} />
         </div>
       )}

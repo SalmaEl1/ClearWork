@@ -1,4 +1,11 @@
-import type { AdminCreatableRole, BreakType, Role, TaskStatus } from "./roles.js";
+import type {
+  AdminCreatableRole,
+  BreakType,
+  LeaveType,
+  Role,
+  TaskStatus,
+  VacationStatus,
+} from "./roles.js";
 
 /** Forma pública de un usuario: nunca incluye password_hash. */
 export type PublicUser = {
@@ -56,6 +63,22 @@ export type BreakDTO = {
   endedAt: string | null;
 };
 
+/** Un tramo de la jornada dedicado a una tarea concreta (o a una nota
+ * libre, si taskId es null): igual que un break, como mucho uno abierto
+ * a la vez por jornada. Cambiar de tarea cierra el tramo en curso y abre
+ * uno nuevo, sin fichar salida. */
+export type TaskSegmentDTO = {
+  id: string;
+  workSessionId: string;
+  taskId: string | null;
+  /** Solo si taskId no es null: su título, para no tener que resolverlo
+   * aparte en el frontend. */
+  taskTitle: string | null;
+  description: string | null;
+  startedAt: string;
+  endedAt: string | null;
+};
+
 export type WorkSessionDTO = {
   id: string;
   userId: string;
@@ -64,10 +87,21 @@ export type WorkSessionDTO = {
   /** Minutos trabajados hasta ahora si sigue abierta, o el total si ya se cerró. */
   workedMinutes: number;
   breaks: BreakDTO[];
+  taskSegments: TaskSegmentDTO[];
 };
 
 export type ActiveSessionResponse = {
   activeSession: WorkSessionDTO | null;
+};
+
+export type ClockInRequest = {
+  taskId?: string | null;
+  description?: string | null;
+};
+
+export type SwitchTaskRequest = {
+  taskId?: string | null;
+  description?: string | null;
 };
 
 export type StartBreakRequest = {
@@ -196,13 +230,27 @@ export type WorkerDashboardResponse = {
   isOnBreak: boolean;
 };
 
-export type TeamMemberStatus = "working" | "on_break" | "offline";
+export type TeamMemberStatus =
+  | "working"
+  | "on_break"
+  | "offline"
+  | "on_leave"
+  | "on_vacation"
+  | "on_scheduled_absence";
 
 export type TeamMemberSummary = {
   id: string;
   fullName: string;
   status: TeamMemberStatus;
   breakType: BreakType | null;
+  /** Solo si status es "on_leave": qué tipo de baja/ausencia. */
+  leaveType: LeaveType | null;
+  /** Solo si status es "on_scheduled_absence": el motivo indicado al
+   * programarla (p. ej. "Cita médica"). */
+  scheduledAbsenceReason: string | null;
+  /** Solo si status es "working": el título de la tarea del tramo de
+   * fichaje en curso, o null si todavía no ha elegido ninguna. */
+  activeTaskTitle: string | null;
   hoursThisWeek: number;
 };
 
@@ -335,4 +383,121 @@ export type NotificationDTO = { id: string; readAt: string | null; createdAt: st
   | { type: "project_member_added"; projectName: string }
   | { type: "project_member_removed"; projectName: string }
   | { type: "project_supervisor_removed"; projectName: string }
+  | { type: "vacation_decided"; status: "approved" | "rejected"; startDate: string; endDate: string }
+  | { type: "training_assigned"; trainingTitle: string }
 );
+
+/* --- Bajas y ausencias prolongadas --- */
+
+/** A diferencia de las vacaciones (que solicita el propio trabajador y
+ * aprueba el supervisor), una baja la da de alta el supervisor o el
+ * administrador en nombre del trabajador: no es un flujo de solicitud,
+ * es un registro. endDate es null mientras la baja sigue abierta. */
+export type LeaveDTO = {
+  id: string;
+  userId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string | null;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type CreateLeaveRequest = {
+  userId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate?: string | null;
+};
+
+/* --- Ausencias puntuales dentro de la jornada --- */
+
+/** A diferencia de una baja (días completos), esto es un tramo horario
+ * dentro de un día concreto: el trabajador la programa con antelación
+ * para que el sistema refleje solo, durante ese tramo, que está fuera. */
+export type ScheduledAbsenceDTO = {
+  id: string;
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+  createdAt: string;
+};
+
+export type CreateScheduledAbsenceInput = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+};
+
+/* --- Catálogo de formaciones y asignación --- */
+
+/** El catálogo lo mantiene el admin: solo un título por formación, sin
+ * más contenido — quien la imparte queda fuera del alcance de esta
+ * plataforma. */
+export type TrainingDTO = {
+  id: string;
+  title: string;
+  createdAt: string;
+};
+
+export type CreateTrainingInput = {
+  title: string;
+};
+
+/** Una asignación de una formación del catálogo a un trabajador, hecha
+ * por su supervisor. */
+export type TrainingAssignmentDTO = {
+  id: string;
+  trainingId: string;
+  userId: string;
+  assignedBy: string;
+  assignedAt: string;
+};
+
+export type CreateTrainingAssignmentInput = {
+  trainingId: string;
+  userId: string;
+};
+
+/** Para /training-assignments/team: con el título de la formación y el
+ * nombre de quien la tiene asignada, que el supervisor gestiona varias
+ * personas a la vez. */
+export type TeamTrainingAssignmentDTO = TrainingAssignmentDTO & {
+  trainingTitle: string;
+  userFullName: string;
+};
+
+/** Para /training-assignments/mine: con el título, lo único que le hace
+ * falta saber al propio trabajador. */
+export type MyTrainingAssignmentDTO = TrainingAssignmentDTO & {
+  trainingTitle: string;
+};
+
+/* --- Solicitudes de vacaciones --- */
+
+/** A diferencia de una baja (que registra el supervisor/admin), la
+ * solicita el propio trabajador y decide el supervisor: aprobarla,
+ * rechazarla, o el trabajador cancelarla mientras siga pendiente. */
+export type VacationRequestDTO = {
+  id: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  status: VacationStatus;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+};
+
+export type CreateVacationRequestInput = {
+  startDate: string;
+  endDate: string;
+};
+
+/** Para /vacations/team: igual que VacationRequestDTO, con el nombre de
+ * quien la pidió — el supervisor gestiona varias personas a la vez, así
+ * que hace falta saber de quién es cada solicitud. */
+export type TeamVacationRequestDTO = VacationRequestDTO & { userFullName: string };
