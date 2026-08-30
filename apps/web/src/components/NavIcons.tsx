@@ -87,15 +87,6 @@ export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function IconGraduationCap(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Icon {...props}>
-      <path d="M2.5 9 12 4.5 21.5 9 12 13.5 2.5 9Z" />
-      <path d="M6.5 11v4.5c0 1.4 2.46 2.5 5.5 2.5s5.5-1.1 5.5-2.5V11" />
-    </Icon>
-  );
-}
-
 export function IconHistory(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

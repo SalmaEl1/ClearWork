@@ -175,30 +175,3 @@ export function taskStatusChangedEmailTemplate(input: TaskStatusChangedEmailInpu
 
   return { subject, text, html };
 }
-
-export type TrainingAssignedEmailInput = {
-  fullName: string;
-  trainingTitle: string;
-};
-
-/** Correo al trabajador cuando su supervisor le asigna una formación del
- * catálogo. Ver trainings-assignments/service.ts. */
-export function trainingAssignedEmailTemplate(input: TrainingAssignedEmailInput): EmailContent {
-  const subject = `Se le ha asignado una formación: ${input.trainingTitle}`;
-
-  const text = [
-    `Estimado/a ${input.fullName}:`,
-    "",
-    `Se le ha asignado la formación "${input.trainingTitle}".`,
-    "",
-    SIGNATURE_TEXT,
-  ].join("\n");
-
-  const html = `
-    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
-    <p>Se le ha asignado la formación <strong>${escapeHtml(input.trainingTitle)}</strong>.</p>
-    ${SIGNATURE_HTML}
-  `.trim();
-
-  return { subject, text, html };
-}

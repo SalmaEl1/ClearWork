@@ -36,8 +36,9 @@ export const ACTIVITY_EVENT_TYPES = [
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
 
 /** Debe coincidir con el CHECK de la columna `type` en la migración 013
- * de notifications (ampliado en la 015 con vacation_decided) — un tipo
- * de notificación nuevo se añade en los dos sitios a la vez. A diferencia
+ * de notifications (ampliado en la 015 con vacation_decided, y vuelto a
+ * estrechar en la 019 al quitar training_assigned) — un tipo de
+ * notificación nuevo se añade en los dos sitios a la vez. A diferencia
  * de ACTIVITY_EVENT_TYPES (para el admin), estas son las que ve
  * trabajador/supervisor sobre su propio trabajo. */
 export const NOTIFICATION_TYPES = [
@@ -48,7 +49,6 @@ export const NOTIFICATION_TYPES = [
   "project_member_removed",
   "project_supervisor_removed",
   "vacation_decided",
-  "training_assigned",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

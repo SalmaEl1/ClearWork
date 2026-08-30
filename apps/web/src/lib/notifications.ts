@@ -22,8 +22,6 @@ export function notificationMessage(notification: NotificationDTO): string {
       return notification.status === "approved"
         ? `Su solicitud de vacaciones (${notification.startDate} a ${notification.endDate}) ha sido aprobada.`
         : `Su solicitud de vacaciones (${notification.startDate} a ${notification.endDate}) ha sido rechazada.`;
-    case "training_assigned":
-      return `Se le ha asignado la formación "${notification.trainingTitle}".`;
   }
 }
 
@@ -39,8 +37,6 @@ export function notificationLink(
       return `/${role}/tasks/${notification.taskId}`;
     case "vacation_decided":
       return role === "worker" ? "/worker/vacations" : null;
-    case "training_assigned":
-      return role === "worker" ? "/worker/trainings" : null;
     default:
       return null;
   }

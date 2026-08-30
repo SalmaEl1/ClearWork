@@ -12,8 +12,6 @@ import { projectsRouter, supervisorProjectsRouter } from "./modules/projects/rou
 import { scheduledAbsencesRouter } from "./modules/scheduled-absences/routes.js";
 import { settingsRouter } from "./modules/settings/routes.js";
 import { tasksRouter } from "./modules/tasks/routes.js";
-import { trainingAssignmentsRouter } from "./modules/training-assignments/routes.js";
-import { trainingsRouter } from "./modules/trainings/routes.js";
 import { vacationsRouter } from "./modules/vacations/routes.js";
 import { workSessionsRouter } from "./modules/work-sessions/routes.js";
 import { NotFoundError } from "./shared/errors.js";
@@ -45,8 +43,6 @@ export function createApp() {
   app.use("/api/leaves", leavesRouter);
   app.use("/api/vacations", vacationsRouter);
   app.use("/api/scheduled-absences", scheduledAbsencesRouter);
-  app.use("/api/trainings", trainingsRouter);
-  app.use("/api/training-assignments", trainingAssignmentsRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`No existe la ruta ${req.method} ${req.path}`));

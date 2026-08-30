@@ -6,7 +6,6 @@ import {
   IconCalendar,
   IconDashboard,
   IconFolder,
-  IconGraduationCap,
   IconHistory,
   IconSettings,
   IconTasks,
@@ -46,10 +45,6 @@ export function AppLayout() {
               <IconSettings />
               <span>Ajustes</span>
             </NavLink>
-            <NavLink to="/admin/trainings">
-              <IconGraduationCap />
-              <span>Formaciones</span>
-            </NavLink>
           </nav>
         )}
 
@@ -71,10 +66,6 @@ export function AppLayout() {
               <IconCalendar />
               <span>Vacaciones</span>
             </NavLink>
-            <NavLink to="/worker/trainings">
-              <IconGraduationCap />
-              <span>Formaciones</span>
-            </NavLink>
           </nav>
         )}
 
@@ -95,10 +86,6 @@ export function AppLayout() {
             <NavLink to="/supervisor/vacations">
               <IconCalendar />
               <span>Vacaciones</span>
-            </NavLink>
-            <NavLink to="/supervisor/trainings">
-              <IconGraduationCap />
-              <span>Formaciones</span>
             </NavLink>
           </nav>
         )}

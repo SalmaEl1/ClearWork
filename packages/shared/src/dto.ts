@@ -384,7 +384,6 @@ export type NotificationDTO = { id: string; readAt: string | null; createdAt: st
   | { type: "project_member_removed"; projectName: string }
   | { type: "project_supervisor_removed"; projectName: string }
   | { type: "vacation_decided"; status: "approved" | "rejected"; startDate: string; endDate: string }
-  | { type: "training_assigned"; trainingTitle: string }
 );
 
 /* --- Bajas y ausencias prolongadas --- */
@@ -430,50 +429,6 @@ export type CreateScheduledAbsenceInput = {
   startTime: string;
   endTime: string;
   reason: string;
-};
-
-/* --- Catálogo de formaciones y asignación --- */
-
-/** El catálogo lo mantiene el admin: solo un título por formación, sin
- * más contenido — quien la imparte queda fuera del alcance de esta
- * plataforma. */
-export type TrainingDTO = {
-  id: string;
-  title: string;
-  createdAt: string;
-};
-
-export type CreateTrainingInput = {
-  title: string;
-};
-
-/** Una asignación de una formación del catálogo a un trabajador, hecha
- * por su supervisor. */
-export type TrainingAssignmentDTO = {
-  id: string;
-  trainingId: string;
-  userId: string;
-  assignedBy: string;
-  assignedAt: string;
-};
-
-export type CreateTrainingAssignmentInput = {
-  trainingId: string;
-  userId: string;
-};
-
-/** Para /training-assignments/team: con el título de la formación y el
- * nombre de quien la tiene asignada, que el supervisor gestiona varias
- * personas a la vez. */
-export type TeamTrainingAssignmentDTO = TrainingAssignmentDTO & {
-  trainingTitle: string;
-  userFullName: string;
-};
-
-/** Para /training-assignments/mine: con el título, lo único que le hace
- * falta saber al propio trabajador. */
-export type MyTrainingAssignmentDTO = TrainingAssignmentDTO & {
-  trainingTitle: string;
 };
 
 /* --- Solicitudes de vacaciones --- */
