@@ -63,7 +63,9 @@ export function Login() {
           </button>
         </form>
         <div className="auth-card__footer">
-          <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
+          <Link to="/forgot-password" className="link-button" style={{ width: "100%", textAlign: "center" }}>
+            ¿Olvidaste tu contraseña?
+          </Link>
         </div>
       </div>
     </div>

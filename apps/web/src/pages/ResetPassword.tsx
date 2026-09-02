@@ -47,7 +47,9 @@ export function ResetPassword() {
           <>
             <div className="alert-banner status-ok">Contraseña actualizada.</div>
             <div className="auth-card__footer">
-              <Link to="/login">Iniciar sesión</Link>
+              <Link to="/login" className="link-button" style={{ width: "100%", textAlign: "center" }}>
+                Iniciar sesión
+              </Link>
             </div>
           </>
         )}

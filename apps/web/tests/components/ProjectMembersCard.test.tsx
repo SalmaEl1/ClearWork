@@ -13,6 +13,8 @@ function makeProject(overrides: Partial<ProjectDetailDTO> = {}): ProjectDetailDT
     supervisorId: "s1",
     supervisorName: "Ana",
     isArchived: false,
+    clientName: "Acme S.L.",
+    clientContact: "contacto@acme.test",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     members: [{ userId: "u1", fullName: "Juan Worker", joinedAt: "2026-01-01T00:00:00.000Z" }],

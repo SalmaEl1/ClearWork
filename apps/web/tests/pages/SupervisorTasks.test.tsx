@@ -30,6 +30,8 @@ function project(overrides: Partial<ProjectDTO> = {}): ProjectDTO {
     description: null,
     supervisorId: "s1",
     isArchived: false,
+    clientName: "Acme S.L.",
+    clientContact: "contacto@acme.test",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -233,6 +235,7 @@ describe("SupervisorTasks — fecha límite hoy o posterior", () => {
 
 describe("SupervisorTasks — tablero", () => {
   beforeEach(() => {
+    localStorage.clear();
     fetchMyProjects.mockReset().mockResolvedValue([project()]);
     fetchMyProjectMembers.mockReset().mockResolvedValue(members);
     fetchTasks.mockReset().mockResolvedValue(taskPage([task({ assigneeId: "u1" })]));
@@ -272,5 +275,19 @@ describe("SupervisorTasks — tablero", () => {
 
     expect(screen.queryByRole("button", { name: "Pendiente" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Elementos por página")).not.toBeInTheDocument();
+  });
+
+  it("recuerda el tablero como vista elegida la próxima vez que se entra", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Tablero" }));
+    await screen.findByText("pendiente (1)");
+    unmount();
+
+    renderPage();
+    expect(await screen.findByText("pendiente (1)")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

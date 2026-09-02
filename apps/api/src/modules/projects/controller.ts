@@ -135,6 +135,16 @@ export async function listWorkersForAssignmentHandler(
   }
 }
 
+export async function getProjectForWorkerHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const project = await service.getProjectForWorker(user.id);
+    res.status(200).json(project);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getMyProjectHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);

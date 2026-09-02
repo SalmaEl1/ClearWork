@@ -21,12 +21,73 @@ describe("proyectos", () => {
     const res = await request(app)
       .post("/api/admin/projects")
       .set(...authHeader(admin.token))
-      .send({ name: "Proyecto nuevo", supervisorId: supervisor.id });
+      .send({
+        name: "Proyecto nuevo",
+        supervisorId: supervisor.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe("Proyecto nuevo");
     expect(res.body.supervisorId).toBe(supervisor.id);
     expect(res.body.isArchived).toBe(false);
+    expect(res.body.clientName).toBe("Acme S.L.");
+    expect(res.body.clientContact).toBe("contacto@acme.test");
+  });
+
+  it("no se puede crear un proyecto sin los datos del cliente", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+
+    const res = await request(app)
+      .post("/api/admin/projects")
+      .set(...authHeader(admin.token))
+      .send({ name: "Sin cliente", supervisorId: supervisor.id });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("el admin da de alta los datos del cliente al crear un proyecto, y los puede editar después", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+
+    const created = await request(app)
+      .post("/api/admin/projects")
+      .set(...authHeader(admin.token))
+      .send({
+        name: "Con cliente",
+        supervisorId: supervisor.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.clientName).toBe("Acme S.L.");
+    expect(created.body.clientContact).toBe("contacto@acme.test");
+
+    const updated = await request(app)
+      .patch(`/api/admin/projects/${created.body.id}`)
+      .set(...authHeader(admin.token))
+      .send({ clientName: "Acme Corp.", clientContact: "nuevo@acme.test" });
+    expect(updated.status).toBe(200);
+    expect(updated.body.clientName).toBe("Acme Corp.");
+    expect(updated.body.clientContact).toBe("nuevo@acme.test");
+  });
+
+  it("un supervisor no puede cambiar los datos del cliente de su propio proyecto", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+    const project = await createProjectViaAdmin(admin.token, supervisor.id);
+
+    const res = await request(app)
+      .patch(`/api/supervisor/projects/${project.id}`)
+      .set(...authHeader(supervisorToken))
+      .send({ clientName: "Intento de cambio" });
+
+    // El propio esquema del supervisor no reconoce clientName: se trata
+    // como "ningún campo válido para actualizar".
+    expect(res.status).toBe(400);
   });
 
   it("crear un proyecto notifica al supervisor asignado", async () => {
@@ -37,7 +98,12 @@ describe("proyectos", () => {
     await request(app)
       .post("/api/admin/projects")
       .set(...authHeader(admin.token))
-      .send({ name: "Proyecto notificado", supervisorId: supervisor.id });
+      .send({
+        name: "Proyecto notificado",
+        supervisorId: supervisor.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
 
     const notifications = await request(app)
       .get("/api/notifications")
@@ -54,7 +120,12 @@ describe("proyectos", () => {
     const res = await request(app)
       .post("/api/admin/projects")
       .set(...authHeader(admin.token))
-      .send({ name: "Proyecto inválido", supervisorId: worker.id });
+      .send({
+        name: "Proyecto inválido",
+        supervisorId: worker.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
 
     expect(res.status).toBe(400);
   });
@@ -67,7 +138,12 @@ describe("proyectos", () => {
     const res = await request(app)
       .post("/api/admin/projects")
       .set(...authHeader(admin.token))
-      .send({ name: "Segundo proyecto", supervisorId: supervisor.id });
+      .send({
+        name: "Segundo proyecto",
+        supervisorId: supervisor.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
 
     expect(res.status).toBe(409);
   });
@@ -84,7 +160,12 @@ describe("proyectos", () => {
     const res = await request(app)
       .post("/api/admin/projects")
       .set(...authHeader(admin.token))
-      .send({ name: "Proyecto nuevo", supervisorId: supervisor.id });
+      .send({
+        name: "Proyecto nuevo",
+        supervisorId: supervisor.id,
+        clientName: "Acme S.L.",
+        clientContact: "contacto@acme.test",
+      });
 
     expect(res.status).toBe(201);
   });
@@ -413,5 +494,46 @@ describe("proyectos", () => {
       .get(`/api/supervisor/projects/${project.id}`)
       .set(...authHeader(intruderToken));
     expect(foreign.status).toBe(404);
+  });
+
+  it("un trabajador puede ver el proyecto del que es miembro, con los datos del cliente incluidos", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const project = await createProjectViaAdmin(admin.token, supervisor.id);
+    await request(app)
+      .patch(`/api/admin/projects/${project.id}`)
+      .set(...authHeader(admin.token))
+      .send({ clientName: "Acme S.L.", clientContact: "contacto@acme.test" });
+    const worker = await createWorker(admin.token);
+    await request(app)
+      .post(`/api/admin/projects/${project.id}/members`)
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id });
+
+    const res = await request(app).get("/api/worker/project").set(...authHeader(worker.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(project.id);
+    expect(res.body.clientName).toBe("Acme S.L.");
+    expect(res.body.clientContact).toBe("contacto@acme.test");
+  });
+
+  it("un trabajador sin proyecto asignado recibe 404 al consultar su proyecto", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const res = await request(app).get("/api/worker/project").set(...authHeader(worker.token));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("un supervisor no puede consultar /api/worker/project (es exclusivo del trabajador)", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+
+    const res = await request(app).get("/api/worker/project").set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(403);
   });
 });

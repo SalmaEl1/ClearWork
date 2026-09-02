@@ -4,6 +4,8 @@ export const createProjectSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio"),
   description: z.string().trim().min(1).nullish(),
   supervisorId: z.string().uuid("supervisorId debe ser un UUID válido"),
+  clientName: z.string().trim().min(1, "El cliente es obligatorio"),
+  clientContact: z.string().trim().min(1, "El contacto del cliente es obligatorio"),
 });
 
 export const updateProjectSchema = z
@@ -12,6 +14,11 @@ export const updateProjectSchema = z
     description: z.string().trim().min(1).nullish(),
     isArchived: z.boolean().optional(),
     supervisorId: z.string().uuid().optional(),
+    // Sin .nullish(): a diferencia de description, el cliente no se
+    // puede "vaciar" una vez puesto — solo faltar del todo si el PATCH
+    // no lo toca.
+    clientName: z.string().trim().min(1, "El cliente es obligatorio").optional(),
+    clientContact: z.string().trim().min(1, "El contacto del cliente es obligatorio").optional(),
   })
   .refine((body) => Object.keys(body).length > 0, {
     message: "No se ha indicado ningún campo para actualizar",

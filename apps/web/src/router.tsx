@@ -29,6 +29,7 @@ import { WorkerAbsences } from "./pages/worker/WorkerAbsences.js";
 import { WorkerAbsencesHistory } from "./pages/worker/WorkerAbsencesHistory.js";
 import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
+import { WorkerProject } from "./pages/worker/WorkerProject.js";
 import { WorkerTaskDetail } from "./pages/worker/WorkerTaskDetail.js";
 import { WorkerTasks } from "./pages/worker/WorkerTasks.js";
 import { WorkerVacations } from "./pages/worker/WorkerVacations.js";
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
             element: <RequireRole role="worker" />,
             children: [
               { path: "/worker", element: <WorkerHome /> },
+              { path: "/worker/project", element: <WorkerProject /> },
               { path: "/worker/tasks", element: <WorkerTasks /> },
               { path: "/worker/tasks/:id", element: <WorkerTaskDetail /> },
               { path: "/worker/history", element: <WorkerHistory /> },

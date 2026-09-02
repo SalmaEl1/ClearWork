@@ -89,6 +89,11 @@ export type ProjectDTO = {
   description: string | null;
   supervisorId: string;
   isArchived: boolean;
+  /** Obligatorios: todo proyecto tiene un cliente. Solo el admin los da
+   * de alta o los edita; el supervisor y el trabajador del proyecto
+   * solo pueden verlos. */
+  clientName: string;
+  clientContact: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -118,6 +123,8 @@ export type CreateProjectRequest = {
   name: string;
   description?: string | null;
   supervisorId: string;
+  clientName: string;
+  clientContact: string;
 };
 
 export type UpdateProjectRequest = {
@@ -125,6 +132,8 @@ export type UpdateProjectRequest = {
   description?: string | null;
   isArchived?: boolean;
   supervisorId?: string;
+  clientName?: string;
+  clientContact?: string;
 };
 
 export type AssignMemberRequest = {

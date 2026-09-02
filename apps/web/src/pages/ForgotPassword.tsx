@@ -58,7 +58,9 @@ export function ForgotPassword() {
         )}
 
         <div className="auth-card__footer">
-          <Link to="/login">Volver a iniciar sesión</Link>
+          <Link to="/login" className="link-button" style={{ width: "100%", textAlign: "center" }}>
+            Volver a iniciar sesión
+          </Link>
         </div>
       </div>
     </div>

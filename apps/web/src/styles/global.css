@@ -73,12 +73,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
-input, select {
+input, select, textarea {
   font: inherit;
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   width: 100%;
+}
+
+textarea {
+  min-height: 8rem;
+  resize: vertical;
 }
 
 label {
@@ -91,6 +96,14 @@ label > span {
   display: block;
   margin-bottom: 0.25rem;
   font-weight: 600;
+}
+
+/* Datos del cliente de un proyecto, de solo lectura para quien no sea
+ * admin (ver SupervisorProjectDetail.tsx y WorkerProject.tsx). */
+.project-client-info {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem;
 }
 
 .error-banner {
@@ -197,11 +210,22 @@ label > span {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Mientras se arrastra una tarjeta encima: le dice a quien arrastra que
+ * aquí sí se puede soltar. */
+.kanban-column--drop-target {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
 }
 
 .kanban-column__title {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--color-text-muted);
 }
 
@@ -215,14 +239,36 @@ label > span {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.75rem;
+  padding: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  transition: box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+}
+
+/* La propia tarjeta que se está arrastrando: se atenúa para que el
+ * "hueco" que deja sea evidente, sin desaparecer del todo. */
+.kanban-card--dragging {
+  opacity: 0.45;
+  cursor: grabbing;
 }
 
 .kanban-card__title {
   font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.kanban-card__title:hover {
+  color: var(--color-primary);
 }
 
 .kanban-card__meta {
@@ -233,6 +279,7 @@ label > span {
 
 .kanban-card__status {
   margin-top: 0.25rem;
+  font-size: 0.8rem;
 }
 
 /* --- estados compartidos (fichaje, equipo, alertas) --- */

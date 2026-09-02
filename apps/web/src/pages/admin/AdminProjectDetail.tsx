@@ -33,6 +33,8 @@ function EditProjectForm({
   const [description, setDescription] = useState(project.description ?? "");
   const [supervisorId, setSupervisorId] = useState(project.supervisorId);
   const [isArchived, setIsArchived] = useState(project.isArchived);
+  const [clientName, setClientName] = useState(project.clientName);
+  const [clientContact, setClientContact] = useState(project.clientContact);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, triggerSaved] = useSavedConfirmation();
@@ -47,6 +49,8 @@ function EditProjectForm({
         description: description || null,
         supervisorId,
         isArchived,
+        clientName,
+        clientContact,
       });
       triggerSaved();
       onSaved();
@@ -69,7 +73,7 @@ function EditProjectForm({
         </label>
         <label>
           <span>Descripción</span>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         <label>
           <span>Supervisor/a</span>
@@ -89,6 +93,14 @@ function EditProjectForm({
             onChange={(e) => setIsArchived(e.target.checked)}
           />
           <span style={{ margin: 0 }}>Archivado</span>
+        </label>
+        <label>
+          <span>Cliente</span>
+          <input required value={clientName} onChange={(e) => setClientName(e.target.value)} />
+        </label>
+        <label>
+          <span>Contacto del cliente</span>
+          <input required value={clientContact} onChange={(e) => setClientContact(e.target.value)} />
         </label>
         <button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar cambios"}

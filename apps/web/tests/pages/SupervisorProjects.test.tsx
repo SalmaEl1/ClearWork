@@ -14,6 +14,8 @@ function project(overrides: Partial<ProjectDTO> = {}): ProjectDTO {
     description: null,
     supervisorId: "s1",
     isArchived: false,
+    clientName: "Acme S.L.",
+    clientContact: "contacto@acme.test",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,

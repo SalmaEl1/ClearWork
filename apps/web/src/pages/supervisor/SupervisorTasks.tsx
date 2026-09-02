@@ -19,6 +19,7 @@ import { Modal } from "../../components/Modal.js";
 import { Pagination } from "../../components/Pagination.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
 import { todayDateString } from "../../lib/dates.js";
+import { useStoredViewMode } from "../../lib/useStoredViewMode.js";
 
 type TaskFormValues = {
   title: string;
@@ -82,7 +83,7 @@ function TaskForm({
         </label>
         <label>
           <span>Descripción (opcional)</span>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         <label>
           <span>Responsable</span>
@@ -119,6 +120,7 @@ function TaskForm({
 
 type StatusFilter = TaskStatus | "all";
 type ViewMode = "list" | "board";
+const VIEW_MODES: ViewMode[] = ["list", "board"];
 
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "Todas",
@@ -133,7 +135,11 @@ const DEFAULT_PAGE_SIZE = 10;
 const BOARD_PAGE_SIZE = 500;
 
 export function SupervisorTasks() {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useStoredViewMode<ViewMode>(
+    "clearwork:supervisor-tasks-view",
+    VIEW_MODES,
+    "list",
+  );
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");

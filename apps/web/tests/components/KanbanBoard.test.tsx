@@ -1,9 +1,23 @@
 import type { TaskDTO } from "@clearwork/shared";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { KanbanBoard } from "../../src/components/KanbanBoard.js";
+
+/** jsdom no trae una implementación real de DataTransfer para arrastrar
+ * y soltar: se simula el mínimo que usa el propio componente
+ * (setData/getData), igual que recomienda Testing Library para este caso. */
+function fakeDataTransfer() {
+  const data: Record<string, string> = {};
+  return {
+    setData: (key: string, value: string) => {
+      data[key] = value;
+    },
+    getData: (key: string) => data[key] ?? "",
+    effectAllowed: "",
+  };
+}
 
 function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
   return {
@@ -125,4 +139,64 @@ describe("KanbanBoard", () => {
     expect(fill.style.width).toBe("40%");
   });
 
+  it("arrastrar una tarjeta a otra columna avisa con la tarea y el estado nuevo", () => {
+    const onStatusChange = vi.fn();
+    const t = task({ title: "Arrastrar de columna", status: "pending" });
+    renderBoard({ tasks: [t], onStatusChange });
+
+    const card = screen.getByText("Arrastrar de columna").closest(".kanban-card") as HTMLElement;
+    const doneColumn = screen.getByText("hecha (0)").closest(".kanban-column") as HTMLElement;
+    const dataTransfer = fakeDataTransfer();
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.dragOver(doneColumn, { dataTransfer });
+    fireEvent.drop(doneColumn, { dataTransfer });
+
+    expect(onStatusChange).toHaveBeenCalledWith(t, "done");
+  });
+
+  it("soltar en la misma columna de la que sale no avisa de ningún cambio", () => {
+    const onStatusChange = vi.fn();
+    const t = task({ title: "Misma columna", status: "pending" });
+    renderBoard({ tasks: [t], onStatusChange });
+
+    const card = screen.getByText("Misma columna").closest(".kanban-card") as HTMLElement;
+    const pendingColumn = screen.getByText("pendiente (1)").closest(".kanban-column") as HTMLElement;
+    const dataTransfer = fakeDataTransfer();
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.drop(pendingColumn, { dataTransfer });
+
+    expect(onStatusChange).not.toHaveBeenCalled();
+  });
+
+  it("marca la columna sobre la que se arrastra como zona de destino", () => {
+    const t = task({ title: "Sobrevolando" });
+    renderBoard({ tasks: [t] });
+
+    const card = screen.getByText("Sobrevolando").closest(".kanban-card") as HTMLElement;
+    const doneColumn = screen.getByText("hecha (0)").closest(".kanban-column") as HTMLElement;
+    const dataTransfer = fakeDataTransfer();
+
+    fireEvent.dragStart(card, { dataTransfer });
+    fireEvent.dragOver(doneColumn, { dataTransfer });
+    expect(doneColumn).toHaveClass("kanban-column--drop-target");
+
+    fireEvent.dragLeave(doneColumn);
+    expect(doneColumn).not.toHaveClass("kanban-column--drop-target");
+  });
+
+  it("marca la tarjeta que se está arrastrando y la desmarca al soltar", () => {
+    const t = task({ title: "En vilo" });
+    renderBoard({ tasks: [t] });
+
+    const card = screen.getByText("En vilo").closest(".kanban-card") as HTMLElement;
+    const dataTransfer = fakeDataTransfer();
+
+    fireEvent.dragStart(card, { dataTransfer });
+    expect(card).toHaveClass("kanban-card--dragging");
+
+    fireEvent.dragEnd(card);
+    expect(card).not.toHaveClass("kanban-card--dragging");
+  });
 });

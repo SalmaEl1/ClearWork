@@ -7,9 +7,11 @@ import { fetchTasks, updateTaskStatus } from "../../api/tasks.js";
 import { KanbanBoard } from "../../components/KanbanBoard.js";
 import { Pagination } from "../../components/Pagination.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
+import { useStoredViewMode } from "../../lib/useStoredViewMode.js";
 
 type StatusFilter = TaskStatus | "all";
 type ViewMode = "list" | "board";
+const VIEW_MODES: ViewMode[] = ["list", "board"];
 
 const DEFAULT_PAGE_SIZE = 10;
 // El tablero quiere ver las tres columnas completas a la vez, no una
@@ -19,7 +21,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const BOARD_PAGE_SIZE = 500;
 
 export function WorkerTasks() {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useStoredViewMode<ViewMode>("clearwork:worker-tasks-view", VIEW_MODES, "list");
   const [tasks, setTasks] = useState<TaskDTO[] | null>(null);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");

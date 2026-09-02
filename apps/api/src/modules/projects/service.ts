@@ -37,6 +37,8 @@ function toProjectDTO(row: ProjectRow): ProjectDTO {
     description: row.description,
     supervisorId: row.supervisor_id,
     isArchived: row.is_archived,
+    clientName: row.client_name,
+    clientContact: row.client_contact,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -103,6 +105,8 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectD
     name: input.name,
     description: input.description ?? null,
     supervisorId: input.supervisorId,
+    clientName: input.clientName,
+    clientContact: input.clientContact,
   });
 
   const supervisorName = await resolveUserName(input.supervisorId);
@@ -407,4 +411,16 @@ export async function findSupervisorIdForWorker(workerId: string): Promise<strin
 
   const project = await repo.findProjectById(membership.project_id);
   return project?.supervisor_id ?? null;
+}
+
+/** Detalle de solo lectura del proyecto del que el trabajador es miembro
+ * ahora mismo — nunca puede editarlo, solo verlo (incluidos los datos
+ * del cliente, que da de alta el admin). */
+export async function getProjectForWorker(workerId: string): Promise<ProjectDetailDTO> {
+  const membership = await repo.findActiveMembership(workerId);
+  if (!membership) throw new NotFoundError("No tienes ningún proyecto asignado");
+
+  const project = await repo.findProjectById(membership.project_id);
+  if (!project) throw new NotFoundError("No tienes ningún proyecto asignado");
+  return toProjectDetailDTO(project);
 }

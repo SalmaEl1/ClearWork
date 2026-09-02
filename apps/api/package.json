@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seedAdmin.ts",
+    "seed:demo": "tsx src/db/seedDemoData.ts",
     "pretest": "tsx src/db/ensureTestDb.ts && tsx src/db/migrateTest.ts && tsx src/db/resetTestDb.ts",
     "test": "vitest run",
     "pretest:coverage": "npm run pretest",

@@ -27,6 +27,8 @@ function CreateProjectForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [supervisorId, setSupervisorId] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientContact, setClientContact] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -49,7 +51,13 @@ function CreateProjectForm({
     }
     setIsSubmitting(true);
     try {
-      await createAdminProject({ name, description: description || null, supervisorId });
+      await createAdminProject({
+        name,
+        description: description || null,
+        supervisorId,
+        clientName,
+        clientContact,
+      });
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo crear el proyecto");
@@ -68,7 +76,7 @@ function CreateProjectForm({
         </label>
         <label>
           <span>Descripción (opcional)</span>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         <label>
           <span>Supervisor/a</span>
@@ -80,6 +88,14 @@ function CreateProjectForm({
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          <span>Cliente</span>
+          <input required value={clientName} onChange={(e) => setClientName(e.target.value)} />
+        </label>
+        <label>
+          <span>Contacto del cliente</span>
+          <input required value={clientContact} onChange={(e) => setClientContact(e.target.value)} />
         </label>
         <button type="submit" disabled={isSubmitting || supervisors.length === 0}>
           {isSubmitting ? "Creando…" : "Crear proyecto"}

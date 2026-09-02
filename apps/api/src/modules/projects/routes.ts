@@ -9,6 +9,7 @@ import {
   deleteProjectHandler,
   exportProjectsHandler,
   getMyProjectHandler,
+  getProjectForWorkerHandler,
   getProjectHandler,
   getProjectTasksHandler,
   listMyProjectMembersHandler,
@@ -70,3 +71,13 @@ supervisorProjectsRouter.post(
   assignMemberToMyProjectHandler,
 );
 supervisorProjectsRouter.delete("/:id/members/:userId", removeMemberFromMyProjectHandler);
+
+/**
+ * Acceso de solo lectura del trabajador a su propio proyecto: sin
+ * gestión de ningún tipo, solo ver los datos (incluidos los del
+ * cliente) del proyecto del que es miembro ahora mismo.
+ */
+export const workerProjectRouter = Router();
+
+workerProjectRouter.use(authenticate, authorize("worker"));
+workerProjectRouter.get("/", getProjectForWorkerHandler);

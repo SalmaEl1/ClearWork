@@ -85,6 +85,7 @@ describe("WorkerTasks — paginación", () => {
 
 describe("WorkerTasks — tablero", () => {
   beforeEach(() => {
+    localStorage.clear();
     fetchTasks.mockReset().mockResolvedValue({ items: [task()], total: 1, page: 1, pageSize: 10 });
     updateTaskStatus.mockReset();
   });
@@ -124,5 +125,19 @@ describe("WorkerTasks — tablero", () => {
     await waitFor(() =>
       expect(fetchTasks).toHaveBeenLastCalledWith({ status: undefined, page: 1, pageSize: 10 }),
     );
+  });
+
+  it("recuerda el tablero como vista elegida la próxima vez que se entra", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Tablero" }));
+    await screen.findByText("pendiente (1)");
+    unmount();
+
+    renderPage();
+    expect(await screen.findByText("pendiente (1)")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

@@ -27,6 +27,8 @@ function makeProject(overrides: Partial<ProjectDetailDTO> = {}): ProjectDetailDT
     supervisorId: "s1",
     supervisorName: "Ana",
     isArchived: false,
+    clientName: "Acme S.L.",
+    clientContact: "contacto@acme.test",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     members: [],
@@ -93,5 +95,14 @@ describe("SupervisorProjectDetail", () => {
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(await screen.findByText("Cambios guardados.")).toBeInTheDocument();
+  });
+
+  it("muestra los datos del cliente en solo lectura, sin ningún campo para editarlos", async () => {
+    renderPage();
+    await screen.findByRole("heading", { name: "Proyecto Web" });
+
+    expect(screen.getByText("Cliente: Acme S.L. · Contacto: contacto@acme.test")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cliente")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Contacto/)).not.toBeInTheDocument();
   });
 });

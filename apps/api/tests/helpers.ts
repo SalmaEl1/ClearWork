@@ -76,7 +76,12 @@ export async function createProjectViaAdmin(
   const res = await request(app)
     .post("/api/admin/projects")
     .set(...authHeader(adminToken))
-    .send({ name, supervisorId });
+    .send({
+      name,
+      supervisorId,
+      clientName: "Cliente de test",
+      clientContact: "cliente@test.clearwork.dev",
+    });
   if (res.status !== 201) {
     throw new Error(`No se pudo crear el proyecto de test: ${res.status} ${JSON.stringify(res.body)}`);
   }

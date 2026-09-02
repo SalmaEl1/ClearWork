@@ -6,14 +6,16 @@ export type CreateProjectInput = {
   name: string;
   description: string | null;
   supervisorId: string;
+  clientName: string;
+  clientContact: string;
 };
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectRow> {
   const result = await pool.query<ProjectRow>(
-    `INSERT INTO projects (name, description, supervisor_id)
-     VALUES ($1, $2, $3)
+    `INSERT INTO projects (name, description, supervisor_id, client_name, client_contact)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [input.name, input.description, input.supervisorId],
+    [input.name, input.description, input.supervisorId, input.clientName, input.clientContact],
   );
   const row = result.rows[0];
   if (!row) throw new Error("INSERT de project no devolvió ninguna fila");
@@ -156,6 +158,10 @@ export type UpdateProjectFields = {
   description?: string | null;
   isArchived?: boolean;
   supervisorId?: string;
+  /** Obligatorios: si vienen en el PATCH no pueden ser null (no se
+   * pueden "vaciar"), solo faltar del todo si no se están tocando. */
+  clientName?: string;
+  clientContact?: string;
 };
 
 /**
@@ -187,6 +193,14 @@ export async function updateProjectById(
   if (fields.supervisorId !== undefined) {
     values.push(fields.supervisorId);
     setClauses.push(`supervisor_id = $${values.length}`);
+  }
+  if (fields.clientName !== undefined) {
+    values.push(fields.clientName);
+    setClauses.push(`client_name = $${values.length}`);
+  }
+  if (fields.clientContact !== undefined) {
+    values.push(fields.clientContact);
+    setClauses.push(`client_contact = $${values.length}`);
   }
 
   if (setClauses.length === 0) {

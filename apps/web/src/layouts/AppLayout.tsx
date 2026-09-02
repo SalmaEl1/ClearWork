@@ -63,6 +63,10 @@ export function AppLayout() {
               <IconTasks />
               <span>Tareas</span>
             </NavLink>
+            <NavLink to="/worker/project">
+              <IconFolder />
+              <span>Mi proyecto</span>
+            </NavLink>
             <NavLink to="/worker/vacations">
               <IconCalendar />
               <span>Vacaciones</span>
