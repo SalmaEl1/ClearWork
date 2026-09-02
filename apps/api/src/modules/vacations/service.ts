@@ -1,7 +1,10 @@
 import type { TeamVacationRequestDTO, VacationRequestDTO } from "@clearwork/shared";
 import { ConflictError, NotFoundError } from "../../shared/errors.js";
 import { notify } from "../../shared/notifications.js";
+import { todayDateString } from "../../shared/time.js";
 import { listActiveWorkersForSupervisor } from "../projects/repository.js";
+import { findSupervisorIdForWorker } from "../projects/service.js";
+import { findUserById } from "../users/repository.js";
 import * as repo from "./repository.js";
 import type { VacationRequestRow } from "./repository.js";
 
@@ -23,6 +26,18 @@ export async function createVacationRequest(
   input: { startDate: string; endDate: string },
 ): Promise<VacationRequestDTO> {
   const request = await repo.insertVacationRequest(workerId, input.startDate, input.endDate);
+
+  const supervisorId = await findSupervisorIdForWorker(workerId);
+  const worker = supervisorId ? await findUserById(workerId) : null;
+  if (supervisorId && worker) {
+    await notify(supervisorId, {
+      type: "vacation_requested",
+      workerName: worker.full_name,
+      startDate: input.startDate,
+      endDate: input.endDate,
+    });
+  }
+
   return toDTO(request);
 }
 
@@ -74,17 +89,25 @@ async function decideVacationRequest(
 
   await assertRequestBelongsToTeam(supervisorId, request);
 
-  if (request.status !== "pending") {
-    throw new ConflictError("Esta solicitud ya se ha decidido");
+  if (request.status === "cancelled") {
+    throw new ConflictError("Esta solicitud fue cancelada por quien la pidió");
+  }
+  // Antes de que llegue la fecha de inicio, el supervisor puede aprobar,
+  // rechazar, o cambiar de opinión sobre una decisión ya tomada. Una vez
+  // empiezan las vacaciones, la decisión queda fija.
+  if (request.status !== "pending" && request.start_date <= todayDateString()) {
+    throw new ConflictError("Ya no se puede cambiar la decisión: la fecha de inicio ya ha llegado");
   }
 
   const updated = await repo.updateVacationStatus(requestId, status, supervisorId);
-  await notify(request.user_id, {
-    type: "vacation_decided",
-    status,
-    startDate: request.start_date,
-    endDate: request.end_date,
-  });
+  if (request.status !== status) {
+    await notify(request.user_id, {
+      type: "vacation_decided",
+      status,
+      startDate: request.start_date,
+      endDate: request.end_date,
+    });
+  }
 
   return toDTO(updated!);
 }

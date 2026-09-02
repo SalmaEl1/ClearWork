@@ -53,12 +53,23 @@ export async function createLeave(
   return toDTO(leave);
 }
 
+/** A diferencia de crear o borrar, consultar las propias bajas también lo
+ * puede hacer el trabajador afectado (issue #101, para reflejarlas en su
+ * historial de jornada) — de solo lectura y solo sobre sí mismo. */
+async function assertCanView(actorId: string, actorRole: Role, targetUserId: string): Promise<void> {
+  if (actorRole === "worker") {
+    if (actorId !== targetUserId) throw new ForbiddenError();
+    return;
+  }
+  await assertCanManage(actorId, actorRole, targetUserId);
+}
+
 export async function listLeaves(
   actorId: string,
   actorRole: Role,
   targetUserId: string,
 ): Promise<LeaveDTO[]> {
-  await assertCanManage(actorId, actorRole, targetUserId);
+  await assertCanView(actorId, actorRole, targetUserId);
   const rows = await repo.listLeavesForUser(targetUserId);
   return rows.map(toDTO);
 }

@@ -2,11 +2,15 @@ import type { TeamVacationRequestDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../../api/client.js";
 import { approveVacationRequest, fetchTeamVacationRequests, rejectVacationRequest } from "../../api/vacations.js";
+import { Pagination } from "../../components/Pagination.js";
 import { VACATION_STATUS_LABEL, VACATION_STATUS_PILL_CLASS } from "../../constants.js";
+import { todayDateString } from "../../lib/dates.js";
+import { usePaginatedList } from "../../lib/usePaginatedList.js";
 
 export function SupervisorVacations() {
   const [requests, setRequests] = useState<TeamVacationRequestDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { page, pageSize, total, pageItems, setPage, onPageSizeChange } = usePaginatedList(requests);
 
   const load = useCallback(() => {
     fetchTeamVacationRequests()
@@ -48,29 +52,46 @@ export function SupervisorVacations() {
         {requests && requests.length === 0 && <p>Tu equipo no tiene solicitudes de vacaciones.</p>}
         {requests && requests.length > 0 && (
           <ul className="team-list">
-            {requests.map((r) => (
-              <li key={r.id} className="team-list__item">
-                <span className="team-list__name">{r.userFullName}</span>
-                <span className="team-list__hours">
-                  {r.startDate} – {r.endDate}
-                </span>
-                <span className={`status-pill ${VACATION_STATUS_PILL_CLASS[r.status]}`}>
-                  {VACATION_STATUS_LABEL[r.status]}
-                </span>
-                {r.status === "pending" && (
-                  <div className="row-actions">
-                    <button type="button" onClick={() => handleApprove(r.id)}>
-                      Aprobar
-                    </button>
-                    <button type="button" className="secondary" onClick={() => handleReject(r.id)}>
-                      Rechazar
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
+            {(pageItems ?? []).map((r) => {
+              // Mientras no haya llegado la fecha de inicio, la decisión
+              // se puede tomar o cambiar; una vez empiezan las
+              // vacaciones (o si se cancelaron), queda fija.
+              const canDecide = r.status !== "cancelled" && r.startDate > todayDateString();
+              return (
+                <li key={r.id} className="team-list__item">
+                  <span className="team-list__name">{r.userFullName}</span>
+                  <span className="team-list__hours">
+                    {r.startDate} – {r.endDate}
+                  </span>
+                  <span className={`status-pill ${VACATION_STATUS_PILL_CLASS[r.status]}`}>
+                    {VACATION_STATUS_LABEL[r.status]}
+                  </span>
+                  {canDecide && (
+                    <div className="row-actions">
+                      {r.status !== "approved" && (
+                        <button type="button" onClick={() => handleApprove(r.id)}>
+                          Aprobar
+                        </button>
+                      )}
+                      {r.status !== "rejected" && (
+                        <button type="button" className="secondary" onClick={() => handleReject(r.id)}>
+                          Rechazar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={onPageSizeChange}
+        />
       </div>
     </div>
   );

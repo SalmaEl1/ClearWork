@@ -156,23 +156,11 @@ describe("solicitudes de vacaciones", () => {
     expect(res.status).toBe(404);
   });
 
-  it("no se puede volver a decidir una solicitud ya decidida", async () => {
-    const admin = await createAdmin();
-    const { supervisorToken, worker } = await setupTeam(admin.token);
-    const created = await request(app)
-      .post("/api/vacations")
-      .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(5), endDate: isoDateOffset(10) });
-    await request(app)
-      .post(`/api/vacations/${created.body.id}/reject`)
-      .set(...authHeader(supervisorToken));
-
-    const res = await request(app)
-      .post(`/api/vacations/${created.body.id}/approve`)
-      .set(...authHeader(supervisorToken));
-
-    expect(res.status).toBe(409);
-  });
+  // Nota: antes de la #104, volver a decidir una solicitud ya decidida
+  // devolvía 409 siempre. Ahora solo lo hace si ya ha empezado la fecha
+  // de inicio (ver "no se puede cambiar la decisión una vez han
+  // empezado las vacaciones", más abajo) — mientras no haya llegado, el
+  // supervisor puede cambiar de opinión.
 
   it("una vacación aprobada y en curso marca 'on_vacation' en el dashboard del supervisor", async () => {
     const admin = await createAdmin();
@@ -191,5 +179,77 @@ describe("solicitudes de vacaciones", () => {
 
     const teamEntry = dashboard.body.team.find((t: { id: string }) => t.id === worker.id);
     expect(teamEntry.status).toBe("on_vacation");
+  });
+
+  it("solicitar vacaciones notifica al supervisor", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+
+    await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(5), endDate: isoDateOffset(10) });
+
+    const notifications = await request(app)
+      .get("/api/notifications")
+      .set(...authHeader(supervisorToken));
+    expect(
+      notifications.body.items.some((n: { type: string }) => n.type === "vacation_requested"),
+    ).toBe(true);
+  });
+
+  it("el supervisor puede cambiar de opinión sobre una decisión antes de que empiecen las vacaciones", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    const created = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(5), endDate: isoDateOffset(10) });
+    await request(app)
+      .post(`/api/vacations/${created.body.id}/approve`)
+      .set(...authHeader(supervisorToken));
+
+    const changed = await request(app)
+      .post(`/api/vacations/${created.body.id}/reject`)
+      .set(...authHeader(supervisorToken));
+
+    expect(changed.status).toBe(200);
+    expect(changed.body.status).toBe("rejected");
+  });
+
+  it("no se puede cambiar la decisión una vez han empezado las vacaciones", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    const created = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(0), endDate: isoDateOffset(3) });
+    await request(app)
+      .post(`/api/vacations/${created.body.id}/approve`)
+      .set(...authHeader(supervisorToken));
+
+    const res = await request(app)
+      .post(`/api/vacations/${created.body.id}/reject`)
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(409);
+  });
+
+  it("no se puede decidir sobre una solicitud ya cancelada", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    const created = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(5), endDate: isoDateOffset(10) });
+    await request(app)
+      .post(`/api/vacations/${created.body.id}/cancel`)
+      .set(...authHeader(worker.token));
+
+    const res = await request(app)
+      .post(`/api/vacations/${created.body.id}/approve`)
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(409);
   });
 });

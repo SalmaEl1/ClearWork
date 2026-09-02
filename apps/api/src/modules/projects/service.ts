@@ -10,7 +10,7 @@ import { recordActivity } from "../../shared/activityLog.js";
 import { toCsv } from "../../shared/csv.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors.js";
 import { notify } from "../../shared/notifications.js";
-import { listTasksForProject } from "../tasks/repository.js";
+import { listTasksForProject, sumLoggedMinutesForTasks } from "../tasks/repository.js";
 import { toTaskDTO } from "../tasks/service.js";
 import { findUserById, listUsersByRole } from "../users/repository.js";
 import * as repo from "./repository.js";
@@ -75,6 +75,19 @@ async function assertIsWorker(userId: string): Promise<void> {
   }
 }
 
+/** Un supervisor tiene como mucho un proyecto activo a su cargo. Los
+ * archivados no cuentan: archivar el suyo le deja hueco para otro. */
+async function assertSupervisorHasCapacity(
+  supervisorId: string,
+  excludeProjectId?: string,
+): Promise<void> {
+  const projects = await repo.listProjectsForSupervisor(supervisorId);
+  const hasActiveOther = projects.some((p) => !p.is_archived && p.id !== excludeProjectId);
+  if (hasActiveOther) {
+    throw new ConflictError("Este supervisor ya tiene un proyecto activo a su cargo");
+  }
+}
+
 /** Nombre a mostrar en la actividad del admin; null si no se encuentra (no
  * debería pasar, pero no es motivo para romper la operación real). */
 async function resolveUserName(userId: string): Promise<string | null> {
@@ -84,6 +97,7 @@ async function resolveUserName(userId: string): Promise<string | null> {
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectDTO> {
   await assertIsSupervisor(input.supervisorId);
+  await assertSupervisorHasCapacity(input.supervisorId);
 
   const project = await repo.createProject({
     name: input.name,
@@ -95,6 +109,7 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectD
   if (supervisorName) {
     await recordActivity({ type: "project_created", projectName: project.name, supervisorName });
   }
+  await notify(input.supervisorId, { type: "project_assigned", projectName: project.name });
 
   return toProjectDTO(project);
 }
@@ -144,7 +159,8 @@ export async function getProjectTasks(projectId: string): Promise<TaskDTO[]> {
   if (!project) throw new NotFoundError("Proyecto no encontrado");
 
   const tasks = await listTasksForProject(projectId);
-  return tasks.map(toTaskDTO);
+  const loggedByTask = await sumLoggedMinutesForTasks(tasks.map((t) => t.id));
+  return tasks.map((t) => toTaskDTO(t, loggedByTask.get(t.id) ?? 0));
 }
 
 export async function updateProject(
@@ -158,6 +174,16 @@ export async function updateProject(
 
   if (input.supervisorId) {
     await assertIsSupervisor(input.supervisorId);
+  }
+
+  // Si el proyecto va a quedar activo (o ya lo estaba) bajo un supervisor
+  // nuevo, o si se desarchiva para el mismo, hay que comprobar que ese
+  // supervisor tenga hueco: como mucho un proyecto activo a la vez.
+  const resultingArchived = input.isArchived ?? existing.is_archived;
+  const supervisorChanging = input.supervisorId !== undefined && input.supervisorId !== existing.supervisor_id;
+  const unarchiving = input.isArchived === false && existing.is_archived;
+  if (!resultingArchived && (supervisorChanging || unarchiving)) {
+    await assertSupervisorHasCapacity(input.supervisorId ?? existing.supervisor_id, projectId);
   }
 
   const updated = await repo.updateProjectById(projectId, input);
@@ -192,6 +218,7 @@ export async function updateProject(
       type: "project_supervisor_removed",
       projectName: updated.name,
     });
+    await notify(input.supervisorId, { type: "project_assigned", projectName: updated.name });
   }
 
   return toProjectDTO(updated);
@@ -368,4 +395,16 @@ export async function removeMemberFromMyProject(
   const owned = await repo.findProjectForSupervisor(projectId, supervisorId);
   if (!owned) throw new NotFoundError("Proyecto no encontrado");
   return removeMember(projectId, userId);
+}
+
+/** El supervisor del proyecto en el que está activo este trabajador
+ * ahora mismo, o null si no tiene ninguno. Para notificar al supervisor
+ * de eventos de su equipo que no pasan por projects/service.ts (p. ej.
+ * una solicitud de vacaciones o una ausencia programada). */
+export async function findSupervisorIdForWorker(workerId: string): Promise<string | null> {
+  const membership = await repo.findActiveMembership(workerId);
+  if (!membership) return null;
+
+  const project = await repo.findProjectById(membership.project_id);
+  return project?.supervisor_id ?? null;
 }

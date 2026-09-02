@@ -4,20 +4,50 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import { fetchTasks, updateTaskStatus } from "../../api/tasks.js";
+import { KanbanBoard } from "../../components/KanbanBoard.js";
+import { Pagination } from "../../components/Pagination.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
 
 type StatusFilter = TaskStatus | "all";
+type ViewMode = "list" | "board";
+
+const DEFAULT_PAGE_SIZE = 10;
+// El tablero quiere ver las tres columnas completas a la vez, no una
+// página: pedir "todo" de una tacada es más simple que paginar cada
+// columna por separado, y en la práctica el volumen de tareas de una
+// sola persona no se acerca a este límite.
+const BOARD_PAGE_SIZE = 500;
 
 export function WorkerTasks() {
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [tasks, setTasks] = useState<TaskDTO[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    fetchTasks(statusFilter === "all" ? {} : { status: statusFilter })
-      .then(setTasks)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las tareas"));
+  useEffect(() => {
+    setPage(1);
   }, [statusFilter]);
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+  }
+
+  const load = useCallback(() => {
+    const query =
+      viewMode === "board"
+        ? { page: 1, pageSize: BOARD_PAGE_SIZE }
+        : { status: statusFilter === "all" ? undefined : statusFilter, page, pageSize };
+    fetchTasks(query)
+      .then((result) => {
+        setTasks(result.items);
+        setTotal(result.total);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las tareas"));
+  }, [viewMode, statusFilter, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -37,11 +67,37 @@ export function WorkerTasks() {
     <div className="dashboard-grid">
       <div className="page-header">
         <h2>Mis tareas</h2>
+        <div className="row-actions">
+          <button
+            type="button"
+            className={viewMode === "list" ? undefined : "secondary"}
+            onClick={() => setViewMode("list")}
+          >
+            Lista
+          </button>
+          <button
+            type="button"
+            className={viewMode === "board" ? undefined : "secondary"}
+            onClick={() => setViewMode("board")}
+          >
+            Tablero
+          </button>
+        </div>
       </div>
       {error && <div className="error-banner">{error}</div>}
       {!tasks && !error && <p>Cargando…</p>}
 
-      {tasks && (
+      {tasks && viewMode === "board" && (
+        <div className="table-scroll">
+          <KanbanBoard
+            tasks={tasks}
+            taskLink={(t) => `/worker/tasks/${t.id}`}
+            onStatusChange={handleStatusChange}
+          />
+        </div>
+      )}
+
+      {tasks && viewMode === "list" && (
         <div className="card">
           <div className="filter-bar">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
@@ -111,6 +167,14 @@ export function WorkerTasks() {
               </table>
             </div>
           )}
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </div>
       )}
     </div>

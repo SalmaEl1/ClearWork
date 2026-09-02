@@ -1,11 +1,3 @@
-import type { TaskStatus } from "@clearwork/shared";
-
-const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  pending: "pendiente",
-  in_progress: "en curso",
-  done: "hecha",
-};
-
 const SIGNATURE_TEXT = "Atentamente,\nEl equipo de ClearWork";
 const SIGNATURE_HTML = "<p>Atentamente,<br>El equipo de ClearWork</p>";
 
@@ -103,75 +95,41 @@ export function passwordResetEmailTemplate(input: PasswordResetEmailInput): Emai
   return { subject, text, html };
 }
 
-export type TaskAssignedEmailInput = {
+export type NotificationEmailInput = {
   fullName: string;
-  taskTitle: string;
-  projectName: string;
-  dueDate: string | null;
-  taskUrl: string;
+  message: string;
+  link: string | null;
 };
 
-/** Correo al trabajador cuando una tarea se le asigna (al crearla o al
- * reasignarla), tanto desde tasks/service.ts. */
-export function taskAssignedEmailTemplate(input: TaskAssignedEmailInput): EmailContent {
-  const subject = `Se le ha asignado una nueva tarea: ${input.taskTitle}`;
-
-  const dueDateLine = input.dueDate ? `Fecha límite: ${input.dueDate}` : null;
+/**
+ * Correo genérico para cualquier tipo de notificación (issue #112): el
+ * mismo texto que se ve dentro de la plataforma (notificationMessage, en
+ * @clearwork/shared), en vez de una plantilla dedicada por tipo. Antes
+ * solo task_assigned y task_status_changed tenían su propio correo
+ * (taskAssignedEmailTemplate / taskStatusChangedEmailTemplate, más
+ * abajo); ahora que cualquier tipo puede mandarse por correo según la
+ * preferencia de cada persona, mantener una plantilla distinta por tipo
+ * habría significado escribir y mantener ocho más solo para esto.
+ */
+export function notificationEmailTemplate(input: NotificationEmailInput): EmailContent {
+  const subject = "Tiene una notificación nueva en ClearWork";
 
   const text = [
     `Estimado/a ${input.fullName}:`,
     "",
-    `Se le ha asignado la tarea "${input.taskTitle}" en el proyecto ${input.projectName}.`,
-    ...(dueDateLine ? [dueDateLine] : []),
-    "",
-    `Puede consultarla en el siguiente enlace: ${input.taskUrl}`,
+    input.message,
+    ...(input.link ? ["", `Puede consultarlo en el siguiente enlace: ${input.link}`] : []),
     "",
     SIGNATURE_TEXT,
   ].join("\n");
 
   const html = `
     <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
-    <p>Se le ha asignado la tarea <strong>${escapeHtml(input.taskTitle)}</strong> en el proyecto ${escapeHtml(input.projectName)}.</p>
-    ${dueDateLine ? `<p>${escapeHtml(dueDateLine)}</p>` : ""}
-    <p><a href="${escapeHtml(input.taskUrl)}">Consultar la tarea</a></p>
+    <p>${escapeHtml(input.message)}</p>
+    ${input.link ? `<p><a href="${escapeHtml(input.link)}">Consultarlo aquí</a></p>` : ""}
     ${SIGNATURE_HTML}
   `.trim();
 
   return { subject, text, html };
 }
 
-export type TaskStatusChangedEmailInput = {
-  fullName: string;
-  actorName: string;
-  taskTitle: string;
-  projectName: string;
-  status: TaskStatus;
-  taskUrl: string;
-};
-
-/** Correo a "la otra parte" cuando cambia el estado de una tarea: al
- * supervisor si cambia el trabajador, al trabajador asignado si cambia
- * el supervisor. Ver tasks/service.ts's updateTaskStatus. */
-export function taskStatusChangedEmailTemplate(input: TaskStatusChangedEmailInput): EmailContent {
-  const statusLabel = TASK_STATUS_LABEL[input.status];
-  const subject = `Actualización del estado de la tarea: ${input.taskTitle}`;
-
-  const text = [
-    `Estimado/a ${input.fullName}:`,
-    "",
-    `Le informamos de que ${input.actorName} ha actualizado el estado de la tarea "${input.taskTitle}" (${input.projectName}) a ${statusLabel}.`,
-    "",
-    `Puede consultarla en el siguiente enlace: ${input.taskUrl}`,
-    "",
-    SIGNATURE_TEXT,
-  ].join("\n");
-
-  const html = `
-    <p>Estimado/a ${escapeHtml(input.fullName)}:</p>
-    <p>Le informamos de que ${escapeHtml(input.actorName)} ha actualizado el estado de la tarea <strong>${escapeHtml(input.taskTitle)}</strong> (${escapeHtml(input.projectName)}) a <strong>${escapeHtml(statusLabel)}</strong>.</p>
-    <p><a href="${escapeHtml(input.taskUrl)}">Consultar la tarea</a></p>
-    ${SIGNATURE_HTML}
-  `.trim();
-
-  return { subject, text, html };
-}

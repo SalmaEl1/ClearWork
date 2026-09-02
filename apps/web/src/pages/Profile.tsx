@@ -84,6 +84,18 @@ function SecurityCard() {
   );
 }
 
+function NotificationsCard() {
+  return (
+    <div className="card">
+      <h3>Notificaciones</h3>
+      <p>Elige por dónde quieres recibir cada tipo de aviso.</p>
+      <Link to="/profile/notifications" className="link-button">
+        Gestionar notificaciones
+      </Link>
+    </div>
+  );
+}
+
 export function Profile() {
   const [profile, setProfile] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +115,7 @@ export function Profile() {
       <div className="dashboard-grid__row">
         {profile && <EditProfileForm profile={profile} onSaved={load} />}
         <SecurityCard />
+        <NotificationsCard />
       </div>
     </div>
   );

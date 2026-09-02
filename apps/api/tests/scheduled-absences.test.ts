@@ -165,4 +165,48 @@ describe("ausencias puntuales programadas", () => {
     const teamEntry = dashboard.body.team.find((t: { id: string }) => t.id === worker.id);
     expect(teamEntry.status).not.toBe("on_scheduled_absence");
   });
+
+  it("programar una ausencia notifica al supervisor", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+
+    await request(app)
+      .post("/api/scheduled-absences")
+      .set(...authHeader(worker.token))
+      .send({ date: isoDateOffset(1), startTime: "10:00", endTime: "11:00", reason: "Cita médica" });
+
+    const notifications = await request(app)
+      .get("/api/notifications")
+      .set(...authHeader(supervisorToken));
+    expect(
+      notifications.body.items.some((n: { type: string }) => n.type === "absence_scheduled"),
+    ).toBe(true);
+  });
+
+  it("un supervisor consulta las ausencias puntuales de alguien de su equipo (issue #101)", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    await request(app)
+      .post("/api/scheduled-absences")
+      .set(...authHeader(worker.token))
+      .send({ date: isoDateOffset(1), startTime: "10:00", endTime: "11:00", reason: "Cita médica" });
+
+    const res = await request(app)
+      .get(`/api/scheduled-absences/team/${worker.id}`)
+      .set(...authHeader(supervisorToken));
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].reason).toBe("Cita médica");
+  });
+
+  it("un supervisor no puede consultar las ausencias de quien no es de su equipo", async () => {
+    const admin = await createAdmin();
+    const outsider = await createWorker(admin.token);
+    const { supervisorToken } = await setupTeam(admin.token);
+
+    const res = await request(app)
+      .get(`/api/scheduled-absences/team/${outsider.id}`)
+      .set(...authHeader(supervisorToken));
+    expect(res.status).toBe(404);
+  });
 });

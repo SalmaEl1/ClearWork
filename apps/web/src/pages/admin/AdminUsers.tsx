@@ -18,7 +18,7 @@ import { ROLE_LABEL } from "../../constants.js";
 
 type RoleFilter = AdminCreatableRole | "all";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 
 /** Para un trabajador es el proyecto del que es miembro (0 o 1); para
  * un supervisor, los proyectos que supervisa (puede llevar varios). */
@@ -229,6 +229,7 @@ export function AdminUsers() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [isExporting, setIsExporting] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -246,12 +247,17 @@ export function AdminUsers() {
     setPage(1);
   }, [search, roleFilter]);
 
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+  }
+
   const load = useCallback(() => {
     fetchAdminUsers({
       search: search || undefined,
       role: roleFilter === "all" ? undefined : roleFilter,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
     })
       .then((result) => {
         setUsers(result.items);
@@ -262,7 +268,7 @@ export function AdminUsers() {
         setSelectedIds(new Set());
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la lista"));
-  }, [search, roleFilter, page]);
+  }, [search, roleFilter, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -429,7 +435,13 @@ export function AdminUsers() {
           />
         )}
 
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
     </div>
   );

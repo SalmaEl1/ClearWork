@@ -1,6 +1,6 @@
 import type { BreakType } from "@clearwork/shared";
 import { pool } from "../../db/pool.js";
-import type { BreakRow, TaskSegmentRow, WorkSessionRow } from "./types.js";
+import type { BreakRow, WorkSessionRow } from "./types.js";
 
 export async function findOpenSessionForUser(
   userId: string,
@@ -158,79 +158,6 @@ export async function listOpenSessionsForUsers(
   const result = await pool.query<WorkSessionRow>(
     "SELECT * FROM work_sessions WHERE user_id = ANY($1) AND ended_at IS NULL",
     [userIds],
-  );
-  return result.rows;
-}
-
-export async function findOpenSegmentForSession(
-  workSessionId: string,
-): Promise<TaskSegmentRow | null> {
-  const result = await pool.query<TaskSegmentRow>(
-    "SELECT * FROM session_task_segments WHERE work_session_id = $1 AND ended_at IS NULL",
-    [workSessionId],
-  );
-  return result.rows[0] ?? null;
-}
-
-/** Variante en lote de findOpenSegmentForSession, para el estado en vivo
- * del equipo del supervisor (dashboard/service.ts). */
-export async function findOpenSegmentsForSessions(
-  workSessionIds: string[],
-): Promise<TaskSegmentRow[]> {
-  if (workSessionIds.length === 0) return [];
-  const result = await pool.query<TaskSegmentRow>(
-    "SELECT * FROM session_task_segments WHERE work_session_id = ANY($1) AND ended_at IS NULL",
-    [workSessionIds],
-  );
-  return result.rows;
-}
-
-export async function createSegment(
-  workSessionId: string,
-  taskId: string | null,
-  description: string | null,
-): Promise<TaskSegmentRow> {
-  const result = await pool.query<TaskSegmentRow>(
-    `INSERT INTO session_task_segments (work_session_id, task_id, description)
-     VALUES ($1, $2, $3)
-     RETURNING *`,
-    [workSessionId, taskId, description],
-  );
-  const row = result.rows[0];
-  if (!row) throw new Error("INSERT de session_task_segment no devolvió ninguna fila");
-  return row;
-}
-
-export async function closeOpenSegment(
-  workSessionId: string,
-  endedAt: Date,
-): Promise<TaskSegmentRow | null> {
-  const result = await pool.query<TaskSegmentRow>(
-    `UPDATE session_task_segments
-     SET ended_at = $2
-     WHERE work_session_id = $1 AND ended_at IS NULL
-     RETURNING *`,
-    [workSessionId, endedAt],
-  );
-  return result.rows[0] ?? null;
-}
-
-export async function listSegmentsForSession(workSessionId: string): Promise<TaskSegmentRow[]> {
-  const result = await pool.query<TaskSegmentRow>(
-    "SELECT * FROM session_task_segments WHERE work_session_id = $1 ORDER BY started_at ASC",
-    [workSessionId],
-  );
-  return result.rows;
-}
-
-/** Variante en lote para no hacer una consulta por jornada al listar el historial. */
-export async function listSegmentsForSessions(
-  workSessionIds: string[],
-): Promise<TaskSegmentRow[]> {
-  if (workSessionIds.length === 0) return [];
-  const result = await pool.query<TaskSegmentRow>(
-    "SELECT * FROM session_task_segments WHERE work_session_id = ANY($1) ORDER BY started_at ASC",
-    [workSessionIds],
   );
   return result.rows;
 }

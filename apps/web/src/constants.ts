@@ -2,6 +2,8 @@ import type {
   ActivityEventType,
   BreakType,
   LeaveType,
+  NotificationChannel,
+  NotificationType,
   Role,
   TaskStatus,
   VacationStatus,
@@ -57,6 +59,30 @@ export const VACATION_STATUS_PILL_CLASS: Record<VacationStatus, string> = {
   approved: "status-ok",
   rejected: "status-danger",
   cancelled: "status-neutral",
+};
+
+/** Para la pantalla de preferencias de notificación (issue #112, Perfil →
+ * Notificaciones). En primera persona, como se leen en la propia lista de
+ * notificaciones (ver lib/notifications.ts), no como el feed de
+ * actividad del admin. */
+export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  task_assigned: "Se le asigna una tarea",
+  task_unassigned: "Se le retira una tarea",
+  task_status_changed: "Cambia el estado de una tarea suya",
+  project_member_added: "Se le incorpora a un proyecto",
+  project_member_removed: "Se le retira de un proyecto",
+  project_supervisor_removed: "Deja de supervisar un proyecto",
+  project_assigned: "Se le asigna un proyecto",
+  vacation_decided: "Se decide una solicitud de vacaciones suya",
+  vacation_requested: "Alguien de su equipo solicita vacaciones",
+  absence_scheduled: "Alguien de su equipo programa una ausencia",
+};
+
+export const NOTIFICATION_CHANNEL_LABEL: Record<NotificationChannel, string> = {
+  in_app: "Solo en la plataforma",
+  email: "Solo por correo",
+  both: "Plataforma y correo",
+  none: "No recibir",
 };
 
 /** Para el filtro por tipo en /admin/activity. */

@@ -9,12 +9,11 @@ import type {
 import { findActiveLeavesForUsers } from "../leaves/repository.js";
 import { listActiveWorkersForSupervisor, listProjectsForSupervisor } from "../projects/repository.js";
 import { findActiveScheduledAbsencesForUsers } from "../scheduled-absences/repository.js";
-import { countTaskStatusesForSupervisor, findTaskById } from "../tasks/repository.js";
+import { countTaskStatusesForSupervisor } from "../tasks/repository.js";
 import { findUserById } from "../users/repository.js";
 import { findActiveApprovedVacationsForUsers } from "../vacations/repository.js";
 import {
   findOpenBreakForSession,
-  findOpenSegmentsForSessions,
   findOpenSessionForUser,
   listBreaksForSessions,
   listOpenSessionsForUsers,
@@ -144,14 +143,6 @@ export async function getSupervisorDashboard(
     openSessionBreaks.filter((b) => b.ended_at === null).map((b) => [b.work_session_id, b]),
   );
 
-  // Para "en qué tarea está trabajando cada persona": el tramo abierto
-  // de cada jornada abierta, con el título de su tarea ya resuelto.
-  const openSegments = await findOpenSegmentsForSessions(openSessions.map((s) => s.id));
-  const openSegmentBySession = new Map(openSegments.map((s) => [s.work_session_id, s]));
-  const activeTaskIds = [...new Set(openSegments.map((s) => s.task_id).filter((id): id is string => id !== null))];
-  const activeTasks = await Promise.all(activeTaskIds.map((id) => findTaskById(id)));
-  const taskTitleById = new Map(activeTasks.filter((t) => t !== null).map((t) => [t.id, t.title]));
-
   const team: TeamMemberSummary[] = workers.map((worker) => {
     const hoursThisWeek =
       sumWorkedMinutes(weekSessionsByUser.get(worker.id) ?? [], weekBreaksBySession) / 60;
@@ -175,10 +166,6 @@ export async function getSupervisorDashboard(
       status = openBreak ? "on_break" : "working";
     }
 
-    const openSegment = openSession ? openSegmentBySession.get(openSession.id) : undefined;
-    const activeTaskTitle =
-      status === "working" && openSegment?.task_id ? (taskTitleById.get(openSegment.task_id) ?? null) : null;
-
     return {
       id: worker.id,
       fullName: worker.full_name,
@@ -186,7 +173,6 @@ export async function getSupervisorDashboard(
       breakType: openBreak?.type ?? null,
       leaveType: activeLeave?.type ?? null,
       scheduledAbsenceReason: activeScheduledAbsence?.reason ?? null,
-      activeTaskTitle,
       hoursThisWeek,
     };
   });

@@ -5,9 +5,9 @@ import { ApiError } from "../../api/client.js";
 import { fetchAdminActivity } from "../../api/admin.js";
 import { Pagination } from "../../components/Pagination.js";
 import { ACTIVITY_EVENT_TYPE_LABEL } from "../../constants.js";
-import { activityMessage, formatRelativeTime } from "../../lib/activity.js";
+import { activityIcon, activityMessage, formatRelativeTime } from "../../lib/activity.js";
 
-const PAGE_SIZE = 30;
+const DEFAULT_PAGE_SIZE = 10;
 
 type TypeFilter = ActivityEventType | "all";
 
@@ -17,23 +17,29 @@ export function AdminActivity() {
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
   }, [typeFilter]);
 
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+  }
+
   const load = useCallback(() => {
     fetchAdminActivity({
       type: typeFilter === "all" ? undefined : typeFilter,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
     })
       .then((result) => {
         setEvents(result.items);
         setTotal(result.total);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la actividad"));
-  }, [typeFilter, page]);
+  }, [typeFilter, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -65,16 +71,28 @@ export function AdminActivity() {
 
         {events && events.length > 0 && (
           <ul className="activity-list">
-            {events.map((event, index) => (
-              <li key={`${event.type}-${event.occurredAt}-${index}`} className="activity-list__item">
-                <span>{activityMessage(event)}</span>
-                <span className="activity-list__time">{formatRelativeTime(event.occurredAt)}</span>
-              </li>
-            ))}
+            {events.map((event, index) => {
+              const Icon = activityIcon(event.type);
+              return (
+                <li key={`${event.type}-${event.occurredAt}-${index}`} className="activity-list__item">
+                  <span className="activity-list__message">
+                    <Icon />
+                    {activityMessage(event)}
+                  </span>
+                  <span className="activity-list__time">{formatRelativeTime(event.occurredAt)}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
 
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
     </div>
   );

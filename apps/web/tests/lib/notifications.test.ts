@@ -49,6 +49,11 @@ describe("notificationMessage", () => {
     expect(notificationMessage(n)).toBe("Ya no supervisa el proyecto Web.");
   });
 
+  it("describe que se le ha asignado un proyecto", () => {
+    const n = base({ type: "project_assigned", projectName: "Web" });
+    expect(notificationMessage(n)).toBe("Se le ha asignado el proyecto Web.");
+  });
+
   it("describe una solicitud de vacaciones aprobada", () => {
     const n = base({ type: "vacation_decided", status: "approved", startDate: "2026-03-01", endDate: "2026-03-10" });
     expect(notificationMessage(n)).toBe(
@@ -96,5 +101,11 @@ describe("notificationLink", () => {
     const n = base({ type: "vacation_decided", status: "approved", startDate: "2026-03-01", endDate: "2026-03-10" });
     expect(notificationLink(n, "worker")).toBe("/worker/vacations");
     expect(notificationLink(n, "supervisor")).toBeNull();
+  });
+
+  it("enlaza a /supervisor/projects para project_assigned, solo si quien la recibe es supervisor", () => {
+    const n = base({ type: "project_assigned", projectName: "Web" });
+    expect(notificationLink(n, "supervisor")).toBe("/supervisor/projects");
+    expect(notificationLink(n, "worker")).toBeNull();
   });
 });

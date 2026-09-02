@@ -14,7 +14,9 @@ import {
   updateTaskStatus,
 } from "../../api/tasks.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
+import { KanbanBoard } from "../../components/KanbanBoard.js";
 import { Modal } from "../../components/Modal.js";
+import { Pagination } from "../../components/Pagination.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
 import { todayDateString } from "../../lib/dates.js";
 
@@ -23,6 +25,7 @@ type TaskFormValues = {
   description: string;
   assigneeId: string;
   dueDate: string;
+  estimatedHours: string;
 };
 
 function TaskForm({
@@ -40,6 +43,7 @@ function TaskForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [assigneeId, setAssigneeId] = useState(initial?.assigneeId ?? "");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [estimatedHours, setEstimatedHours] = useState(initial?.estimatedHours ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,7 +64,7 @@ function TaskForm({
     }
     setIsSubmitting(true);
     try {
-      await onSubmit({ title, description, assigneeId, dueDate });
+      await onSubmit({ title, description, assigneeId, dueDate, estimatedHours });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo guardar");
     } finally {
@@ -95,6 +99,16 @@ function TaskForm({
           <span>Fecha límite (opcional)</span>
           <input type="date" min={dateMin} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </label>
+        <label>
+          <span>Horas estimadas (opcional)</span>
+          <input
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={estimatedHours}
+            onChange={(e) => setEstimatedHours(e.target.value)}
+          />
+        </label>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Guardando…" : submitLabel}
         </button>
@@ -104,6 +118,7 @@ function TaskForm({
 }
 
 type StatusFilter = TaskStatus | "all";
+type ViewMode = "list" | "board";
 
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "Todas",
@@ -112,11 +127,20 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   done: "Completada",
 };
 
+const DEFAULT_PAGE_SIZE = 10;
+// Igual que en WorkerTasks: el tablero quiere las tres columnas
+// completas del proyecto a la vez, no una página.
+const BOARD_PAGE_SIZE = 500;
+
 export function SupervisorTasks() {
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [tasks, setTasks] = useState<TaskDTO[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [members, setMembers] = useState<ProjectMemberDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -133,16 +157,34 @@ export function SupervisorTasks() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar los proyectos"));
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [selectedProjectId, statusFilter]);
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+  }
+
   const loadTasksAndMembers = useCallback(() => {
     if (!selectedProjectId) return;
-    const filters = statusFilter === "all" ? { projectId: selectedProjectId } : { projectId: selectedProjectId, status: statusFilter };
+    const filters =
+      viewMode === "board"
+        ? { projectId: selectedProjectId, page: 1, pageSize: BOARD_PAGE_SIZE }
+        : {
+            projectId: selectedProjectId,
+            status: statusFilter === "all" ? undefined : statusFilter,
+            page,
+            pageSize,
+          };
     Promise.all([fetchTasks(filters), fetchMyProjectMembers(selectedProjectId)])
-      .then(([taskList, memberList]) => {
-        setTasks(taskList);
+      .then(([taskPage, memberList]) => {
+        setTasks(taskPage.items);
+        setTotal(taskPage.total);
         setMembers(memberList);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las tareas"));
-  }, [selectedProjectId, statusFilter]);
+  }, [selectedProjectId, viewMode, statusFilter, page, pageSize]);
 
   useEffect(() => {
     loadTasksAndMembers();
@@ -162,6 +204,7 @@ export function SupervisorTasks() {
       description: values.description || null,
       assigneeId: values.assigneeId || null,
       dueDate: values.dueDate || null,
+      estimatedHours: values.estimatedHours ? Number(values.estimatedHours) : null,
     });
     setIsCreateOpen(false);
     loadTasksAndMembers();
@@ -178,6 +221,7 @@ export function SupervisorTasks() {
       title: values.title,
       description: values.description || null,
       assigneeId: values.assigneeId || null,
+      estimatedHours: values.estimatedHours ? Number(values.estimatedHours) : null,
       ...(dueDateChanged ? { dueDate: values.dueDate || null } : {}),
     });
     setEditingTask(null);
@@ -213,25 +257,43 @@ export function SupervisorTasks() {
     <div className="dashboard-grid">
       <div className="page-header">
         <h2>Tareas</h2>
-        {selectedProject && !selectedProject.isArchived && (
-          <button type="button" onClick={() => setIsCreateOpen(true)}>
-            + Nueva tarea
+        <div className="row-actions">
+          <button
+            type="button"
+            className={viewMode === "list" ? undefined : "secondary"}
+            onClick={() => setViewMode("list")}
+          >
+            Lista
           </button>
-        )}
+          <button
+            type="button"
+            className={viewMode === "board" ? undefined : "secondary"}
+            onClick={() => setViewMode("board")}
+          >
+            Tablero
+          </button>
+          {selectedProject && !selectedProject.isArchived && (
+            <button type="button" onClick={() => setIsCreateOpen(true)}>
+              + Nueva tarea
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="filter-bar">
-        {(["all", ...TASK_STATUSES] as StatusFilter[]).map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={s === statusFilter ? undefined : "secondary"}
-            onClick={() => setStatusFilter(s)}
-          >
-            {STATUS_FILTER_LABEL[s]}
-          </button>
-        ))}
-      </div>
+      {viewMode === "list" && (
+        <div className="filter-bar">
+          {(["all", ...TASK_STATUSES] as StatusFilter[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={s === statusFilter ? undefined : "secondary"}
+              onClick={() => setStatusFilter(s)}
+            >
+              {STATUS_FILTER_LABEL[s]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <div className="error-banner">{error}</div>}
       {!projects && !error && <p>Cargando…</p>}
@@ -252,14 +314,26 @@ export function SupervisorTasks() {
           </label>
 
           {!tasks && <p>Cargando tareas…</p>}
-          {tasks && tasks.length === 0 && (
+
+          {tasks && viewMode === "board" && (
+            <div className="table-scroll">
+              <KanbanBoard
+                tasks={tasks}
+                taskLink={(t) => `/supervisor/tasks/${t.id}`}
+                assigneeName={memberName}
+                onStatusChange={handleStatusChange}
+              />
+            </div>
+          )}
+
+          {tasks && viewMode === "list" && tasks.length === 0 && (
             <p>
               {statusFilter === "all"
                 ? "Todavía no hay tareas en este proyecto."
                 : "No hay tareas en ese estado."}
             </p>
           )}
-          {tasks && tasks.length > 0 && (
+          {tasks && viewMode === "list" && tasks.length > 0 && (
             <div className="table-scroll">
               <table>
                 <thead>
@@ -315,6 +389,16 @@ export function SupervisorTasks() {
               </table>
             </div>
           )}
+
+          {viewMode === "list" && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
         </div>
       )}
 
@@ -333,6 +417,7 @@ export function SupervisorTasks() {
               description: editingTask.description ?? "",
               assigneeId: editingTask.assigneeId ?? "",
               dueDate: editingTask.dueDate ?? "",
+              estimatedHours: editingTask.estimatedHours?.toString() ?? "",
             }}
             onSubmit={handleEdit}
             submitLabel="Guardar cambios"

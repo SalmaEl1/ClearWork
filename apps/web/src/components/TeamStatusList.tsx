@@ -1,5 +1,6 @@
 import type { TeamMemberStatus, TeamMemberSummary } from "@clearwork/shared";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { LEAVE_TYPE_LABEL } from "../constants.js";
 import { Modal } from "./Modal.js";
 import { RegisterLeaveForm } from "./RegisterLeaveForm.js";
@@ -50,16 +51,18 @@ export function TeamStatusList({ team, onChanged }: { team: TeamMemberSummary[];
                 {member.status === "on_scheduled_absence" && member.scheduledAbsenceReason
                   ? ` (${member.scheduledAbsenceReason})`
                   : ""}
-                {member.status === "working"
-                  ? ` (${member.activeTaskTitle ?? "sin tarea concreta"})`
-                  : ""}
               </span>
               <span className="team-list__hours">{member.hoursThisWeek.toFixed(1)} h esta semana</span>
-              {member.status !== "on_leave" && (
-                <button type="button" className="secondary" onClick={() => setRegisteringFor(member)}>
-                  Registrar baja
-                </button>
-              )}
+              <div className="row-actions">
+                <Link to={`/supervisor/team/${member.id}/history`} className="link-button">
+                  Ver historial →
+                </Link>
+                {member.status !== "on_leave" && (
+                  <button type="button" className="secondary" onClick={() => setRegisteringFor(member)}>
+                    Registrar baja
+                  </button>
+                )}
+              </div>
             </li>
           );
         })}

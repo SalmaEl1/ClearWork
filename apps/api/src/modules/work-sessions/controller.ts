@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
-import { clockInSchema, historyQuerySchema, switchTaskSchema } from "./schemas.js";
+import { historyQuerySchema } from "./schemas.js";
 import * as service from "./service.js";
 
 function requireUserId(req: Request): string {
@@ -10,19 +10,8 @@ function requireUserId(req: Request): string {
 
 export async function clockInHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const input = clockInSchema.parse(req.body ?? {});
-    const session = await service.clockIn(requireUserId(req), input);
+    const session = await service.clockIn(requireUserId(req));
     res.status(201).json(session);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function switchTaskHandler(req: Request, res: Response, next: NextFunction) {
-  try {
-    const input = switchTaskSchema.parse(req.body ?? {});
-    const session = await service.switchTask(requireUserId(req), input);
-    res.status(200).json(session);
   } catch (err) {
     next(err);
   }
@@ -72,6 +61,24 @@ export async function getHistoryHandler(req: Request, res: Response, next: NextF
   try {
     const { limit } = historyQuerySchema.parse(req.query);
     const sessions = await service.getHistory(requireUserId(req), limit);
+    res.status(200).json(sessions);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTeamMemberHistoryHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { limit } = historyQuerySchema.parse(req.query);
+    const sessions = await service.getHistoryForTeamMember(
+      requireUserId(req),
+      req.params.userId as string,
+      limit,
+    );
     res.status(200).json(sessions);
   } catch (err) {
     next(err);

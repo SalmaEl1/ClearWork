@@ -14,13 +14,19 @@ vi.mock("../../src/api/vacations.js", () => ({
   rejectVacationRequest,
 }));
 
+function isoOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function request(overrides: Partial<TeamVacationRequestDTO> = {}): TeamVacationRequestDTO {
   return {
     id: "v1",
     userId: "u1",
     userFullName: "Juan Worker",
-    startDate: "2026-03-01",
-    endDate: "2026-03-10",
+    startDate: isoOffset(10),
+    endDate: isoOffset(19),
     status: "pending",
     decidedBy: null,
     decidedAt: null,
@@ -45,7 +51,7 @@ describe("SupervisorVacations", () => {
   it("lista las solicitudes del equipo con quién la pidió", async () => {
     render(<SupervisorVacations />);
     expect(await screen.findByText("Juan Worker")).toBeInTheDocument();
-    expect(screen.getByText("2026-03-01 – 2026-03-10")).toBeInTheDocument();
+    expect(screen.getByText(`${isoOffset(10)} – ${isoOffset(19)}`)).toBeInTheDocument();
   });
 
   it("aprueba una solicitud pendiente", async () => {

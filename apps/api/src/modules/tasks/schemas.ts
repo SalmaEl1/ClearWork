@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TASK_STATUSES } from "@clearwork/shared";
+import { TASK_STATUSES, TIME_ENTRY_UNITS } from "@clearwork/shared";
 import { todayDateString } from "../../shared/time.js";
 
 /** Comparación lexicográfica de cadenas AAAA-MM-DD: es válida porque ese
@@ -16,6 +16,7 @@ export const createTaskSchema = z
     description: z.string().trim().min(1).nullish(),
     assigneeId: z.string().uuid().nullish(),
     dueDate: z.string().date("dueDate debe tener formato AAAA-MM-DD").nullish(),
+    estimatedHours: z.coerce.number().positive().nullish(),
   })
   .refine((body) => isDueDateOnOrAfterToday(body.dueDate), {
     message: "dueDate no puede ser anterior a hoy",
@@ -28,6 +29,7 @@ export const updateTaskSchema = z
     description: z.string().trim().min(1).nullish(),
     assigneeId: z.string().uuid().nullish(),
     dueDate: z.string().date("dueDate debe tener formato AAAA-MM-DD").nullish(),
+    estimatedHours: z.coerce.number().positive().nullish(),
   })
   .refine((body) => Object.keys(body).length > 0, {
     message: "No se ha indicado ningún campo para actualizar",
@@ -45,7 +47,15 @@ export const updateTaskProgressSchema = z.object({
   progressPercentage: z.coerce.number().int().min(0).max(100),
 });
 
+export const logTaskTimeSchema = z.object({
+  amount: z.coerce.number().positive("amount debe ser mayor que 0"),
+  unit: z.enum(TIME_ENTRY_UNITS),
+  description: z.string().trim().min(1, "La descripción es obligatoria"),
+});
+
 export const taskListQuerySchema = z.object({
   status: z.enum(TASK_STATUSES).optional(),
   projectId: z.string().uuid().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(1000).default(10),
 });

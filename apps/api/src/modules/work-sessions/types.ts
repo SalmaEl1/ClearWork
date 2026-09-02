@@ -17,12 +17,3 @@ export type BreakRow = {
   ended_at: Date | null;
   created_at: Date;
 };
-
-export type TaskSegmentRow = {
-  id: string;
-  work_session_id: string;
-  task_id: string | null;
-  description: string | null;
-  started_at: Date;
-  ended_at: Date | null;
-};

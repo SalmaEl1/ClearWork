@@ -1,6 +1,6 @@
 import type { ProjectDTO } from "@clearwork/shared";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SupervisorProjects } from "../../src/pages/supervisor/SupervisorProjects.js";
 
@@ -22,8 +22,11 @@ function project(overrides: Partial<ProjectDTO> = {}): ProjectDTO {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <SupervisorProjects />
+    <MemoryRouter initialEntries={["/supervisor/projects"]}>
+      <Routes>
+        <Route path="/supervisor/projects" element={<SupervisorProjects />} />
+        <Route path="/supervisor/projects/:id" element={<div>Detalle del proyecto</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -33,25 +36,21 @@ describe("SupervisorProjects", () => {
     fetchMyProjects.mockReset();
   });
 
-  it("muestra el estado vacío cuando el supervisor no tiene proyectos a cargo", async () => {
+  it("muestra el estado vacío cuando el supervisor no tiene ningún proyecto a cargo", async () => {
     fetchMyProjects.mockResolvedValue([]);
     renderPage();
-    expect(await screen.findByText("Todavía no tienes proyectos a cargo.")).toBeInTheDocument();
+    expect(await screen.findByText("Todavía no tienes ningún proyecto a cargo.")).toBeInTheDocument();
   });
 
-  it("lista los proyectos y marca los archivados", async () => {
-    fetchMyProjects.mockResolvedValue([project({ name: "Activo" }), project({ id: "p2", name: "Viejo", isArchived: true })]);
+  it("redirige directamente a la gestión de su proyecto cuando tiene uno", async () => {
+    fetchMyProjects.mockResolvedValue([project()]);
     renderPage();
-
-    expect(await screen.findByText("Activo")).toBeInTheDocument();
-    expect(screen.getByText("Viejo")).toBeInTheDocument();
-    expect(screen.getByText("Archivado")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Gestionar" })).toHaveLength(2);
+    expect(await screen.findByText("Detalle del proyecto")).toBeInTheDocument();
   });
 
   it("muestra el error de la API si falla la carga", async () => {
     fetchMyProjects.mockRejectedValue(new Error("network down"));
     renderPage();
-    expect(await screen.findByText("No se pudo cargar la lista")).toBeInTheDocument();
+    expect(await screen.findByText("No se pudo cargar tu proyecto")).toBeInTheDocument();
   });
 });

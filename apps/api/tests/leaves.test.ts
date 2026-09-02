@@ -136,6 +136,41 @@ describe("bajas y ausencias prolongadas", () => {
     expect(listedAfter.body).toHaveLength(0);
   });
 
+  it("un trabajador puede consultar sus propias bajas (issue #101), pero no las de otro", async () => {
+    const admin = await createAdmin();
+    const { worker } = await setupTeam(admin.token);
+    const other = await createWorker(admin.token);
+    await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(-1) });
+
+    const own = await request(app)
+      .get(`/api/leaves?userId=${worker.id}`)
+      .set(...authHeader(worker.token));
+    expect(own.status).toBe(200);
+    expect(own.body).toHaveLength(1);
+
+    const someoneElses = await request(app)
+      .get(`/api/leaves?userId=${other.id}`)
+      .set(...authHeader(worker.token));
+    expect(someoneElses.status).toBe(403);
+  });
+
+  it("un trabajador no puede dar de alta ni borrar bajas aunque sean las suyas", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(0) });
+
+    const del = await request(app)
+      .delete(`/api/leaves/${leave.body.id}`)
+      .set(...authHeader(worker.token));
+    expect(del.status).toBe(403);
+  });
+
   it("un supervisor no puede listar ni borrar bajas de quien no es de su equipo", async () => {
     const admin = await createAdmin();
     const outsider = await createWorker(admin.token);

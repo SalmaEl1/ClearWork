@@ -29,6 +29,24 @@ describe("proyectos", () => {
     expect(res.body.isArchived).toBe(false);
   });
 
+  it("crear un proyecto notifica al supervisor asignado", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+
+    await request(app)
+      .post("/api/admin/projects")
+      .set(...authHeader(admin.token))
+      .send({ name: "Proyecto notificado", supervisorId: supervisor.id });
+
+    const notifications = await request(app)
+      .get("/api/notifications")
+      .set(...authHeader(supervisorToken));
+    expect(
+      notifications.body.items.some((n: { type: string }) => n.type === "project_assigned"),
+    ).toBe(true);
+  });
+
   it("no se puede crear un proyecto con un supervisorId que no es de un supervisor", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token);
@@ -39,6 +57,51 @@ describe("proyectos", () => {
       .send({ name: "Proyecto inválido", supervisorId: worker.id });
 
     expect(res.status).toBe(400);
+  });
+
+  it("un supervisor no puede tener dos proyectos activos a la vez", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    await createProjectViaAdmin(admin.token, supervisor.id);
+
+    const res = await request(app)
+      .post("/api/admin/projects")
+      .set(...authHeader(admin.token))
+      .send({ name: "Segundo proyecto", supervisorId: supervisor.id });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("un supervisor sí puede recibir un proyecto nuevo si el que tenía está archivado", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const oldProject = await createProjectViaAdmin(admin.token, supervisor.id);
+    await request(app)
+      .patch(`/api/admin/projects/${oldProject.id}`)
+      .set(...authHeader(admin.token))
+      .send({ isArchived: true });
+
+    const res = await request(app)
+      .post("/api/admin/projects")
+      .set(...authHeader(admin.token))
+      .send({ name: "Proyecto nuevo", supervisorId: supervisor.id });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("no se puede reasignar un proyecto activo a un supervisor que ya tiene otro activo", async () => {
+    const admin = await createAdmin();
+    const busySupervisor = await createUserViaAdmin(admin.token, "supervisor");
+    await createProjectViaAdmin(admin.token, busySupervisor.id);
+    const freeSupervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const project = await createProjectViaAdmin(admin.token, freeSupervisor.id);
+
+    const res = await request(app)
+      .patch(`/api/admin/projects/${project.id}`)
+      .set(...authHeader(admin.token))
+      .send({ supervisorId: busySupervisor.id });
+
+    expect(res.status).toBe(409);
   });
 
   it("editar un proyecto permite renombrar, archivar y cambiar de supervisor", async () => {
@@ -67,6 +130,26 @@ describe("proyectos", () => {
       .send({ supervisorId: otherSupervisor.id });
     expect(reassigned.status).toBe(200);
     expect(reassigned.body.supervisorId).toBe(otherSupervisor.id);
+  });
+
+  it("reasignar un proyecto notifica al nuevo supervisor", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const otherSupervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const otherSupervisorToken = await loginAs(otherSupervisor.email, otherSupervisor.password);
+    const project = await createProjectViaAdmin(admin.token, supervisor.id);
+
+    await request(app)
+      .patch(`/api/admin/projects/${project.id}`)
+      .set(...authHeader(admin.token))
+      .send({ supervisorId: otherSupervisor.id });
+
+    const notifications = await request(app)
+      .get("/api/notifications")
+      .set(...authHeader(otherSupervisorToken));
+    expect(
+      notifications.body.items.some((n: { type: string }) => n.type === "project_assigned"),
+    ).toBe(true);
   });
 
   it("asignar un miembro lo añade al equipo del proyecto", async () => {
@@ -118,9 +201,13 @@ describe("proyectos", () => {
 
   it("reasignar a un trabajador que ya estaba en otro proyecto lo mueve, no lo duplica", async () => {
     const admin = await createAdmin();
-    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
-    const projectA = await createProjectViaAdmin(admin.token, supervisor.id);
-    const projectB = await createProjectViaAdmin(admin.token, supervisor.id);
+    // Dos supervisores distintos: un supervisor tiene como mucho un
+    // proyecto activo a la vez, así que no valdría reutilizar el mismo
+    // para projectA y projectB aquí.
+    const supervisorA = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorB = await createUserViaAdmin(admin.token, "supervisor");
+    const projectA = await createProjectViaAdmin(admin.token, supervisorA.id);
+    const projectB = await createProjectViaAdmin(admin.token, supervisorB.id);
     const worker = await createWorker(admin.token);
 
     await request(app)

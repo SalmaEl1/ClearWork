@@ -14,8 +14,11 @@ import {
 } from "../../api/admin.js";
 import { BackLink } from "../../components/BackLink.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
+import { Pagination } from "../../components/Pagination.js";
 import { ProjectMembersCard } from "../../components/ProjectMembersCard.js";
 import { TASK_STATUS_LABEL, TASK_STATUS_PILL_CLASS } from "../../constants.js";
+import { usePaginatedList } from "../../lib/usePaginatedList.js";
+import { useSavedConfirmation } from "../../lib/useSavedConfirmation.js";
 
 function EditProjectForm({
   project,
@@ -32,6 +35,7 @@ function EditProjectForm({
   const [isArchived, setIsArchived] = useState(project.isArchived);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, triggerSaved] = useSavedConfirmation();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -44,6 +48,7 @@ function EditProjectForm({
         supervisorId,
         isArchived,
       });
+      triggerSaved();
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo guardar");
@@ -56,6 +61,7 @@ function EditProjectForm({
     <div className="card">
       <h3>Datos del proyecto</h3>
       {error && <div className="error-banner">{error}</div>}
+      {isSaved && <div className="alert-banner status-ok">Cambios guardados.</div>}
       <form onSubmit={handleSubmit}>
         <label>
           <span>Nombre</span>
@@ -101,11 +107,16 @@ function TasksCard({ project, tasks }: { project: ProjectDetailDTO; tasks: TaskD
   const memberName = (userId: string) =>
     project.members.find((m) => m.userId === userId)?.fullName ?? "Sin asignar";
 
+  // Los recuentos son sobre las tareas del proyecto entero, no solo las
+  // de la página que se está viendo — paginar es cosa de la lista de
+  // abajo, no de este resumen.
   const counts = {
     pending: tasks?.filter((t) => t.status === "pending").length ?? 0,
     in_progress: tasks?.filter((t) => t.status === "in_progress").length ?? 0,
     done: tasks?.filter((t) => t.status === "done").length ?? 0,
   };
+
+  const { page, pageSize, total, pageItems, setPage, onPageSizeChange } = usePaginatedList(tasks);
 
   return (
     <div className="card">
@@ -120,7 +131,7 @@ function TasksCard({ project, tasks }: { project: ProjectDetailDTO; tasks: TaskD
             {counts.pending} pendiente(s) · {counts.in_progress} en curso · {counts.done} hecha(s)
           </p>
           <ul className="team-list">
-            {tasks.map((t) => (
+            {(pageItems ?? []).map((t) => (
               <li key={t.id} className="team-list__item">
                 <span className="team-list__name">{t.title}</span>
                 <span className="team-list__hours">{t.assigneeId ? memberName(t.assigneeId) : "Sin asignar"}</span>
@@ -130,6 +141,13 @@ function TasksCard({ project, tasks }: { project: ProjectDetailDTO; tasks: TaskD
               </li>
             ))}
           </ul>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={onPageSizeChange}
+          />
         </>
       )}
     </div>

@@ -1,10 +1,10 @@
-import type { BreakType, TaskSegmentDTO, WorkSessionDTO } from "@clearwork/shared";
+import type { BreakType, WorkSessionDTO } from "@clearwork/shared";
 import { isUniqueViolation } from "../../db/errors.js";
-import { BadRequestError, ConflictError } from "../../shared/errors.js";
+import { listActiveWorkersForSupervisor } from "../projects/repository.js";
+import { ConflictError, NotFoundError } from "../../shared/errors.js";
 import { calculateWorkedMinutes } from "../../shared/time.js";
-import { findTaskById, findTaskForWorker } from "../tasks/repository.js";
 import * as repo from "./repository.js";
-import type { BreakRow, TaskSegmentRow, WorkSessionRow } from "./types.js";
+import type { BreakRow, WorkSessionRow } from "./types.js";
 
 function toBreakDTO(row: BreakRow) {
   return {
@@ -16,34 +16,7 @@ function toBreakDTO(row: BreakRow) {
   };
 }
 
-/** Título de cada tarea referenciada por un grupo de segmentos, en una
- * sola tanda de consultas (una jornada normal tiene pocos cambios de
- * tarea, así que no hace falta una consulta por lote en la base de
- * datos para esto). */
-async function getTaskTitles(segments: TaskSegmentRow[]): Promise<Map<string, string>> {
-  const taskIds = [...new Set(segments.map((s) => s.task_id).filter((id): id is string => id !== null))];
-  const tasks = await Promise.all(taskIds.map((id) => findTaskById(id)));
-  return new Map(tasks.filter((t) => t !== null).map((t) => [t.id, t.title]));
-}
-
-function toSegmentDTO(row: TaskSegmentRow, titleById: Map<string, string>): TaskSegmentDTO {
-  return {
-    id: row.id,
-    workSessionId: row.work_session_id,
-    taskId: row.task_id,
-    taskTitle: row.task_id ? (titleById.get(row.task_id) ?? null) : null,
-    description: row.description,
-    startedAt: row.started_at.toISOString(),
-    endedAt: row.ended_at ? row.ended_at.toISOString() : null,
-  };
-}
-
-async function toSessionDTO(
-  session: WorkSessionRow,
-  breaks: BreakRow[],
-  segments: TaskSegmentRow[],
-): Promise<WorkSessionDTO> {
-  const titleById = await getTaskTitles(segments);
+function toSessionDTO(session: WorkSessionRow, breaks: BreakRow[]): WorkSessionDTO {
   return {
     id: session.id,
     userId: session.user_id,
@@ -59,33 +32,18 @@ async function toSessionDTO(
       })),
     ),
     breaks: breaks.map(toBreakDTO),
-    taskSegments: segments.map((s) => toSegmentDTO(s, titleById)),
   };
 }
 
-/** Si se indica taskId, exige que sea una tarea asignada a este
- * trabajador: fichar sobre la tarea de otro no tiene sentido y además
- * dejaría ver, por el título devuelto, que esa tarea existe. */
-async function assertOwnTaskIfProvided(taskId: string | null | undefined, userId: string): Promise<void> {
-  if (!taskId) return;
-  const task = await findTaskForWorker(taskId, userId);
-  if (!task) throw new BadRequestError("taskId debe ser una tarea asignada a este trabajador");
-}
-
-export async function clockIn(
-  userId: string,
-  input: { taskId?: string | null; description?: string | null } = {},
-): Promise<WorkSessionDTO> {
+export async function clockIn(userId: string): Promise<WorkSessionDTO> {
   const open = await repo.findOpenSessionForUser(userId);
   if (open) {
     throw new ConflictError("Ya tienes una jornada abierta");
   }
 
-  await assertOwnTaskIfProvided(input.taskId, userId);
-
-  let session: WorkSessionRow;
   try {
-    session = await repo.createSession(userId);
+    const session = await repo.createSession(userId);
+    return toSessionDTO(session, []);
   } catch (err) {
     // Dos peticiones de "fichar entrada" a la vez pueden pasar la
     // comprobación anterior las dos; el índice único de la base de datos
@@ -95,13 +53,6 @@ export async function clockIn(
     }
     throw err;
   }
-
-  const segments: TaskSegmentRow[] = [];
-  if (input.taskId || input.description) {
-    segments.push(await repo.createSegment(session.id, input.taskId ?? null, input.description ?? null));
-  }
-
-  return toSessionDTO(session, [], segments);
 }
 
 export async function clockOut(userId: string): Promise<WorkSessionDTO> {
@@ -117,9 +68,6 @@ export async function clockOut(userId: string): Promise<WorkSessionDTO> {
     // Fichar la salida cierra cualquier pausa que hubiera quedado abierta.
     await repo.closeBreak(open.id, now);
   }
-  // Igual que con la pausa: fichar la salida cierra el tramo de tarea en
-  // curso, si había uno.
-  await repo.closeOpenSegment(open.id, now);
 
   const closed = await repo.closeSession(userId, now);
   if (!closed) {
@@ -127,29 +75,7 @@ export async function clockOut(userId: string): Promise<WorkSessionDTO> {
   }
 
   const breaks = await repo.listBreaksForSession(closed.id);
-  const segments = await repo.listSegmentsForSession(closed.id);
-  return toSessionDTO(closed, breaks, segments);
-}
-
-export async function switchTask(
-  userId: string,
-  input: { taskId?: string | null; description?: string | null },
-): Promise<WorkSessionDTO> {
-  const open = await repo.findOpenSessionForUser(userId);
-  if (!open) {
-    throw new ConflictError("Tienes que fichar entrada antes de elegir en qué tarea trabajar");
-  }
-
-  await assertOwnTaskIfProvided(input.taskId, userId);
-
-  await repo.closeOpenSegment(open.id, new Date());
-  if (input.taskId || input.description) {
-    await repo.createSegment(open.id, input.taskId ?? null, input.description ?? null);
-  }
-
-  const breaks = await repo.listBreaksForSession(open.id);
-  const segments = await repo.listSegmentsForSession(open.id);
-  return toSessionDTO(open, breaks, segments);
+  return toSessionDTO(closed, breaks);
 }
 
 export async function startBreak(userId: string, type: BreakType): Promise<WorkSessionDTO> {
@@ -173,8 +99,7 @@ export async function startBreak(userId: string, type: BreakType): Promise<WorkS
   }
 
   const breaks = await repo.listBreaksForSession(open.id);
-  const segments = await repo.listSegmentsForSession(open.id);
-  return toSessionDTO(open, breaks, segments);
+  return toSessionDTO(open, breaks);
 }
 
 export async function endBreak(userId: string): Promise<WorkSessionDTO> {
@@ -190,8 +115,7 @@ export async function endBreak(userId: string): Promise<WorkSessionDTO> {
 
   await repo.closeBreak(open.id, new Date());
   const breaks = await repo.listBreaksForSession(open.id);
-  const segments = await repo.listSegmentsForSession(open.id);
-  return toSessionDTO(open, breaks, segments);
+  return toSessionDTO(open, breaks);
 }
 
 export async function getActiveSession(userId: string): Promise<WorkSessionDTO | null> {
@@ -199,8 +123,7 @@ export async function getActiveSession(userId: string): Promise<WorkSessionDTO |
   if (!open) return null;
 
   const breaks = await repo.listBreaksForSession(open.id);
-  const segments = await repo.listSegmentsForSession(open.id);
-  return toSessionDTO(open, breaks, segments);
+  return toSessionDTO(open, breaks);
 }
 
 export async function getHistory(userId: string, limit: number): Promise<WorkSessionDTO[]> {
@@ -215,17 +138,21 @@ export async function getHistory(userId: string, limit: number): Promise<WorkSes
     breaksBySession.set(b.work_session_id, list);
   }
 
-  const allSegments = await repo.listSegmentsForSessions(sessions.map((s) => s.id));
-  const segmentsBySession = new Map<string, TaskSegmentRow[]>();
-  for (const s of allSegments) {
-    const list = segmentsBySession.get(s.work_session_id) ?? [];
-    list.push(s);
-    segmentsBySession.set(s.work_session_id, list);
-  }
+  return sessions.map((s) => toSessionDTO(s, breaksBySession.get(s.id) ?? []));
+}
 
-  return Promise.all(
-    sessions.map((s) =>
-      toSessionDTO(s, breaksBySession.get(s.id) ?? [], segmentsBySession.get(s.id) ?? []),
-    ),
-  );
+/** Igual que getHistory, pero para un supervisor consultando a alguien de
+ * su equipo en vez de sus propios fichajes: comprueba pertenencia antes
+ * de delegar, con el mismo criterio 404 (no 403) que projects/service.ts
+ * para no confirmar la composición de un equipo ajeno. */
+export async function getHistoryForTeamMember(
+  supervisorId: string,
+  memberId: string,
+  limit: number,
+): Promise<WorkSessionDTO[]> {
+  const team = await listActiveWorkersForSupervisor(supervisorId);
+  if (!team.some((w) => w.id === memberId)) {
+    throw new NotFoundError("Trabajador no encontrado");
+  }
+  return getHistory(memberId, limit);
 }

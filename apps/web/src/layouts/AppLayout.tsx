@@ -4,6 +4,7 @@ import { NotificationBell } from "../components/NotificationBell.js";
 import {
   IconActivity,
   IconCalendar,
+  IconClock,
   IconDashboard,
   IconFolder,
   IconHistory,
@@ -52,19 +53,23 @@ export function AppLayout() {
           <nav className="app-header__nav">
             <NavLink to="/worker" end>
               <IconDashboard />
-              <span>Panel</span>
+              <span>Fichaje</span>
+            </NavLink>
+            <NavLink to="/worker/history">
+              <IconHistory />
+              <span>Historial de fichaje</span>
             </NavLink>
             <NavLink to="/worker/tasks">
               <IconTasks />
               <span>Tareas</span>
             </NavLink>
-            <NavLink to="/worker/history">
-              <IconHistory />
-              <span>Historial</span>
-            </NavLink>
             <NavLink to="/worker/vacations">
               <IconCalendar />
               <span>Vacaciones</span>
+            </NavLink>
+            <NavLink to="/worker/absences">
+              <IconClock />
+              <span>Ausencias</span>
             </NavLink>
           </nav>
         )}
@@ -79,9 +84,13 @@ export function AppLayout() {
               <IconTasks />
               <span>Tareas</span>
             </NavLink>
+            <NavLink to="/supervisor/team">
+              <IconUsers />
+              <span>Equipo</span>
+            </NavLink>
             <NavLink to="/supervisor/projects">
               <IconFolder />
-              <span>Proyectos</span>
+              <span>Mi proyecto</span>
             </NavLink>
             <NavLink to="/supervisor/vacations">
               <IconCalendar />

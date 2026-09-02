@@ -1,9 +1,13 @@
 import type { ProjectDTO } from "@clearwork/shared";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
 import { fetchMyProjects } from "../../api/tasks.js";
 
+/** Un supervisor tiene como mucho un proyecto a su cargo, así que esta
+ * pantalla no es un listado: en cuanto sabe cuál es su proyecto (si
+ * tiene uno), va directa a su gestión en vez de mostrar un paso
+ * intermedio de "elige uno de la lista". */
 export function SupervisorProjects() {
   const [projects, setProjects] = useState<ProjectDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -11,30 +15,37 @@ export function SupervisorProjects() {
   useEffect(() => {
     fetchMyProjects()
       .then(setProjects)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la lista"));
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar tu proyecto"));
   }, []);
+
+  if (error) {
+    return (
+      <div className="dashboard-grid">
+        <h2>Mi proyecto</h2>
+        <div className="error-banner">{error}</div>
+      </div>
+    );
+  }
+
+  if (!projects) {
+    return (
+      <div className="dashboard-grid">
+        <h2>Mi proyecto</h2>
+        <p>Cargando…</p>
+      </div>
+    );
+  }
+
+  const project = projects[0];
+  if (project) {
+    return <Navigate to={`/supervisor/projects/${project.id}`} replace />;
+  }
 
   return (
     <div className="dashboard-grid">
-      <h2>Mis proyectos</h2>
-      {error && <div className="error-banner">{error}</div>}
-      {!projects && !error && <p>Cargando…</p>}
-
+      <h2>Mi proyecto</h2>
       <div className="card">
-        {projects && projects.length === 0 && <p>Todavía no tienes proyectos a cargo.</p>}
-        {projects && projects.length > 0 && (
-          <ul className="team-list">
-            {projects.map((p) => (
-              <li key={p.id} className="team-list__item">
-                <span className="team-list__name">{p.name}</span>
-                {p.isArchived && <span className="status-pill status-neutral">Archivado</span>}
-                <Link to={`/supervisor/projects/${p.id}`} className="link-button">
-                  Gestionar
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <p>Todavía no tienes ningún proyecto a cargo.</p>
       </div>
     </div>
   );

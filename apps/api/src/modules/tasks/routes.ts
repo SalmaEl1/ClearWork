@@ -7,12 +7,14 @@ import {
   deleteTaskHandler,
   getTaskHandler,
   listTasksHandler,
+  logTaskTimeHandler,
   updateTaskHandler,
   updateTaskProgressHandler,
   updateTaskStatusHandler,
 } from "./controller.js";
 import {
   createTaskSchema,
+  logTaskTimeSchema,
   updateTaskProgressSchema,
   updateTaskSchema,
   updateTaskStatusSchema,
@@ -41,6 +43,14 @@ tasksRouter.patch(
   "/:id/progress",
   validateBody(updateTaskProgressSchema),
   updateTaskProgressHandler,
+);
+
+// Registrar tiempo dedicado también está abierto a los dos roles, con el
+// mismo criterio que estado/avance: cada uno solo sobre lo suyo (issue #114).
+tasksRouter.post(
+  "/:id/time-entries",
+  validateBody(logTaskTimeSchema),
+  logTaskTimeHandler,
 );
 
 // Crear, editar el resto de campos y borrar son exclusivos del supervisor.

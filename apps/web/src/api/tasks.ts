@@ -1,5 +1,7 @@
 import type {
   CreateTaskRequest,
+  LogTaskTimeRequest,
+  Paginated,
   ProjectDTO,
   ProjectMemberDTO,
   TaskDetailDTO,
@@ -12,19 +14,21 @@ import { apiFetch } from "./client.js";
 export type TaskListFilters = {
   status?: TaskStatus;
   projectId?: string;
+  page?: number;
+  pageSize?: number;
 };
 
-function buildQuery(params: Record<string, string | undefined>): string {
+function buildQuery(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value) search.set(key, value);
+    if (value !== undefined && value !== "") search.set(key, String(value));
   }
   const qs = search.toString();
   return qs ? `?${qs}` : "";
 }
 
-export function fetchTasks(filters: TaskListFilters = {}): Promise<TaskDTO[]> {
-  return apiFetch<TaskDTO[]>(`/tasks${buildQuery(filters)}`);
+export function fetchTasks(filters: TaskListFilters = {}): Promise<Paginated<TaskDTO>> {
+  return apiFetch<Paginated<TaskDTO>>(`/tasks${buildQuery(filters)}`);
 }
 
 export function fetchTask(id: string): Promise<TaskDetailDTO> {
@@ -48,6 +52,10 @@ export function updateTaskProgress(id: string, progressPercentage: number): Prom
     method: "PATCH",
     body: { progressPercentage },
   });
+}
+
+export function logTaskTime(id: string, input: LogTaskTimeRequest): Promise<TaskDTO> {
+  return apiFetch<TaskDTO>(`/tasks/${id}/time-entries`, { method: "POST", body: input });
 }
 
 export function deleteTask(id: string): Promise<void> {

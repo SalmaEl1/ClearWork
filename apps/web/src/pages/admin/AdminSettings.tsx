@@ -68,15 +68,6 @@ export function AdminSettings() {
           </form>
         </div>
       )}
-
-      <div className="card" style={{ maxWidth: "420px" }}>
-        <h3>Correo</h3>
-        <p style={{ marginBottom: 0 }}>
-          El remitente y la clave de SendGrid se configuran por variables de entorno del servidor,
-          no desde aquí: son credenciales, y exponerlas en una pantalla editable sería un riesgo de
-          seguridad innecesario para el beneficio que aporta.
-        </p>
-      </div>
     </div>
   );
 }

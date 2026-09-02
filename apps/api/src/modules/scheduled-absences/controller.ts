@@ -30,6 +30,23 @@ export async function listMyScheduledAbsencesHandler(req: Request, res: Response
   }
 }
 
+export async function listTeamMemberScheduledAbsencesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const absences = await service.listScheduledAbsencesForTeamMember(
+      user.id,
+      req.params.userId as string,
+    );
+    res.status(200).json(absences);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteScheduledAbsenceHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);

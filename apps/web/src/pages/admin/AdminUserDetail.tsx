@@ -10,8 +10,10 @@ import { Avatar } from "../../components/Avatar.js";
 import { BackLink } from "../../components/BackLink.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
+import { Pagination } from "../../components/Pagination.js";
 import { RegisterLeaveForm } from "../../components/RegisterLeaveForm.js";
 import { LEAVE_TYPE_LABEL, ROLE_LABEL } from "../../constants.js";
+import { usePaginatedList } from "../../lib/usePaginatedList.js";
 
 function UserHeaderCard({ user, isSelf }: { user: AdminUserSummary; isSelf: boolean }) {
   return (
@@ -140,19 +142,19 @@ function ProjectInfoCard({ user }: { user: AdminUserSummary }) {
   }
 
   if (user.role === "supervisor") {
+    // Un supervisor tiene como mucho un proyecto a su cargo, pero
+    // supervisedProjects sigue siendo un array en el DTO: no vale la
+    // pena cambiar su forma por esto, solo se lee su primer elemento.
+    const project = user.supervisedProjects[0] ?? null;
     return (
       <div className="card">
-        <h3>Proyectos que supervisa</h3>
-        {user.supervisedProjects.length === 0 ? (
-          <p>No supervisa ningún proyecto todavía.</p>
+        <h3>Proyecto que supervisa</h3>
+        {project ? (
+          <p>
+            Actualmente a cargo de <Link to={`/admin/projects/${project.id}`}>{project.name}</Link>.
+          </p>
         ) : (
-          <ul className="team-list">
-            {user.supervisedProjects.map((p) => (
-              <li key={p.id} className="team-list__item">
-                <Link to={`/admin/projects/${p.id}`}>{p.name}</Link>
-              </li>
-            ))}
-          </ul>
+          <p>No supervisa ningún proyecto todavía.</p>
         )}
       </div>
     );
@@ -176,6 +178,8 @@ function LeavesCard({ userId }: { userId: string }) {
     load();
   }, [load]);
 
+  const { page, pageSize, total, pageItems, setPage, onPageSizeChange } = usePaginatedList(leaves);
+
   async function handleDelete(leaveId: string) {
     setError(null);
     try {
@@ -193,19 +197,28 @@ function LeavesCard({ userId }: { userId: string }) {
       {!leaves && <p>Cargando…</p>}
       {leaves && leaves.length === 0 && <p>No hay bajas ni ausencias registradas.</p>}
       {leaves && leaves.length > 0 && (
-        <ul className="team-list">
-          {leaves.map((l) => (
-            <li key={l.id} className="team-list__item">
-              <span className="team-list__name">{LEAVE_TYPE_LABEL[l.type]}</span>
-              <span className="team-list__hours">
-                {l.startDate} – {l.endDate ?? "en curso"}
-              </span>
-              <button type="button" className="secondary" onClick={() => handleDelete(l.id)}>
-                Eliminar
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="team-list">
+            {(pageItems ?? []).map((l) => (
+              <li key={l.id} className="team-list__item">
+                <span className="team-list__name">{LEAVE_TYPE_LABEL[l.type]}</span>
+                <span className="team-list__hours">
+                  {l.startDate} – {l.endDate ?? "en curso"}
+                </span>
+                <button type="button" className="secondary" onClick={() => handleDelete(l.id)}>
+                  Eliminar
+                </button>
+              </li>
+            ))}
+          </ul>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </>
       )}
       <button type="button" style={{ marginTop: "1rem" }} onClick={() => setIsRegistering(true)}>
         Registrar baja

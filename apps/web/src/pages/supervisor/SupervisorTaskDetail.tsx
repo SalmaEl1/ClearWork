@@ -7,6 +7,7 @@ import { fetchMyProjectMembers, fetchTask, updateTaskStatus } from "../../api/ta
 import { BackLink } from "../../components/BackLink.js";
 import { TaskHistoryList } from "../../components/TaskHistoryList.js";
 import { TaskProgressControl } from "../../components/TaskProgressControl.js";
+import { TaskTimeTrackingCard } from "../../components/TaskTimeTrackingCard.js";
 import { TASK_STATUS_LABEL } from "../../constants.js";
 
 export function SupervisorTaskDetail() {
@@ -79,9 +80,18 @@ export function SupervisorTaskDetail() {
             />
           </div>
 
+          <TaskTimeTrackingCard
+            taskId={task.id}
+            estimatedHours={task.estimatedHours}
+            loggedMinutes={task.loggedMinutes}
+            remainingHours={task.remainingHours}
+            timeEntries={task.timeEntries}
+            onSaved={load}
+          />
+
           <div className="card">
             <h3>Historial</h3>
-            <TaskHistoryList history={task.statusHistory} />
+            <TaskHistoryList history={task.history} />
           </div>
         </>
       )}

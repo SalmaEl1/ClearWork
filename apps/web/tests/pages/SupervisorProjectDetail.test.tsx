@@ -84,4 +84,14 @@ describe("SupervisorProjectDetail", () => {
     expect(screen.queryByLabelText("Supervisor/a")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Archivado")).not.toBeInTheDocument();
   });
+
+  it("confirma visualmente que se ha guardado", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("heading", { name: "Proyecto Web" });
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByText("Cambios guardados.")).toBeInTheDocument();
+  });
 });

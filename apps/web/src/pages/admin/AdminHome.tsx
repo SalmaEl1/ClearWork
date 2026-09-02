@@ -5,7 +5,7 @@ import { useAuth } from "../../auth/AuthContext.js";
 import { ApiError } from "../../api/client.js";
 import { fetchAdminActivity, fetchAllAdminProjects, fetchAllAdminUsers } from "../../api/admin.js";
 import { StatTile } from "../../components/StatTile.js";
-import { activityMessage, formatRelativeTime } from "../../lib/activity.js";
+import { activityIcon, activityMessage, formatRelativeTime } from "../../lib/activity.js";
 
 type Stats = {
   admins: number;
@@ -25,12 +25,18 @@ function ActivityCard({ events }: { events: AdminActivityEventDTO[] }) {
         <p>Todavía no hay actividad que mostrar.</p>
       ) : (
         <ul className="activity-list">
-          {events.map((event, index) => (
-            <li key={`${event.type}-${event.occurredAt}-${index}`} className="activity-list__item">
-              <span>{activityMessage(event)}</span>
-              <span className="activity-list__time">{formatRelativeTime(event.occurredAt)}</span>
-            </li>
-          ))}
+          {events.map((event, index) => {
+            const Icon = activityIcon(event.type);
+            return (
+              <li key={`${event.type}-${event.occurredAt}-${index}`} className="activity-list__item">
+                <span className="activity-list__message">
+                  <Icon />
+                  {activityMessage(event)}
+                </span>
+                <span className="activity-list__time">{formatRelativeTime(event.occurredAt)}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
       <Link to="/admin/activity" className="link-button" style={{ marginTop: "1rem" }}>

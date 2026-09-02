@@ -1,6 +1,6 @@
 import type { TaskStatus } from "@clearwork/shared";
 import { pool } from "../../db/pool.js";
-import type { TaskRow, TaskStatusHistoryRow } from "./types.js";
+import type { TaskHistoryRow, TaskRow, TaskTimeEntryRow } from "./types.js";
 
 export type CreateTaskInput = {
   projectId: string;
@@ -9,12 +9,13 @@ export type CreateTaskInput = {
   title: string;
   description: string | null;
   dueDate: string | null;
+  estimatedHours: number | null;
 };
 
 export async function createTask(input: CreateTaskInput): Promise<TaskRow> {
   const result = await pool.query<TaskRow>(
-    `INSERT INTO tasks (project_id, assignee_id, created_by, title, description, due_date)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO tasks (project_id, assignee_id, created_by, title, description, due_date, estimated_hours)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
     [
       input.projectId,
@@ -23,6 +24,7 @@ export async function createTask(input: CreateTaskInput): Promise<TaskRow> {
       input.title,
       input.description,
       input.dueDate,
+      input.estimatedHours,
     ],
   );
   const row = result.rows[0];
@@ -78,10 +80,20 @@ export async function listTasksForProject(projectId: string): Promise<TaskRow[]>
   return result.rows;
 }
 
+export type TaskListPage = {
+  rows: TaskRow[];
+  total: number;
+};
+
+/** Mismo patrón que listProjectsPage (projects/repository.ts):
+ * COUNT(*) OVER() trae el total junto con la página en una sola consulta,
+ * en vez de necesitar dos (issue #96, paginación en servidor). */
 export async function listTasksForWorker(
   workerId: string,
   filters: TaskListFilters,
-): Promise<TaskRow[]> {
+  page: number,
+  pageSize: number,
+): Promise<TaskListPage> {
   const conditions = ["assignee_id = $1"];
   const values: unknown[] = [workerId];
 
@@ -94,17 +106,28 @@ export async function listTasksForWorker(
     conditions.push(`project_id = $${values.length}`);
   }
 
-  const result = await pool.query<TaskRow>(
-    `SELECT * FROM tasks WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC`,
+  values.push(pageSize, (page - 1) * pageSize);
+  const limitParam = values.length - 1;
+  const offsetParam = values.length;
+
+  const result = await pool.query<TaskRow & { total_count: string }>(
+    `SELECT *, COUNT(*) OVER() AS total_count
+     FROM tasks
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY created_at DESC
+     LIMIT $${limitParam} OFFSET $${offsetParam}`,
     values,
   );
-  return result.rows;
+  const total = result.rows.length > 0 ? Number(result.rows[0]!.total_count) : 0;
+  return { rows: result.rows, total };
 }
 
 export async function listTasksForSupervisor(
   supervisorId: string,
   filters: TaskListFilters,
-): Promise<TaskRow[]> {
+  page: number,
+  pageSize: number,
+): Promise<TaskListPage> {
   const conditions = ["p.supervisor_id = $1"];
   const values: unknown[] = [supervisorId];
 
@@ -117,15 +140,21 @@ export async function listTasksForSupervisor(
     conditions.push(`t.project_id = $${values.length}`);
   }
 
-  const result = await pool.query<TaskRow>(
-    `SELECT t.*
+  values.push(pageSize, (page - 1) * pageSize);
+  const limitParam = values.length - 1;
+  const offsetParam = values.length;
+
+  const result = await pool.query<TaskRow & { total_count: string }>(
+    `SELECT t.*, COUNT(*) OVER() AS total_count
      FROM tasks t
      JOIN projects p ON p.id = t.project_id
      WHERE ${conditions.join(" AND ")}
-     ORDER BY t.created_at DESC`,
+     ORDER BY t.created_at DESC
+     LIMIT $${limitParam} OFFSET $${offsetParam}`,
     values,
   );
-  return result.rows;
+  const total = result.rows.length > 0 ? Number(result.rows[0]!.total_count) : 0;
+  return { rows: result.rows, total };
 }
 
 export type UpdateTaskFields = {
@@ -133,6 +162,7 @@ export type UpdateTaskFields = {
   description?: string | null;
   assigneeId?: string | null;
   dueDate?: string | null;
+  estimatedHours?: number | null;
 };
 
 /**
@@ -163,6 +193,10 @@ export async function updateTaskById(
   if (fields.dueDate !== undefined) {
     values.push(fields.dueDate);
     setClauses.push(`due_date = $${values.length}`);
+  }
+  if (fields.estimatedHours !== undefined) {
+    values.push(fields.estimatedHours);
+    setClauses.push(`estimated_hours = $${values.length}`);
   }
 
   if (setClauses.length === 0) {
@@ -230,8 +264,8 @@ export type InsertStatusHistoryInput = {
 
 export async function insertStatusHistory(
   input: InsertStatusHistoryInput,
-): Promise<TaskStatusHistoryRow> {
-  const result = await pool.query<TaskStatusHistoryRow>(
+): Promise<TaskHistoryRow> {
+  const result = await pool.query<TaskHistoryRow>(
     `INSERT INTO task_status_history (task_id, from_status, to_status, changed_by, work_session_id)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -242,15 +276,44 @@ export async function insertStatusHistory(
   return row;
 }
 
-export type TaskStatusHistoryWithNameRow = TaskStatusHistoryRow & { changed_by_name: string };
+export type InsertProgressHistoryInput = {
+  taskId: string;
+  fromProgressPercentage: number;
+  toProgressPercentage: number;
+  changedBy: string;
+  workSessionId: string | null;
+};
+
+/** Mismo tipo de fila e índices que insertStatusHistory (ver migración
+ * 023): solo cambia qué columnas se rellenan. */
+export async function insertProgressHistory(
+  input: InsertProgressHistoryInput,
+): Promise<TaskHistoryRow> {
+  const result = await pool.query<TaskHistoryRow>(
+    `INSERT INTO task_status_history
+       (task_id, from_progress_percentage, to_progress_percentage, changed_by, work_session_id)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      input.taskId,
+      input.fromProgressPercentage,
+      input.toProgressPercentage,
+      input.changedBy,
+      input.workSessionId,
+    ],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error("INSERT de task_status_history (avance) no devolvió ninguna fila");
+  return row;
+}
+
+export type TaskHistoryWithNameRow = TaskHistoryRow & { changed_by_name: string };
 
 /** JOIN con users para el nombre de quien hizo el cambio: la vista de
  * detalle de tarea lo necesita ("Salma cambió el estado..."), y guardar
  * solo el id obligaría a resolverlo aparte para cada fila. */
-export async function listStatusHistoryForTask(
-  taskId: string,
-): Promise<TaskStatusHistoryWithNameRow[]> {
-  const result = await pool.query<TaskStatusHistoryWithNameRow>(
+export async function listHistoryForTask(taskId: string): Promise<TaskHistoryWithNameRow[]> {
+  const result = await pool.query<TaskHistoryWithNameRow>(
     `SELECT h.*, u.full_name AS changed_by_name
      FROM task_status_history h
      JOIN users u ON u.id = h.changed_by
@@ -259,6 +322,62 @@ export async function listStatusHistoryForTask(
     [taskId],
   );
   return result.rows;
+}
+
+export type InsertTimeEntryInput = {
+  taskId: string;
+  loggedBy: string;
+  minutes: number;
+  description: string;
+};
+
+export async function insertTimeEntry(input: InsertTimeEntryInput): Promise<TaskTimeEntryRow> {
+  const result = await pool.query<TaskTimeEntryRow>(
+    `INSERT INTO task_time_entries (task_id, logged_by, minutes, description)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [input.taskId, input.loggedBy, input.minutes, input.description],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error("INSERT de task_time_entries no devolvió ninguna fila");
+  return row;
+}
+
+export type TaskTimeEntryWithNameRow = TaskTimeEntryRow & { logged_by_name: string };
+
+/** Más reciente primero, igual que listHistoryForTask; JOIN con users por
+ * el mismo motivo (mostrar quién registró cada entrada). */
+export async function listTimeEntriesForTask(taskId: string): Promise<TaskTimeEntryWithNameRow[]> {
+  const result = await pool.query<TaskTimeEntryWithNameRow>(
+    `SELECT e.*, u.full_name AS logged_by_name
+     FROM task_time_entries e
+     JOIN users u ON u.id = e.logged_by
+     WHERE e.task_id = $1
+     ORDER BY e.logged_at DESC`,
+    [taskId],
+  );
+  return result.rows;
+}
+
+/**
+ * Suma agrupada en SQL en vez de traer todas las filas para sumarlas en
+ * JS, y en lote (una consulta para varias tareas a la vez, no una por
+ * tarea): toTaskDTO (tasks/service.ts) la necesita tanto para el detalle
+ * de una tarea como para listados enteros, y ahí una consulta por fila
+ * sería un N+1 según crece la página. Las tareas sin ninguna entrada
+ * simplemente no salen en el resultado — de ahí que quien llama lea del
+ * mapa con un valor por defecto de 0, no que falte la clave sea un error.
+ */
+export async function sumLoggedMinutesForTasks(taskIds: string[]): Promise<Map<string, number>> {
+  if (taskIds.length === 0) return new Map();
+  const result = await pool.query<{ task_id: string; total: string }>(
+    `SELECT task_id, SUM(minutes) AS total
+     FROM task_time_entries
+     WHERE task_id = ANY($1)
+     GROUP BY task_id`,
+    [taskIds],
+  );
+  return new Map(result.rows.map((r) => [r.task_id, Number(r.total)]));
 }
 
 export type TaskStatusCountRow = {

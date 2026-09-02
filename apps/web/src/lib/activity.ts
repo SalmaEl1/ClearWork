@@ -1,4 +1,6 @@
 import type { AdminActivityEventDTO } from "@clearwork/shared";
+import type { ComponentType, SVGProps } from "react";
+import { IconFolder, IconMemberChange, IconTasks, IconUsers } from "../components/NavIcons.js";
 import { ROLE_LABEL, TASK_STATUS_LABEL } from "../constants.js";
 
 /** Compartido entre la tarjeta condensada del home y la vista ampliada
@@ -33,6 +35,33 @@ export function activityMessage(event: AdminActivityEventDTO): string {
       return `${event.userName} se incorporó a ${event.projectName}`;
     case "member_left":
       return `${event.userName} salió de ${event.projectName}`;
+  }
+}
+
+/** Icono por categoría de evento, no uno distinto por cada uno de los 14
+ * tipos: con tantos, un icono único por tipo sería ruido visual antes
+ * que ayuda. Cuatro categorías (cuentas, proyectos, tareas, membresías)
+ * ya distinguen de un vistazo de qué trata cada línea. */
+export function activityIcon(type: AdminActivityEventDTO["type"]): ComponentType<SVGProps<SVGSVGElement>> {
+  switch (type) {
+    case "user_created":
+    case "user_updated":
+    case "user_role_changed":
+    case "user_deleted":
+      return IconUsers;
+    case "project_created":
+    case "project_updated":
+    case "project_archived":
+    case "project_supervisor_changed":
+    case "project_deleted":
+      return IconFolder;
+    case "task_created":
+    case "task_status_changed":
+    case "task_deleted":
+      return IconTasks;
+    case "member_joined":
+    case "member_left":
+      return IconMemberChange;
   }
 }
 

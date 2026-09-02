@@ -2,6 +2,8 @@ import type {
   AdminCreatableRole,
   BreakType,
   LeaveType,
+  NotificationChannel,
+  NotificationType,
   Role,
   TaskStatus,
   VacationStatus,
@@ -63,22 +65,6 @@ export type BreakDTO = {
   endedAt: string | null;
 };
 
-/** Un tramo de la jornada dedicado a una tarea concreta (o a una nota
- * libre, si taskId es null): igual que un break, como mucho uno abierto
- * a la vez por jornada. Cambiar de tarea cierra el tramo en curso y abre
- * uno nuevo, sin fichar salida. */
-export type TaskSegmentDTO = {
-  id: string;
-  workSessionId: string;
-  taskId: string | null;
-  /** Solo si taskId no es null: su título, para no tener que resolverlo
-   * aparte en el frontend. */
-  taskTitle: string | null;
-  description: string | null;
-  startedAt: string;
-  endedAt: string | null;
-};
-
 export type WorkSessionDTO = {
   id: string;
   userId: string;
@@ -87,21 +73,10 @@ export type WorkSessionDTO = {
   /** Minutos trabajados hasta ahora si sigue abierta, o el total si ya se cerró. */
   workedMinutes: number;
   breaks: BreakDTO[];
-  taskSegments: TaskSegmentDTO[];
 };
 
 export type ActiveSessionResponse = {
   activeSession: WorkSessionDTO | null;
-};
-
-export type ClockInRequest = {
-  taskId?: string | null;
-  description?: string | null;
-};
-
-export type SwitchTaskRequest = {
-  taskId?: string | null;
-  description?: string | null;
 };
 
 export type StartBreakRequest = {
@@ -176,22 +151,52 @@ export type TaskDTO = {
   progressPercentage: number;
   dueDate: string | null;
   completedAt: string | null;
+  /** null si la tarea no lleva estimación (issue #114): no todas las
+   * llevan una. */
+  estimatedHours: number | null;
+  /** Suma de todo lo registrado en task_time_entries, en minutos. */
+  loggedMinutes: number;
+  /** estimatedHours menos lo ya registrado, en horas. null sin una
+   * estimación de la que restar — no es "0 restantes", es "no aplica". */
+  remainingHours: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type TaskStatusHistoryEntryDTO = {
-  id: string;
-  fromStatus: TaskStatus | null;
-  toStatus: TaskStatus;
-  changedBy: string;
-  changedByName: string;
-  workSessionId: string | null;
-  changedAt: string;
-};
+/**
+ * Tres tipos de punto en la línea de tiempo de una tarea (issue #108):
+ * cuándo se creó (siempre el primero, sintetizado a partir de la propia
+ * tarea, no viene de una fila de historial), y los cambios de estado o de
+ * avance que ha tenido desde entonces, cada uno con quién lo hizo y
+ * cuándo.
+ */
+export type TaskHistoryEntryDTO =
+  | { kind: "created"; changedBy: string; changedByName: string; changedAt: string }
+  | {
+      kind: "status";
+      id: string;
+      fromStatus: TaskStatus | null;
+      toStatus: TaskStatus;
+      changedBy: string;
+      changedByName: string;
+      workSessionId: string | null;
+      changedAt: string;
+    }
+  | {
+      kind: "progress";
+      id: string;
+      fromProgressPercentage: number;
+      toProgressPercentage: number;
+      changedBy: string;
+      changedByName: string;
+      workSessionId: string | null;
+      changedAt: string;
+    };
 
 export type TaskDetailDTO = TaskDTO & {
-  statusHistory: TaskStatusHistoryEntryDTO[];
+  history: TaskHistoryEntryDTO[];
+  /** Más reciente primero, igual que el resto de historiales de la app. */
+  timeEntries: TaskTimeEntryDTO[];
 };
 
 export type CreateTaskRequest = {
@@ -200,6 +205,7 @@ export type CreateTaskRequest = {
   description?: string | null;
   assigneeId?: string | null;
   dueDate?: string | null;
+  estimatedHours?: number | null;
 };
 
 export type UpdateTaskRequest = {
@@ -207,6 +213,7 @@ export type UpdateTaskRequest = {
   description?: string | null;
   assigneeId?: string | null;
   dueDate?: string | null;
+  estimatedHours?: number | null;
 };
 
 export type UpdateTaskProgressRequest = {
@@ -215,6 +222,29 @@ export type UpdateTaskProgressRequest = {
 
 export type UpdateTaskStatusRequest = {
   status: TaskStatus;
+};
+
+/** Unidad en la que quien registra teclea el tiempo (issue #114): el
+ * servidor lo convierte a minutos con WORKDAY_HOURS (roles.ts) antes de
+ * guardarlo, así que a partir de ahí todo se trata igual sea cual sea la
+ * unidad de entrada. */
+export const TIME_ENTRY_UNITS = ["hours", "minutes", "days"] as const;
+export type TimeEntryUnit = (typeof TIME_ENTRY_UNITS)[number];
+
+export type LogTaskTimeRequest = {
+  amount: number;
+  unit: TimeEntryUnit;
+  description: string;
+};
+
+export type TaskTimeEntryDTO = {
+  id: string;
+  taskId: string;
+  loggedBy: string;
+  loggedByName: string;
+  minutes: number;
+  description: string;
+  loggedAt: string;
 };
 
 /** 'ok' por debajo del 90% del objetivo, 'near_limit' entre 90-100%, 'over_limit' por encima. */
@@ -248,9 +278,6 @@ export type TeamMemberSummary = {
   /** Solo si status es "on_scheduled_absence": el motivo indicado al
    * programarla (p. ej. "Cita médica"). */
   scheduledAbsenceReason: string | null;
-  /** Solo si status es "working": el título de la tarea del tramo de
-   * fichaje en curso, o null si todavía no ha elegido ninguna. */
-  activeTaskTitle: string | null;
   hoursThisWeek: number;
 };
 
@@ -369,7 +396,7 @@ export type AdminActivityEventDTO =
  * de estado); en los demás la persona ya perdió el acceso al recurso
  * (se la desasignaron, o salió del proyecto), así que no hay a dónde
  * enlazar. */
-export type NotificationDTO = { id: string; readAt: string | null; createdAt: string } & (
+export type NotificationEvent =
   | { type: "task_assigned"; taskId: string; taskTitle: string; projectName: string }
   | { type: "task_unassigned"; taskTitle: string; projectName: string }
   | {
@@ -383,8 +410,39 @@ export type NotificationDTO = { id: string; readAt: string | null; createdAt: st
   | { type: "project_member_added"; projectName: string }
   | { type: "project_member_removed"; projectName: string }
   | { type: "project_supervisor_removed"; projectName: string }
+  | { type: "project_assigned"; projectName: string }
   | { type: "vacation_decided"; status: "approved" | "rejected"; startDate: string; endDate: string }
-);
+  | { type: "vacation_requested"; workerName: string; startDate: string; endDate: string }
+  | {
+      type: "absence_scheduled";
+      workerName: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      reason: string;
+    };
+
+/** Lo que hay guardado en base de datos de una notificación es
+ * NotificationEvent (arriba) más lo que pone la propia tabla: id, si se
+ * ha leído y cuándo se creó. La separación existe porque el mensaje y el
+ * enlace de cada notificación (ver notificationText.ts) también hacen
+ * falta ANTES de guardarla — al decidir si mandar un correo (issue #112,
+ * ver api/src/shared/notifications.ts) — momento en el que ese id
+ * todavía no existe. */
+export type NotificationDTO = { id: string; readAt: string | null; createdAt: string } & NotificationEvent;
+
+/** Preferencia de una persona sobre un tipo de notificación (issue
+ * #112): siempre hay una fila por tipo en la respuesta, aunque no la haya
+ * tocado nunca — channel es entonces DEFAULT_NOTIFICATION_CHANNEL[type]
+ * (roles.ts), no un valor especial de "sin elegir". */
+export type NotificationPreferenceDTO = {
+  type: NotificationType;
+  channel: NotificationChannel;
+};
+
+export type UpdateNotificationPreferenceRequest = {
+  channel: NotificationChannel;
+};
 
 /* --- Bajas y ausencias prolongadas --- */
 

@@ -7,6 +7,7 @@ import { adminActivityRouter, adminUsersRouter } from "./modules/admin/routes.js
 import { authRouter } from "./modules/auth/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
 import { leavesRouter } from "./modules/leaves/routes.js";
+import { notificationPreferencesRouter } from "./modules/notification-preferences/routes.js";
 import { notificationsRouter } from "./modules/notifications/routes.js";
 import { projectsRouter, supervisorProjectsRouter } from "./modules/projects/routes.js";
 import { scheduledAbsencesRouter } from "./modules/scheduled-absences/routes.js";
@@ -40,6 +41,7 @@ export function createApp() {
   app.use("/api/admin/settings", settingsRouter);
   app.use("/api/supervisor/projects", supervisorProjectsRouter);
   app.use("/api/notifications", notificationsRouter);
+  app.use("/api/notification-preferences", notificationPreferencesRouter);
   app.use("/api/leaves", leavesRouter);
   app.use("/api/vacations", vacationsRouter);
   app.use("/api/scheduled-absences", scheduledAbsencesRouter);

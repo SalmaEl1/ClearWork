@@ -12,3 +12,8 @@ export function fetchMyScheduledAbsences(): Promise<ScheduledAbsenceDTO[]> {
 export function deleteScheduledAbsence(id: string): Promise<void> {
   return apiFetch<void>(`/scheduled-absences/${id}`, { method: "DELETE" });
 }
+
+/** Ausencias puntuales de alguien del equipo, para el supervisor. */
+export function fetchTeamMemberScheduledAbsences(userId: string): Promise<ScheduledAbsenceDTO[]> {
+  return apiFetch<ScheduledAbsenceDTO[]>(`/scheduled-absences/team/${userId}`);
+}

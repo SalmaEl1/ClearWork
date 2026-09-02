@@ -14,19 +14,25 @@ import { AdminUsers } from "./pages/admin/AdminUsers.js";
 import { ChangePassword } from "./pages/ChangePassword.js";
 import { ForgotPassword } from "./pages/ForgotPassword.js";
 import { Login } from "./pages/Login.js";
+import { NotificationSettings } from "./pages/NotificationSettings.js";
 import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
+import { SupervisorMemberHistory } from "./pages/supervisor/SupervisorMemberHistory.js";
 import { SupervisorProjectDetail } from "./pages/supervisor/SupervisorProjectDetail.js";
 import { SupervisorProjects } from "./pages/supervisor/SupervisorProjects.js";
 import { SupervisorTaskDetail } from "./pages/supervisor/SupervisorTaskDetail.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
+import { SupervisorTeam } from "./pages/supervisor/SupervisorTeam.js";
 import { SupervisorVacations } from "./pages/supervisor/SupervisorVacations.js";
+import { WorkerAbsences } from "./pages/worker/WorkerAbsences.js";
+import { WorkerAbsencesHistory } from "./pages/worker/WorkerAbsencesHistory.js";
 import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
 import { WorkerTaskDetail } from "./pages/worker/WorkerTaskDetail.js";
 import { WorkerTasks } from "./pages/worker/WorkerTasks.js";
 import { WorkerVacations } from "./pages/worker/WorkerVacations.js";
+import { WorkerVacationsHistory } from "./pages/worker/WorkerVacationsHistory.js";
 
 /** Punto de entrada "/": manda a cada usuario a la vista de su rol. */
 function RoleHomeRedirect() {
@@ -48,6 +54,7 @@ export const router = createBrowserRouter([
           { path: "/", element: <RoleHomeRedirect /> },
           { path: "/profile", element: <Profile /> },
           { path: "/profile/password", element: <ChangePassword /> },
+          { path: "/profile/notifications", element: <NotificationSettings /> },
           {
             element: <RequireRole role="worker" />,
             children: [
@@ -56,6 +63,9 @@ export const router = createBrowserRouter([
               { path: "/worker/tasks/:id", element: <WorkerTaskDetail /> },
               { path: "/worker/history", element: <WorkerHistory /> },
               { path: "/worker/vacations", element: <WorkerVacations /> },
+              { path: "/worker/vacations/history", element: <WorkerVacationsHistory /> },
+              { path: "/worker/absences", element: <WorkerAbsences /> },
+              { path: "/worker/absences/history", element: <WorkerAbsencesHistory /> },
             ],
           },
           {
@@ -67,6 +77,8 @@ export const router = createBrowserRouter([
               { path: "/supervisor/projects", element: <SupervisorProjects /> },
               { path: "/supervisor/projects/:id", element: <SupervisorProjectDetail /> },
               { path: "/supervisor/vacations", element: <SupervisorVacations /> },
+              { path: "/supervisor/team", element: <SupervisorTeam /> },
+              { path: "/supervisor/team/:id/history", element: <SupervisorMemberHistory /> },
             ],
           },
           {

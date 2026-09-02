@@ -1,20 +1,16 @@
-import type { ActiveSessionResponse, BreakType, ClockInRequest, SwitchTaskRequest, WorkSessionDTO } from "@clearwork/shared";
+import type { ActiveSessionResponse, BreakType, WorkSessionDTO } from "@clearwork/shared";
 import { apiFetch } from "./client.js";
 
 export function fetchActiveSession(): Promise<ActiveSessionResponse> {
   return apiFetch<ActiveSessionResponse>("/work-sessions/active");
 }
 
-export function clockIn(input: ClockInRequest = {}): Promise<WorkSessionDTO> {
-  return apiFetch<WorkSessionDTO>("/work-sessions/clock-in", { method: "POST", body: input });
+export function clockIn(): Promise<WorkSessionDTO> {
+  return apiFetch<WorkSessionDTO>("/work-sessions/clock-in", { method: "POST" });
 }
 
 export function clockOut(): Promise<WorkSessionDTO> {
   return apiFetch<WorkSessionDTO>("/work-sessions/clock-out", { method: "POST" });
-}
-
-export function switchTask(input: SwitchTaskRequest): Promise<WorkSessionDTO> {
-  return apiFetch<WorkSessionDTO>("/work-sessions/task", { method: "POST", body: input });
 }
 
 export function startBreak(type: BreakType): Promise<WorkSessionDTO> {
@@ -31,4 +27,13 @@ export function endBreak(): Promise<WorkSessionDTO> {
 export function fetchWorkSessionHistory(limit?: number): Promise<WorkSessionDTO[]> {
   const qs = limit ? `?limit=${limit}` : "";
   return apiFetch<WorkSessionDTO[]>(`/work-sessions${qs}`);
+}
+
+/** Historial de fichajes de alguien del equipo, para el supervisor. */
+export function fetchTeamMemberWorkSessionHistory(
+  userId: string,
+  limit?: number,
+): Promise<WorkSessionDTO[]> {
+  const qs = limit ? `?limit=${limit}` : "";
+  return apiFetch<WorkSessionDTO[]>(`/work-sessions/team/${userId}${qs}`);
 }

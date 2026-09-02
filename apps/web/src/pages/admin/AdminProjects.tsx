@@ -15,7 +15,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
 import { Pagination } from "../../components/Pagination.js";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 
 function CreateProjectForm({
   supervisors,
@@ -136,6 +136,7 @@ export function AdminProjects() {
   const [search, setSearch] = useState("");
   const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [isExporting, setIsExporting] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -157,12 +158,17 @@ export function AdminProjects() {
     setPage(1);
   }, [search, archivedFilter]);
 
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+  }
+
   const load = useCallback(() => {
     fetchAdminProjects({
       search: search || undefined,
       archived: archivedFilter === "all" ? undefined : archivedFilter === "archived",
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
     })
       .then((result) => {
         setProjects(result.items);
@@ -170,7 +176,7 @@ export function AdminProjects() {
         setSelectedIds(new Set());
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la lista"));
-  }, [search, archivedFilter, page]);
+  }, [search, archivedFilter, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -365,7 +371,13 @@ export function AdminProjects() {
           />
         )}
 
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
     </div>
   );

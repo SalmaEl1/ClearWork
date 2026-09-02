@@ -87,6 +87,25 @@ export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconMemberChange(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="7.5" cy="8" r="3" />
+      <path d="M2 19c0-3 2.46-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M15.5 8.5H22M22 8.5l-2.5-2.5M22 8.5l-2.5 2.5" />
+    </Icon>
+  );
+}
+
+export function IconClock(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3.5 2" />
+    </Icon>
+  );
+}
+
 export function IconHistory(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

@@ -28,7 +28,7 @@ export const listUsersQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   role: z.enum(ADMIN_CREATABLE_ROLES).optional(),
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(1000).default(20),
+  pageSize: z.coerce.number().int().positive().max(1000).default(10),
 });
 
 /** Sin paginar: la exportación siempre trae todo lo que coincide con el
@@ -41,5 +41,5 @@ export const exportUsersQuerySchema = z.object({
 export const listActivityQuerySchema = z.object({
   type: z.enum(ACTIVITY_EVENT_TYPES).optional(),
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).default(15),
+  pageSize: z.coerce.number().int().positive().max(100).default(10),
 });

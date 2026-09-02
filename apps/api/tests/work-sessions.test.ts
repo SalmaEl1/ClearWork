@@ -11,9 +11,9 @@ import {
   loginAs,
 } from "./helpers.js";
 
-/** Deja a un trabajador con una tarea propia asignada, para los tests
- * de fichaje asociado a tarea. */
-async function setupWorkerWithTask(adminToken: string) {
+/** Deja listo un supervisor con un trabajador ya en su equipo: el punto
+ * de partida de los tests del historial de equipo (issue #101). */
+async function setupTeam(adminToken: string) {
   const supervisor = await createUserViaAdmin(adminToken, "supervisor");
   const supervisorToken = await loginAs(supervisor.email, supervisor.password);
   const project = await createProjectViaAdmin(adminToken, supervisor.id);
@@ -22,11 +22,7 @@ async function setupWorkerWithTask(adminToken: string) {
     .post(`/api/admin/projects/${project.id}/members`)
     .set(...authHeader(adminToken))
     .send({ userId: worker.id });
-  const task = await request(app)
-    .post("/api/tasks")
-    .set(...authHeader(supervisorToken))
-    .send({ projectId: project.id, assigneeId: worker.id, title: "Preparar demo" });
-  return { worker, task: task.body };
+  return { supervisor, supervisorToken, worker };
 }
 
 describe("fichaje", () => {
@@ -141,80 +137,38 @@ describe("fichaje", () => {
     expect(active.body.activeSession.id).toBe(successes[0]!.body.id);
   });
 
-  it("fichar entrada con una tarea abre un tramo con esa tarea", async () => {
+  it("un supervisor consulta el historial de fichajes de alguien de su equipo", async () => {
     const admin = await createAdmin();
-    const { worker, task } = await setupWorkerWithTask(admin.token);
+    const { supervisorToken, worker } = await setupTeam(admin.token);
 
-    const res = await request(app)
-      .post("/api/work-sessions/clock-in")
-      .set(...authHeader(worker.token))
-      .send({ taskId: task.id, description: "Revisar el guion" });
-
-    expect(res.status).toBe(201);
-    expect(res.body.taskSegments).toHaveLength(1);
-    expect(res.body.taskSegments[0].taskId).toBe(task.id);
-    expect(res.body.taskSegments[0].taskTitle).toBe(task.title);
-    expect(res.body.taskSegments[0].description).toBe("Revisar el guion");
-    expect(res.body.taskSegments[0].endedAt).toBeNull();
-  });
-
-  it("no se puede fichar entrada con una tarea que no está asignada a ese trabajador", async () => {
-    const admin = await createAdmin();
-    const worker = await createWorker(admin.token);
-    const { task } = await setupWorkerWithTask(admin.token);
-
-    const res = await request(app)
-      .post("/api/work-sessions/clock-in")
-      .set(...authHeader(worker.token))
-      .send({ taskId: task.id });
-
-    expect(res.status).toBe(400);
-  });
-
-  it("cambiar de tarea cierra el tramo en curso y abre uno nuevo, sin fichar salida", async () => {
-    const admin = await createAdmin();
-    const { worker, task } = await setupWorkerWithTask(admin.token);
-    await request(app)
-      .post("/api/work-sessions/clock-in")
-      .set(...authHeader(worker.token))
-      .send({ taskId: task.id });
-
-    const res = await request(app)
-      .post("/api/work-sessions/task")
-      .set(...authHeader(worker.token))
-      .send({ description: "Descanso de la tarea, apoyo puntual" });
-
-    expect(res.status).toBe(200);
-    expect(res.body.endedAt).toBeNull();
-    expect(res.body.taskSegments).toHaveLength(2);
-    expect(res.body.taskSegments[0].endedAt).not.toBeNull();
-    expect(res.body.taskSegments[1].taskId).toBeNull();
-    expect(res.body.taskSegments[1].endedAt).toBeNull();
-  });
-
-  it("no se puede cambiar de tarea sin haber fichado entrada", async () => {
-    const admin = await createAdmin();
-    const worker = await createWorker(admin.token);
-
-    const res = await request(app)
-      .post("/api/work-sessions/task")
-      .set(...authHeader(worker.token))
-      .send({ description: "Algo" });
-
-    expect(res.status).toBe(409);
-  });
-
-  it("fichar salida cierra también el tramo de tarea en curso", async () => {
-    const admin = await createAdmin();
-    const { worker, task } = await setupWorkerWithTask(admin.token);
-    await request(app)
-      .post("/api/work-sessions/clock-in")
-      .set(...authHeader(worker.token))
-      .send({ taskId: task.id });
-
+    await request(app).post("/api/work-sessions/clock-in").set(...authHeader(worker.token));
     const closed = await request(app).post("/api/work-sessions/clock-out").set(...authHeader(worker.token));
 
-    expect(closed.status).toBe(200);
-    expect(closed.body.taskSegments[0].endedAt).not.toBeNull();
+    const history = await request(app)
+      .get(`/api/work-sessions/team/${worker.id}`)
+      .set(...authHeader(supervisorToken));
+    expect(history.status).toBe(200);
+    expect(history.body.some((s: { id: string }) => s.id === closed.body.id)).toBe(true);
+  });
+
+  it("un supervisor no puede consultar el historial de alguien que no es de su equipo", async () => {
+    const admin = await createAdmin();
+    const outsider = await createWorker(admin.token);
+    const { supervisorToken } = await setupTeam(admin.token);
+
+    const res = await request(app)
+      .get(`/api/work-sessions/team/${outsider.id}`)
+      .set(...authHeader(supervisorToken));
+    expect(res.status).toBe(404);
+  });
+
+  it("un trabajador no puede consultar el historial de fichajes de nadie por esta vía", async () => {
+    const admin = await createAdmin();
+    const { worker } = await setupTeam(admin.token);
+
+    const res = await request(app)
+      .get(`/api/work-sessions/team/${worker.id}`)
+      .set(...authHeader(worker.token));
+    expect(res.status).toBe(403);
   });
 });

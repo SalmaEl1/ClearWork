@@ -10,8 +10,8 @@ import {
   removeMemberFromMyProject,
   updateMyProject,
 } from "../../api/supervisorProjects.js";
-import { BackLink } from "../../components/BackLink.js";
 import { ProjectMembersCard } from "../../components/ProjectMembersCard.js";
+import { useSavedConfirmation } from "../../lib/useSavedConfirmation.js";
 
 /** Sin supervisorId ni isArchived: eso sigue siendo exclusivo del admin
  * (ver apps/api/src/modules/projects/schemas.ts's updateMyProjectSchema). */
@@ -26,6 +26,7 @@ function EditProjectForm({
   const [description, setDescription] = useState(project.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, triggerSaved] = useSavedConfirmation();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -33,6 +34,7 @@ function EditProjectForm({
     setIsSaving(true);
     try {
       await updateMyProject(project.id, { name, description: description || null });
+      triggerSaved();
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo guardar");
@@ -45,6 +47,7 @@ function EditProjectForm({
     <div className="card">
       <h3>Datos del proyecto</h3>
       {error && <div className="error-banner">{error}</div>}
+      {isSaved && <div className="alert-banner status-ok">Cambios guardados.</div>}
       <form onSubmit={handleSubmit}>
         <label>
           <span>Nombre</span>
@@ -86,9 +89,6 @@ export function SupervisorProjectDetail() {
 
   return (
     <div className="dashboard-grid">
-      <div>
-        <BackLink to="/supervisor/projects">Volver a mis proyectos</BackLink>
-      </div>
       <h2>{project?.name ?? "Proyecto"}</h2>
       {error && <div className="error-banner">{error}</div>}
       {!project && !error && <p>Cargando…</p>}

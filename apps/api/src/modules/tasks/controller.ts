@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
 import type { AuthUser } from "../auth/jwt.js";
-import { taskListQuerySchema } from "./schemas.js";
+import { logTaskTimeSchema, taskListQuerySchema } from "./schemas.js";
 import * as service from "./service.js";
 
 function requireUser(req: Request): AuthUser {
@@ -83,6 +83,17 @@ export async function updateTaskProgressHandler(
       req.body.progressPercentage,
     );
     res.status(200).json(task);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function logTaskTimeHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const input = logTaskTimeSchema.parse(req.body);
+    const task = await service.logTaskTime(req.params.id as string, user.id, user.role, input);
+    res.status(201).json(task);
   } catch (err) {
     next(err);
   }

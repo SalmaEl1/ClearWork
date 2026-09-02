@@ -42,7 +42,7 @@ export const listProjectsQuerySchema = z.object({
     .transform((v) => v === "true")
     .optional(),
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(1000).default(20),
+  pageSize: z.coerce.number().int().positive().max(1000).default(10),
 });
 
 export const exportProjectsQuerySchema = z.object({
