@@ -48,9 +48,10 @@ function EditProjectForm({
       <h3>Datos del proyecto</h3>
       {/* De solo lectura a propósito: el cliente lo da de alta o lo edita
           solo el admin (ver updateMyProjectSchema, api/projects/schemas.ts). */}
-      <p className="project-client-info">
-        Cliente: {project.clientName} · Contacto: {project.clientContact}
-      </p>
+      <div className="project-client-info">
+        <p className="project-client-info__name">Cliente: {project.clientName}</p>
+        <p className="project-client-info__contact">{project.clientContact}</p>
+      </div>
       {error && <div className="error-banner">{error}</div>}
       {isSaved && <div className="alert-banner status-ok">Cambios guardados.</div>}
       <form onSubmit={handleSubmit}>

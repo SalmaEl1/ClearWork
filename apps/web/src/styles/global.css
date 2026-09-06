@@ -101,9 +101,23 @@ label > span {
 /* Datos del cliente de un proyecto, de solo lectura para quien no sea
  * admin (ver SupervisorProjectDetail.tsx y WorkerProject.tsx). */
 .project-client-info {
+  margin: 0 0 1rem;
+}
+
+.project-client-info__name {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* pre-line: el contacto puede ser un mini párrafo con varias líneas
+ * (nombre, teléfono, correo…) — se conservan los saltos de línea tal
+ * como se guardaron, en vez de colapsarlos en una sola. */
+.project-client-info__contact {
+  margin: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
-  margin: 0 0 1rem;
+  white-space: pre-line;
 }
 
 .error-banner {

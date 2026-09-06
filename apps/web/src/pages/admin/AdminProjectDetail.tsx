@@ -96,11 +96,16 @@ function EditProjectForm({
         </label>
         <label>
           <span>Cliente</span>
-          <input required value={clientName} onChange={(e) => setClientName(e.target.value)} />
+          <textarea rows={3} required value={clientName} onChange={(e) => setClientName(e.target.value)} />
         </label>
         <label>
           <span>Contacto del cliente</span>
-          <input required value={clientContact} onChange={(e) => setClientContact(e.target.value)} />
+          <textarea
+            rows={3}
+            required
+            value={clientContact}
+            onChange={(e) => setClientContact(e.target.value)}
+          />
         </label>
         <button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar cambios"}

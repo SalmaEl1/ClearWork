@@ -101,7 +101,8 @@ describe("SupervisorProjectDetail", () => {
     renderPage();
     await screen.findByRole("heading", { name: "Proyecto Web" });
 
-    expect(screen.getByText("Cliente: Acme S.L. · Contacto: contacto@acme.test")).toBeInTheDocument();
+    expect(screen.getByText("Cliente: Acme S.L.")).toBeInTheDocument();
+    expect(screen.getByText("contacto@acme.test")).toBeInTheDocument();
     expect(screen.queryByLabelText("Cliente")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Contacto/)).not.toBeInTheDocument();
   });

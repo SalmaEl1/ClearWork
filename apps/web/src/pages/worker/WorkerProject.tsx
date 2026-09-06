@@ -26,9 +26,10 @@ export function WorkerProject() {
         <div className="card">
           {project.description && <p>{project.description}</p>}
 
-          <p className="project-client-info">
-            Cliente: {project.clientName} · Contacto: {project.clientContact}
-          </p>
+          <div className="project-client-info">
+            <p className="project-client-info__name">Cliente: {project.clientName}</p>
+            <p className="project-client-info__contact">{project.clientContact}</p>
+          </div>
 
           <p>Supervisor/a: {project.supervisorName}</p>
 

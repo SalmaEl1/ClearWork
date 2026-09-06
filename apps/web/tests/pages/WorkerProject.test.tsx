@@ -38,9 +38,18 @@ describe("WorkerProject", () => {
     fetchMyProjectAsWorker.mockResolvedValue(makeProject());
     render(<WorkerProject />);
 
-    expect(
-      await screen.findByText("Cliente: Acme S.L. · Contacto: contacto@acme.test"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Cliente: Acme S.L.")).toBeInTheDocument();
+    expect(screen.getByText("contacto@acme.test")).toBeInTheDocument();
+  });
+
+  it("conserva los saltos de línea del contacto (puede ser un mini párrafo)", async () => {
+    fetchMyProjectAsWorker.mockResolvedValue(
+      makeProject({ clientContact: "Marta Fernández\nTel: 611 223 344\nmarta@acme.test" }),
+    );
+    render(<WorkerProject />);
+
+    const contact = await screen.findByText((_, el) => el?.textContent === "Marta Fernández\nTel: 611 223 344\nmarta@acme.test");
+    expect(contact).toHaveClass("project-client-info__contact");
   });
 
   it("lista al resto del equipo", async () => {
