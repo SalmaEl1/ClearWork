@@ -9,6 +9,7 @@ import {
   createProjectViaAdmin,
   createUserViaAdmin,
   createWorker,
+  defaultTestHireDate,
   loginAs,
 } from "./helpers.js";
 
@@ -32,6 +33,7 @@ async function createWorkerWithTarget(adminToken: string, weeklyTargetHours: num
       fullName: "Worker con objetivo",
       role: "worker",
       weeklyTargetHours,
+      hireDate: defaultTestHireDate(),
     });
   const token = await loginAs(res.body.email, res.body.temporaryPassword);
   return { ...res.body, token };

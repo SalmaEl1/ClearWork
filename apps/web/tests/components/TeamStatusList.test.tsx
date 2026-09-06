@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamStatusList } from "../../src/components/TeamStatusList.js";
 
 const createLeave = vi.hoisted(() => vi.fn());
-vi.mock("../../src/api/leaves.js", () => ({ createLeave }));
+const endLeave = vi.hoisted(() => vi.fn());
+vi.mock("../../src/api/leaves.js", () => ({ createLeave, endLeave }));
 
 function member(overrides: Partial<TeamMemberSummary> = {}): TeamMemberSummary {
   return {
@@ -15,8 +16,10 @@ function member(overrides: Partial<TeamMemberSummary> = {}): TeamMemberSummary {
     status: "working",
     breakType: null,
     leaveType: null,
+    leaveId: null,
     scheduledAbsenceReason: null,
     hoursThisWeek: 12.5,
+    vacationBalance: { year: 2026, total: 23, used: 0, remaining: 23 },
     ...overrides,
   };
 }
@@ -32,6 +35,7 @@ function renderList(team: TeamMemberSummary[], onChanged = vi.fn()) {
 describe("TeamStatusList", () => {
   beforeEach(() => {
     createLeave.mockReset().mockResolvedValue({});
+    endLeave.mockReset().mockResolvedValue({});
   });
 
   it("muestra el estado vacío cuando no hay equipo", () => {
@@ -82,5 +86,29 @@ describe("TeamStatusList", () => {
       }),
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("ofrece 'Finalizar baja' en vez de 'Registrar baja' para quien ya está de baja", () => {
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: "l1" })]);
+    expect(screen.getByRole("button", { name: "Finalizar baja" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar baja" })).not.toBeInTheDocument();
+  });
+
+  it("finaliza una baja tras confirmar, y avisa a onChanged", async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: "l1" })], onChanged);
+
+    await user.click(screen.getByRole("button", { name: "Finalizar baja" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Finalizar" }));
+
+    await waitFor(() => expect(endLeave).toHaveBeenCalledWith("l1"));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("muestra el saldo de vacaciones de cada persona", () => {
+    renderList([member({ vacationBalance: { year: 2026, total: 12, used: 4, remaining: 8 } })]);
+    expect(screen.getByText("Vacaciones 2026: 8/12 días")).toBeInTheDocument();
   });
 });

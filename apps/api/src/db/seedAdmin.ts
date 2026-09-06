@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 import { listUsersByRole } from "../modules/users/repository.js";
 import { createAccount } from "../modules/users/service.js";
+import { todayDateString } from "../shared/time.js";
 import { pool } from "./pool.js";
 
 /**
@@ -27,6 +28,7 @@ async function seedAdmin() {
     password: env.ADMIN_PASSWORD,
     fullName: env.ADMIN_FULL_NAME,
     role: "admin",
+    hireDate: todayDateString(),
   });
 
   console.log(`Admin creado: ${user.email}`);

@@ -209,4 +209,151 @@ describe("ausencias puntuales programadas", () => {
       .set(...authHeader(supervisorToken));
     expect(res.status).toBe(404);
   });
+
+  describe("gestión del supervisor sobre las ausencias de su equipo", () => {
+    it("un supervisor programa una ausencia en el pasado para alguien de su equipo", async () => {
+      const admin = await createAdmin();
+      const { supervisorToken, worker } = await setupTeam(admin.token);
+
+      const res = await request(app)
+        .post("/api/scheduled-absences/team")
+        .set(...authHeader(supervisorToken))
+        .send({
+          userId: worker.id,
+          date: isoDateOffset(-10),
+          startTime: "09:00",
+          endTime: "10:00",
+          reason: "Cita médica ya pasada",
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.userId).toBe(worker.id);
+      expect(res.body.date).toBe(isoDateOffset(-10));
+    });
+
+    it("un supervisor no puede programar una ausencia para quien no es de su equipo", async () => {
+      const admin = await createAdmin();
+      const outsider = await createWorker(admin.token);
+      const { supervisorToken } = await setupTeam(admin.token);
+
+      const res = await request(app)
+        .post("/api/scheduled-absences/team")
+        .set(...authHeader(supervisorToken))
+        .send({ userId: outsider.id, date: isoDateOffset(-1), startTime: "09:00", endTime: "10:00", reason: "Intento" });
+
+      expect(res.status).toBe(404);
+    });
+
+    it("un trabajador no puede usar la vía del supervisor para programar ausencias", async () => {
+      const admin = await createAdmin();
+      const { worker } = await setupTeam(admin.token);
+
+      const res = await request(app)
+        .post("/api/scheduled-absences/team")
+        .set(...authHeader(worker.token))
+        .send({ userId: worker.id, date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "Intento" });
+
+      expect(res.status).toBe(403);
+    });
+
+    it("el listado de equipo trae las ausencias de todos los miembros con su nombre", async () => {
+      const admin = await createAdmin();
+      const { supervisorToken, worker } = await setupTeam(admin.token);
+      await request(app)
+        .post("/api/scheduled-absences")
+        .set(...authHeader(worker.token))
+        .send({ date: isoDateOffset(1), startTime: "10:00", endTime: "11:00", reason: "Cita médica" });
+
+      const res = await request(app)
+        .get("/api/scheduled-absences/team")
+        .set(...authHeader(supervisorToken));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].userFullName).toBe(worker.fullName);
+    });
+
+    it("un supervisor edita la fecha, la hora y el motivo de una ausencia de su equipo", async () => {
+      const admin = await createAdmin();
+      const { supervisorToken, worker } = await setupTeam(admin.token);
+      const created = await request(app)
+        .post("/api/scheduled-absences/team")
+        .set(...authHeader(supervisorToken))
+        .send({ userId: worker.id, date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "Original" });
+
+      const updated = await request(app)
+        .patch(`/api/scheduled-absences/${created.body.id}`)
+        .set(...authHeader(supervisorToken))
+        .send({ date: isoDateOffset(-5), reason: "Reprogramada al pasado" });
+
+      expect(updated.status).toBe(200);
+      expect(updated.body.date).toBe(isoDateOffset(-5));
+      expect(updated.body.reason).toBe("Reprogramada al pasado");
+      expect(updated.body.startTime).toBe("09:00");
+    });
+
+    it("al editar solo una hora, se valida contra la que ya estaba guardada", async () => {
+      const admin = await createAdmin();
+      const { supervisorToken, worker } = await setupTeam(admin.token);
+      const created = await request(app)
+        .post("/api/scheduled-absences/team")
+        .set(...authHeader(supervisorToken))
+        .send({ userId: worker.id, date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "Original" });
+
+      const res = await request(app)
+        .patch(`/api/scheduled-absences/${created.body.id}`)
+        .set(...authHeader(supervisorToken))
+        .send({ startTime: "10:30" }); // posterior al endTime guardado (10:00)
+
+      expect(res.status).toBe(400);
+    });
+
+    it("un supervisor no puede editar una ausencia de quien no es de su equipo", async () => {
+      const admin = await createAdmin();
+      const outsider = await createWorker(admin.token);
+      const outsiderAbsence = await request(app)
+        .post("/api/scheduled-absences")
+        .set(...authHeader(outsider.token))
+        .send({ date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "Ajena" });
+      const { supervisorToken } = await setupTeam(admin.token);
+
+      const res = await request(app)
+        .patch(`/api/scheduled-absences/${outsiderAbsence.body.id}`)
+        .set(...authHeader(supervisorToken))
+        .send({ reason: "Intento de cambio" });
+
+      expect(res.status).toBe(404);
+    });
+
+    it("un trabajador no puede editar ninguna ausencia, ni la suya propia", async () => {
+      const admin = await createAdmin();
+      const worker = await createWorker(admin.token);
+      const created = await request(app)
+        .post("/api/scheduled-absences")
+        .set(...authHeader(worker.token))
+        .send({ date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "Propia" });
+
+      const res = await request(app)
+        .patch(`/api/scheduled-absences/${created.body.id}`)
+        .set(...authHeader(worker.token))
+        .send({ reason: "Intento" });
+
+      expect(res.status).toBe(403);
+    });
+
+    it("un supervisor puede borrar una ausencia de su equipo", async () => {
+      const admin = await createAdmin();
+      const { supervisorToken, worker } = await setupTeam(admin.token);
+      const created = await request(app)
+        .post("/api/scheduled-absences")
+        .set(...authHeader(worker.token))
+        .send({ date: isoDateOffset(1), startTime: "09:00", endTime: "10:00", reason: "A borrar" });
+
+      const res = await request(app)
+        .delete(`/api/scheduled-absences/${created.body.id}`)
+        .set(...authHeader(supervisorToken));
+
+      expect(res.status).toBe(204);
+    });
+  });
 });

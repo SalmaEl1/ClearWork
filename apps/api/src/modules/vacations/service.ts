@@ -1,12 +1,56 @@
-import type { TeamVacationRequestDTO, VacationRequestDTO } from "@clearwork/shared";
+import type { TeamVacationRequestDTO, VacationBalanceDTO, VacationRequestDTO } from "@clearwork/shared";
 import { ConflictError, NotFoundError } from "../../shared/errors.js";
 import { notify } from "../../shared/notifications.js";
 import { todayDateString } from "../../shared/time.js";
 import { listActiveWorkersForSupervisor } from "../projects/repository.js";
 import { findSupervisorIdForWorker } from "../projects/service.js";
 import { findUserById } from "../users/repository.js";
+import { daySpan, vacationDaysForYear } from "./balance.js";
 import * as repo from "./repository.js";
 import type { VacationRequestRow } from "./repository.js";
+
+/** Días ya consumidos ese año: solicitudes propias que no estén
+ * rechazadas ni canceladas (una pendiente ya "reserva" saldo, igual que
+ * una aprobada) y cuyo inicio caiga en `year`. */
+function usedDaysInYear(requests: VacationRequestRow[], year: number): number {
+  return requests
+    .filter((r) => r.status !== "rejected" && r.status !== "cancelled")
+    .filter((r) => r.start_date.slice(0, 4) === String(year))
+    .reduce((sum, r) => sum + daySpan(r.start_date, r.end_date), 0);
+}
+
+/** Usado también desde dashboard/service.ts para mostrar el saldo de
+ * cada persona del equipo en la vista "Equipo" del supervisor. */
+export function computeVacationBalance(
+  hireDate: string,
+  requests: VacationRequestRow[],
+  year: number,
+): VacationBalanceDTO {
+  const total = vacationDaysForYear(hireDate, year);
+  const used = usedDaysInYear(requests, year);
+  return { year, total, used, remaining: Math.max(total - used, 0) };
+}
+
+async function assertWithinVacationBalance(
+  workerId: string,
+  startDate: string,
+  endDate: string,
+): Promise<void> {
+  const worker = await findUserById(workerId);
+  if (!worker) throw new NotFoundError("Usuario no encontrado");
+
+  const year = Number(startDate.slice(0, 4));
+  const requestedDays = daySpan(startDate, endDate);
+  const existing = await repo.listVacationRequestsForUser(workerId);
+  const used = usedDaysInYear(existing, year);
+  const total = vacationDaysForYear(worker.hire_date, year);
+
+  if (used + requestedDays > total) {
+    throw new ConflictError(
+      `No quedan suficientes días de vacaciones: quedan ${Math.max(total - used, 0)} de ${total} para ${year}`,
+    );
+  }
+}
 
 function toDTO(row: VacationRequestRow): VacationRequestDTO {
   return {
@@ -25,6 +69,8 @@ export async function createVacationRequest(
   workerId: string,
   input: { startDate: string; endDate: string },
 ): Promise<VacationRequestDTO> {
+  await assertWithinVacationBalance(workerId, input.startDate, input.endDate);
+
   const request = await repo.insertVacationRequest(workerId, input.startDate, input.endDate);
 
   const supervisorId = await findSupervisorIdForWorker(workerId);

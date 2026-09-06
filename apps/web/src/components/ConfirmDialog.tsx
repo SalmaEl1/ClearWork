@@ -10,6 +10,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = "Confirmar",
+  confirmingLabel = "Eliminando…",
   cancelLabel = "Cancelar",
   isConfirming = false,
   onConfirm,
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   title: string;
   message: string;
   confirmLabel?: string;
+  confirmingLabel?: string;
   cancelLabel?: string;
   isConfirming?: boolean;
   onConfirm: () => void;
@@ -31,7 +33,7 @@ export function ConfirmDialog({
           {cancelLabel}
         </button>
         <button type="button" className="danger" disabled={isConfirming} onClick={onConfirm}>
-          {isConfirming ? "Eliminando…" : confirmLabel}
+          {isConfirming ? confirmingLabel : confirmLabel}
         </button>
       </div>
     </Modal>

@@ -232,4 +232,109 @@ describe("bajas y ausencias prolongadas", () => {
     expect(teamEntry.status).not.toBe("on_leave");
     expect(teamEntry.leaveType).toBeNull();
   });
+
+  it("el dashboard expone el id de la baja en curso, para poder finalizarla", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(supervisorToken))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(-1) });
+
+    const dashboard = await request(app)
+      .get("/api/dashboard/supervisor")
+      .set(...authHeader(supervisorToken));
+
+    const teamEntry = dashboard.body.team.find((t: { id: string }) => t.id === worker.id);
+    expect(teamEntry.leaveId).toBe(leave.body.id);
+  });
+
+  it("un supervisor finaliza hoy una baja en curso de su equipo", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(supervisorToken))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(-3) });
+
+    const res = await request(app)
+      .post(`/api/leaves/${leave.body.id}/end`)
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.endDate).toBe(isoDateOffset(-1));
+
+    const dashboard = await request(app)
+      .get("/api/dashboard/supervisor")
+      .set(...authHeader(supervisorToken));
+    const teamEntry = dashboard.body.team.find((t: { id: string }) => t.id === worker.id);
+    expect(teamEntry.status).not.toBe("on_leave");
+  });
+
+  it("un admin puede finalizar la baja de cualquier persona", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(-3) });
+
+    const res = await request(app)
+      .post(`/api/leaves/${leave.body.id}/end`)
+      .set(...authHeader(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.endDate).toBe(isoDateOffset(-1));
+  });
+
+  it("un trabajador no puede finalizar ninguna baja", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(-3) });
+
+    const res = await request(app)
+      .post(`/api/leaves/${leave.body.id}/end`)
+      .set(...authHeader(worker.token));
+
+    expect(res.status).toBe(403);
+  });
+
+  it("un supervisor no puede finalizar una baja de quien no es de su equipo", async () => {
+    const admin = await createAdmin();
+    const outsider = await createWorker(admin.token);
+    const outsiderLeave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: outsider.id, type: "sick_leave", startDate: isoDateOffset(-3) });
+    const { supervisorToken } = await setupTeam(admin.token);
+
+    const res = await request(app)
+      .post(`/api/leaves/${outsiderLeave.body.id}/end`)
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("no se puede finalizar una baja que ya había terminado", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+    const leave = await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({
+        userId: worker.id,
+        type: "sick_leave",
+        startDate: isoDateOffset(-10),
+        endDate: isoDateOffset(-5),
+      });
+
+    const res = await request(app)
+      .post(`/api/leaves/${leave.body.id}/end`)
+      .set(...authHeader(admin.token));
+
+    expect(res.status).toBe(409);
+  });
 });

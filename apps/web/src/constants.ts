@@ -85,20 +85,51 @@ export const NOTIFICATION_CHANNEL_LABEL: Record<NotificationChannel, string> = {
   none: "No recibir",
 };
 
-/** Para el filtro por tipo en /admin/activity. */
+/** Para el sub-filtro por tipo en /admin/activity, dentro de una
+ * categoría ya elegida (ver ACTIVITY_CATEGORIES) — de ahí que sean cortas
+ * ("Altas", no "Altas de cuenta"): el título de la categoría ya da el
+ * contexto que le falta a la etiqueta. */
 export const ACTIVITY_EVENT_TYPE_LABEL: Record<ActivityEventType, string> = {
-  user_created: "Altas de cuenta",
-  user_updated: "Ediciones de cuenta",
+  user_created: "Altas",
+  user_updated: "Ediciones",
   user_role_changed: "Cambios de rol",
-  user_deleted: "Bajas de cuenta",
-  project_created: "Altas de proyecto",
-  project_updated: "Ediciones de proyecto",
+  user_deleted: "Bajas",
+  project_created: "Altas",
+  project_updated: "Ediciones",
   project_archived: "Archivados/desarchivados",
   project_supervisor_changed: "Cambios de supervisor/a",
-  project_deleted: "Bajas de proyecto",
-  task_created: "Altas de tarea",
-  task_status_changed: "Cambios de estado de tarea",
-  task_deleted: "Bajas de tarea",
-  member_joined: "Entradas a un proyecto",
-  member_left: "Salidas de un proyecto",
+  project_deleted: "Bajas",
+  task_created: "Altas",
+  task_status_changed: "Cambios de estado",
+  task_deleted: "Bajas",
+  member_joined: "Entradas al equipo",
+  member_left: "Salidas del equipo",
+};
+
+/** Agrupación de los tipos de evento en categorías, para el filtro de
+ * /admin/activity (botones arriba, no un desplegable plano de 14
+ * opciones): cada tipo vive en exactamente una categoría. */
+export type ActivityCategory = "accounts" | "projects" | "tasks";
+
+export const ACTIVITY_CATEGORIES: Record<ActivityCategory, { label: string; types: ActivityEventType[] }> = {
+  accounts: {
+    label: "Cuentas",
+    types: ["user_created", "user_updated", "user_role_changed", "user_deleted"],
+  },
+  projects: {
+    label: "Proyectos",
+    types: [
+      "project_created",
+      "project_updated",
+      "project_archived",
+      "project_supervisor_changed",
+      "project_deleted",
+      "member_joined",
+      "member_left",
+    ],
+  },
+  tasks: {
+    label: "Tareas",
+    types: ["task_created", "task_status_changed", "task_deleted"],
+  },
 };

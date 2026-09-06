@@ -13,6 +13,7 @@ export function toPublicUser(row: UserRow): PublicUser {
     weeklyTargetHours: Number(row.weekly_target_hours),
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
+    hireDate: row.hire_date,
   };
 }
 
@@ -99,12 +100,13 @@ export type CreateUserInput = {
   fullName: string;
   role: Role;
   weeklyTargetHours?: number;
+  hireDate: string;
 };
 
 export async function createUser(input: CreateUserInput): Promise<UserRow> {
   const result = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, full_name, role, weekly_target_hours)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO users (email, password_hash, full_name, role, weekly_target_hours, hire_date)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
     [
       input.email,
@@ -112,6 +114,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRow> {
       input.fullName,
       input.role,
       input.weeklyTargetHours ?? DEFAULT_WEEKLY_TARGET_HOURS,
+      input.hireDate,
     ],
   );
   const row = result.rows[0];
@@ -134,6 +137,7 @@ export type UpdateUserFields = {
   role?: Role;
   weeklyTargetHours?: number;
   isActive?: boolean;
+  hireDate?: string;
 };
 
 /** Igual patrón que en projects/repository.ts: UPDATE construido a mano
@@ -164,6 +168,10 @@ export async function updateUserById(
   if (fields.isActive !== undefined) {
     values.push(fields.isActive);
     setClauses.push(`is_active = $${values.length}`);
+  }
+  if (fields.hireDate !== undefined) {
+    values.push(fields.hireDate);
+    setClauses.push(`hire_date = $${values.length}`);
   }
 
   if (setClauses.length === 0) {

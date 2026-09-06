@@ -24,6 +24,7 @@ import { SupervisorProjects } from "./pages/supervisor/SupervisorProjects.js";
 import { SupervisorTaskDetail } from "./pages/supervisor/SupervisorTaskDetail.js";
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { SupervisorTeam } from "./pages/supervisor/SupervisorTeam.js";
+import { SupervisorAbsences } from "./pages/supervisor/SupervisorAbsences.js";
 import { SupervisorVacations } from "./pages/supervisor/SupervisorVacations.js";
 import { WorkerAbsences } from "./pages/worker/WorkerAbsences.js";
 import { WorkerAbsencesHistory } from "./pages/worker/WorkerAbsencesHistory.js";
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
               { path: "/supervisor/projects", element: <SupervisorProjects /> },
               { path: "/supervisor/projects/:id", element: <SupervisorProjectDetail /> },
               { path: "/supervisor/vacations", element: <SupervisorVacations /> },
+              { path: "/supervisor/absences", element: <SupervisorAbsences /> },
               { path: "/supervisor/team", element: <SupervisorTeam /> },
               { path: "/supervisor/team/:id/history", element: <SupervisorMemberHistory /> },
             ],

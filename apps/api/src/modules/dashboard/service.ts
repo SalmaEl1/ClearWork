@@ -11,7 +11,11 @@ import { listActiveWorkersForSupervisor, listProjectsForSupervisor } from "../pr
 import { findActiveScheduledAbsencesForUsers } from "../scheduled-absences/repository.js";
 import { countTaskStatusesForSupervisor } from "../tasks/repository.js";
 import { findUserById } from "../users/repository.js";
-import { findActiveApprovedVacationsForUsers } from "../vacations/repository.js";
+import { computeVacationBalance } from "../vacations/service.js";
+import {
+  findActiveApprovedVacationsForUsers,
+  listVacationRequestsForUsers,
+} from "../vacations/repository.js";
 import {
   findOpenBreakForSession,
   findOpenSessionForUser,
@@ -119,19 +123,30 @@ export async function getSupervisorDashboard(
 
   const { start, end } = getCurrentWeekRange(now);
 
-  const [weekSessions, openSessions, projects, taskCounts, activeLeaves, activeVacations, activeScheduledAbsences] =
-    await Promise.all([
-      listSessionsForUsersInRange(workerIds, start, end),
-      listOpenSessionsForUsers(workerIds),
-      listProjectsForSupervisor(supervisorId),
-      countTaskStatusesForSupervisor(supervisorId),
-      findActiveLeavesForUsers(workerIds, todayDateString(now)),
-      findActiveApprovedVacationsForUsers(workerIds, todayDateString(now)),
-      findActiveScheduledAbsencesForUsers(workerIds, todayDateString(now), nowTimeString(now)),
-    ]);
+  const [
+    weekSessions,
+    openSessions,
+    projects,
+    taskCounts,
+    activeLeaves,
+    activeVacations,
+    activeScheduledAbsences,
+    yearVacationRequests,
+  ] = await Promise.all([
+    listSessionsForUsersInRange(workerIds, start, end),
+    listOpenSessionsForUsers(workerIds),
+    listProjectsForSupervisor(supervisorId),
+    countTaskStatusesForSupervisor(supervisorId),
+    findActiveLeavesForUsers(workerIds, todayDateString(now)),
+    findActiveApprovedVacationsForUsers(workerIds, todayDateString(now)),
+    findActiveScheduledAbsencesForUsers(workerIds, todayDateString(now), nowTimeString(now)),
+    listVacationRequestsForUsers(workerIds),
+  ]);
   const leaveByUser = new Map(activeLeaves.map((l) => [l.user_id, l]));
   const vacationUserIds = new Set(activeVacations.map((v) => v.user_id));
   const scheduledAbsenceByUser = new Map(activeScheduledAbsences.map((a) => [a.user_id, a]));
+  const vacationRequestsByUser = groupBy(yearVacationRequests, (r) => r.user_id);
+  const currentYear = now.getUTCFullYear();
 
   const weekBreaks = await listBreaksForSessions(weekSessions.map((s) => s.id));
   const weekBreaksBySession = groupBy(weekBreaks, (b) => b.work_session_id);
@@ -172,8 +187,14 @@ export async function getSupervisorDashboard(
       status,
       breakType: openBreak?.type ?? null,
       leaveType: activeLeave?.type ?? null,
+      leaveId: activeLeave?.id ?? null,
       scheduledAbsenceReason: activeScheduledAbsence?.reason ?? null,
       hoursThisWeek,
+      vacationBalance: computeVacationBalance(
+        worker.hire_date,
+        vacationRequestsByUser.get(worker.id) ?? [],
+        currentYear,
+      ),
     };
   });
 

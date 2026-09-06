@@ -100,6 +100,10 @@ export function AppLayout() {
               <IconCalendar />
               <span>Vacaciones</span>
             </NavLink>
+            <NavLink to="/supervisor/absences">
+              <IconClock />
+              <span>Ausencias</span>
+            </NavLink>
           </nav>
         )}
 

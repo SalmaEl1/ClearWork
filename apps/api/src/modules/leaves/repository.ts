@@ -47,6 +47,14 @@ export async function deleteLeaveById(id: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function updateLeaveEndDate(id: string, endDate: string): Promise<LeaveRow | null> {
+  const result = await pool.query<LeaveRow>(
+    "UPDATE leaves SET end_date = $2 WHERE id = $1 RETURNING *",
+    [id, endDate],
+  );
+  return result.rows[0] ?? null;
+}
+
 /** En vigor en `onDate`: empezó ese día o antes, y no ha terminado o
  * termina ese día o después. En lote para no hacer una consulta por
  * persona al pintar el estado de todo un equipo (dashboard del

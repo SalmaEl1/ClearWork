@@ -18,6 +18,11 @@ export type PublicUser = {
   weeklyTargetHours: number;
   isActive: boolean;
   createdAt: string;
+  /** Fecha de contratación, la da de alta el admin (no tiene por qué
+   * coincidir con createdAt: se puede crear la cuenta más tarde de
+   * cuándo empezó a trabajar). Se usa para calcular el saldo anual de
+   * vacaciones — ver VacationBalanceDTO. */
+  hireDate: string;
 };
 
 export type LoginRequest = {
@@ -284,10 +289,25 @@ export type TeamMemberSummary = {
   breakType: BreakType | null;
   /** Solo si status es "on_leave": qué tipo de baja/ausencia. */
   leaveType: LeaveType | null;
+  /** Solo si status es "on_leave": id de la baja en curso, para poder
+   * finalizarla (POST /api/leaves/:id/end) desde la vista de equipo. */
+  leaveId: string | null;
   /** Solo si status es "on_scheduled_absence": el motivo indicado al
    * programarla (p. ej. "Cita médica"). */
   scheduledAbsenceReason: string | null;
   hoursThisWeek: number;
+  vacationBalance: VacationBalanceDTO;
+};
+
+/** Saldo de vacaciones de una persona para el año en curso: total según
+ * su fecha de alta (23 días si empezó el 1 de enero, proporcional si
+ * empezó más tarde ese mismo año), y lo ya consumido (solicitudes
+ * pendientes o aprobadas cuyo inicio cae en ese año). */
+export type VacationBalanceDTO = {
+  year: number;
+  total: number;
+  used: number;
+  remaining: number;
 };
 
 export type ProjectTaskSummary = {
@@ -324,6 +344,7 @@ export type AdminUserSummary = {
   role: Role;
   isActive: boolean;
   weeklyTargetHours: number;
+  hireDate: string;
   /** Solo relevante para trabajadores: su proyecto activo, si tiene. */
   currentProjectId: string | null;
   currentProjectName: string | null;
@@ -336,6 +357,7 @@ export type AdminCreateUserRequest = {
   fullName: string;
   role: AdminCreatableRole;
   weeklyTargetHours?: number;
+  hireDate: string;
 };
 
 /** Respuesta al crear una cuenta: la contraseña provisional se genera en
@@ -352,6 +374,7 @@ export type AdminUpdateUserRequest = {
   role?: AdminCreatableRole;
   weeklyTargetHours?: number;
   isActive?: boolean;
+  hireDate?: string;
 };
 
 export type AppSettingsDTO = {
@@ -496,6 +519,31 @@ export type CreateScheduledAbsenceInput = {
   startTime: string;
   endTime: string;
   reason: string;
+};
+
+/** Para /scheduled-absences/team: igual que ScheduledAbsenceDTO, con el
+ * nombre de quien la tiene — el supervisor ve y gestiona las de todo su
+ * equipo a la vez, así que hace falta saber de quién es cada una. */
+export type TeamScheduledAbsenceDTO = ScheduledAbsenceDTO & { userFullName: string };
+
+/** El supervisor programa una ausencia puntual en nombre de alguien de
+ * su equipo (a diferencia de CreateScheduledAbsenceInput, que es
+ * autoservicio del propio trabajador): puede ser en el pasado o en el
+ * futuro, sin la restricción de "hoy o más tarde" que sí tiene el
+ * trabajador. */
+export type CreateTeamScheduledAbsenceInput = {
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+};
+
+export type UpdateScheduledAbsenceInput = {
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
 };
 
 /* --- Solicitudes de vacaciones --- */

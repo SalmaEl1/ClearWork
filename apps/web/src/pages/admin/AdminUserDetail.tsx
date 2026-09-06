@@ -29,6 +29,7 @@ function UserHeaderCard({ user, isSelf }: { user: AdminUserSummary; isSelf: bool
           <span className={`status-pill ${user.isActive ? "status-ok" : "status-neutral"}`}>
             {user.isActive ? "Activa" : "Desactivada"}
           </span>
+          <span>Contratado el {user.hireDate}</span>
         </div>
       </div>
     </div>
@@ -47,6 +48,7 @@ function EditUserForm({
   const [fullName, setFullName] = useState(user.fullName);
   const [email, setEmail] = useState(user.email);
   const [weeklyTargetHours, setWeeklyTargetHours] = useState(String(user.weeklyTargetHours));
+  const [hireDate, setHireDate] = useState(user.hireDate);
   const [isActive, setIsActive] = useState(user.isActive);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,6 +63,7 @@ function EditUserForm({
         email,
         isActive,
         weeklyTargetHours: user.role === "worker" ? Number(weeklyTargetHours) : undefined,
+        hireDate,
       });
       onSaved();
     } catch (err) {
@@ -104,6 +107,15 @@ function EditUserForm({
             />
           </label>
         )}
+        <label>
+          <span>Fecha de contratación</span>
+          <input
+            type="date"
+            required
+            value={hireDate}
+            onChange={(e) => setHireDate(e.target.value)}
+          />
+        </label>
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <input
             type="checkbox"

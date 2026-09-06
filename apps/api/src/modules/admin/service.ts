@@ -162,7 +162,15 @@ export async function listUsers(query: ListUsersQuery): Promise<Paginated<AdminU
   };
 }
 
-const CSV_HEADERS_USERS = ["Nombre", "Email", "Rol", "Activa", "Horas objetivo semanales", "Alta"];
+const CSV_HEADERS_USERS = [
+  "Nombre",
+  "Email",
+  "Rol",
+  "Activa",
+  "Horas objetivo semanales",
+  "Fecha de contratación",
+  "Alta en el sistema",
+];
 
 /** Exporta todas las cuentas que coincidan con el filtro (sin paginar:
  * una exportación con solo la página visible no serviría para nada). */
@@ -177,6 +185,7 @@ export async function exportUsersCsv(filters: {
     u.role,
     u.is_active ? "Sí" : "No",
     String(Number(u.weekly_target_hours)),
+    u.hire_date,
     u.created_at.toISOString(),
   ]);
   return toCsv(CSV_HEADERS_USERS, csvRows);
@@ -318,7 +327,11 @@ export async function deleteUser(userId: string, actingAdminId: string): Promise
 export async function listRecentActivity(
   query: ListActivityQuery,
 ): Promise<Paginated<AdminActivityEventDTO>> {
-  const { rows, total } = await listActivityPage({ type: query.type }, query.page, query.pageSize);
+  const { rows, total } = await listActivityPage(
+    { types: query.types, sortOrder: query.sortOrder },
+    query.page,
+    query.pageSize,
+  );
 
   return {
     items: rows.map(

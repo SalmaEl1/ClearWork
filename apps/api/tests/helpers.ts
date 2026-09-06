@@ -15,6 +15,15 @@ export function authHeader(token: string): [string, string] {
   return ["Authorization", `Bearer ${token}`];
 }
 
+/** 1 de enero del año en curso: fecha de contratación por defecto para
+ * las cuentas de test, así que por defecto tienen el saldo de
+ * vacaciones completo (23 días) sin depender de en qué mes del año se
+ * ejecute la suite. Los tests que sí van del saldo pasan su propia
+ * hireDate a createUserViaAdmin/createWorker. */
+export function defaultTestHireDate(): string {
+  return `${new Date().getUTCFullYear()}-01-01`;
+}
+
 /**
  * Crea un admin directamente contra la base de datos (sin pasar por
  * HTTP): no existe un endpoint de autorregistro para el rol admin en la
@@ -24,7 +33,13 @@ export function authHeader(token: string): [string, string] {
 export async function createAdmin(fullName = "Admin de test") {
   const email = uniqueEmail("admin");
   const password = "AdminTest1234";
-  const { user } = await createAccount({ email, password, fullName, role: "admin" });
+  const { user } = await createAccount({
+    email,
+    password,
+    fullName,
+    role: "admin",
+    hireDate: defaultTestHireDate(),
+  });
   const login = await request(app).post("/api/auth/login").send({ email, password });
   return { user, email, password, token: login.body.token as string };
 }
@@ -40,12 +55,13 @@ export async function createUserViaAdmin(
   adminToken: string,
   role: Role,
   fullName = "Usuario de test",
+  hireDate = defaultTestHireDate(),
 ) {
   const email = uniqueEmail(role);
   const res = await request(app)
     .post("/api/admin/users")
     .set(...authHeader(adminToken))
-    .send({ email, fullName, role });
+    .send({ email, fullName, role, hireDate });
   if (res.status !== 201) {
     throw new Error(`No se pudo crear el usuario de test: ${res.status} ${JSON.stringify(res.body)}`);
   }
@@ -62,8 +78,8 @@ export async function loginAs(email: string, password: string): Promise<string> 
 
 /** Crea un trabajador vía admin y ya devuelve su token: el atajo que
  * necesita casi cualquier test que no sea del propio módulo de admin. */
-export async function createWorker(adminToken: string) {
-  const worker = await createUserViaAdmin(adminToken, "worker");
+export async function createWorker(adminToken: string, hireDate?: string) {
+  const worker = await createUserViaAdmin(adminToken, "worker", undefined, hireDate);
   const token = await loginAs(worker.email, worker.password);
   return { ...worker, token };
 }

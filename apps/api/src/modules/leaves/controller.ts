@@ -43,3 +43,13 @@ export async function deleteLeaveHandler(req: Request, res: Response, next: Next
     next(err);
   }
 }
+
+export async function endLeaveHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const leave = await service.endLeave(user.id, user.role, req.params.id as string);
+    res.status(200).json(leave);
+  } catch (err) {
+    next(err);
+  }
+}

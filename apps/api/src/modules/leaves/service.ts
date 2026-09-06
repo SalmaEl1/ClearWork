@@ -1,5 +1,6 @@
 import type { LeaveDTO, Role } from "@clearwork/shared";
-import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/errors.js";
+import { todayDateString } from "../../shared/time.js";
 import { listActiveWorkersForSupervisor } from "../projects/repository.js";
 import { findUserById } from "../users/repository.js";
 import * as repo from "./repository.js";
@@ -80,4 +81,30 @@ export async function deleteLeave(actorId: string, actorRole: Role, leaveId: str
 
   await assertCanManage(actorId, actorRole, leave.user_id);
   await repo.deleteLeaveById(leaveId);
+}
+
+/** Pone fin a una baja en curso: su último día pasa a ser ayer, para que
+ * hoy mismo deje de contar como "de baja" (findActiveLeavesForUsers
+ * exige end_date >= la fecha consultada, así que con end_date = hoy
+ * seguiría en vigor hasta mañana). A partir de ahí el estado se
+ * recalcula solo en cada consulta del dashboard — no se guarda aparte —
+ * así que "vuelve a aparecer el botón de dar de baja" ocurre gratis. */
+export async function endLeave(actorId: string, actorRole: Role, leaveId: string): Promise<LeaveDTO> {
+  const leave = await repo.findLeaveById(leaveId);
+  if (!leave) throw new NotFoundError("Baja no encontrada");
+
+  await assertCanManage(actorId, actorRole, leave.user_id);
+
+  const today = todayDateString();
+  if (leave.end_date !== null && leave.end_date < today) {
+    throw new ConflictError("Esta baja ya ha terminado");
+  }
+
+  const yesterday = todayDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  // Por si la baja empezara hoy mismo: no se puede terminar antes de
+  // empezar, así que como mucho se queda en vigor hasta hoy.
+  const endDate = yesterday > leave.start_date ? yesterday : leave.start_date;
+
+  const updated = await repo.updateLeaveEndDate(leaveId, endDate);
+  return toDTO(updated!);
 }

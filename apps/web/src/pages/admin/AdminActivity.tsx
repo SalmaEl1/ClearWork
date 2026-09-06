@@ -1,27 +1,42 @@
 import type { ActivityEventType, AdminActivityEventDTO } from "@clearwork/shared";
-import { ACTIVITY_EVENT_TYPES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../../api/client.js";
 import { fetchAdminActivity } from "../../api/admin.js";
 import { Pagination } from "../../components/Pagination.js";
-import { ACTIVITY_EVENT_TYPE_LABEL } from "../../constants.js";
+import type { ActivityCategory } from "../../constants.js";
+import { ACTIVITY_CATEGORIES, ACTIVITY_EVENT_TYPE_LABEL } from "../../constants.js";
 import { activityIcon, activityMessage, formatRelativeTime } from "../../lib/activity.js";
 
 const DEFAULT_PAGE_SIZE = 10;
 
-type TypeFilter = ActivityEventType | "all";
+type CategoryFilter = "all" | ActivityCategory;
+type SubFilter = ActivityEventType | "all";
+type SortOrder = "newest" | "oldest";
+
+const SORT_ORDER_LABEL: Record<SortOrder, string> = {
+  newest: "Más recientes primero",
+  oldest: "Más antiguas primero",
+};
 
 export function AdminActivity() {
   const [events, setEvents] = useState<AdminActivityEventDTO[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [subFilter, setSubFilter] = useState<SubFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
+  // Cambiar de categoría invalida el sub-filtro de la anterior: "Cambios
+  // de rol" no significa nada dentro de "Proyectos".
+  useEffect(() => {
+    setSubFilter("all");
+  }, [category]);
+
   useEffect(() => {
     setPage(1);
-  }, [typeFilter]);
+  }, [category, subFilter, sortOrder]);
 
   function handlePageSizeChange(size: number) {
     setPageSize(size);
@@ -29,17 +44,23 @@ export function AdminActivity() {
   }
 
   const load = useCallback(() => {
-    fetchAdminActivity({
-      type: typeFilter === "all" ? undefined : typeFilter,
-      page,
-      pageSize,
-    })
+    // "Todo" -> sin filtrar. Una categoría con su sub-filtro en "all" ->
+    // todos los tipos de esa categoría a la vez. Un sub-filtro concreto
+    // -> solo ese tipo.
+    const types: ActivityEventType[] | undefined =
+      category === "all"
+        ? undefined
+        : subFilter === "all"
+          ? ACTIVITY_CATEGORIES[category].types
+          : [subFilter];
+
+    fetchAdminActivity({ types, sortOrder, page, pageSize })
       .then((result) => {
         setEvents(result.items);
         setTotal(result.total);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar la actividad"));
-  }, [typeFilter, page, pageSize]);
+  }, [category, subFilter, sortOrder, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -49,6 +70,9 @@ export function AdminActivity() {
     <div className="dashboard-grid">
       <div className="page-header">
         <h2>Actividad</h2>
+        <button type="button" className="secondary" onClick={() => setSortOrder(sortOrder === "newest" ? "oldest" : "newest")}>
+          Ordenar: {SORT_ORDER_LABEL[sortOrder]}
+        </button>
       </div>
       {error && <div className="error-banner">{error}</div>}
 
@@ -57,15 +81,46 @@ export function AdminActivity() {
         {!events && !error && <p>Cargando…</p>}
 
         <div className="filter-bar">
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}>
-            <option value="all">Todos los tipos</option>
-            {ACTIVITY_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ACTIVITY_EVENT_TYPE_LABEL[t]}
-              </option>
-            ))}
-          </select>
+          <button
+            type="button"
+            className={category === "all" ? undefined : "secondary"}
+            onClick={() => setCategory("all")}
+          >
+            Todo
+          </button>
+          {(Object.keys(ACTIVITY_CATEGORIES) as ActivityCategory[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={category === key ? undefined : "secondary"}
+              onClick={() => setCategory(key)}
+            >
+              {ACTIVITY_CATEGORIES[key].label}
+            </button>
+          ))}
         </div>
+
+        {category !== "all" && (
+          <div className="filter-bar">
+            <button
+              type="button"
+              className={subFilter === "all" ? undefined : "secondary"}
+              onClick={() => setSubFilter("all")}
+            >
+              Todos
+            </button>
+            {ACTIVITY_CATEGORIES[category].types.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={subFilter === t ? undefined : "secondary"}
+                onClick={() => setSubFilter(t)}
+              >
+                {ACTIVITY_EVENT_TYPE_LABEL[t]}
+              </button>
+            ))}
+          </div>
+        )}
 
         {events && events.length === 0 && <p>Todavía no hay actividad que mostrar.</p>}
 

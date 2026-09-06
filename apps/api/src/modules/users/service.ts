@@ -16,6 +16,7 @@ export type CreateAccountInput = {
   fullName: string;
   role: Role;
   weeklyTargetHours?: number;
+  hireDate: string;
 };
 
 export type CreateAccountResult = {
@@ -45,6 +46,7 @@ export async function createAccount(input: CreateAccountInput): Promise<CreateAc
     fullName: input.fullName,
     role: input.role,
     weeklyTargetHours: input.weeklyTargetHours,
+    hireDate: input.hireDate,
   });
 
   return { user, generatedPassword };

@@ -15,6 +15,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
 import { Pagination } from "../../components/Pagination.js";
 import { ROLE_LABEL } from "../../constants.js";
+import { todayDateString } from "../../lib/dates.js";
 
 type RoleFilter = AdminCreatableRole | "all";
 
@@ -63,6 +64,7 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AdminCreatableRole>("worker");
   const [weeklyTargetHours, setWeeklyTargetHours] = useState("40");
+  const [hireDate, setHireDate] = useState(todayDateString());
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<AdminCreateUserResponse | null>(null);
@@ -77,6 +79,7 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
         fullName,
         role,
         weeklyTargetHours: role === "worker" ? Number(weeklyTargetHours) : undefined,
+        hireDate,
       });
       setResult(created);
     } catch (err) {
@@ -130,6 +133,15 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
             />
           </label>
         )}
+        <label>
+          <span>Fecha de contratación</span>
+          <input
+            type="date"
+            required
+            value={hireDate}
+            onChange={(e) => setHireDate(e.target.value)}
+          />
+        </label>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Creando…" : "Crear cuenta"}
         </button>

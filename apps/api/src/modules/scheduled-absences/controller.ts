@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
 import type { AuthUser } from "../auth/jwt.js";
-import { createScheduledAbsenceSchema } from "./schemas.js";
+import {
+  createScheduledAbsenceSchema,
+  createTeamScheduledAbsenceSchema,
+  updateScheduledAbsenceSchema,
+} from "./schemas.js";
 import * as service from "./service.js";
 
 function requireUser(req: Request): AuthUser {
@@ -47,10 +51,50 @@ export async function listTeamMemberScheduledAbsencesHandler(
   }
 }
 
+export async function listTeamScheduledAbsencesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const absences = await service.listScheduledAbsencesForTeam(user.id);
+    res.status(200).json(absences);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTeamScheduledAbsenceHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+    const input = createTeamScheduledAbsenceSchema.parse(req.body);
+    const absence = await service.createScheduledAbsenceForTeamMember(user.id, input);
+    res.status(201).json(absence);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateScheduledAbsenceHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const input = updateScheduledAbsenceSchema.parse(req.body);
+    const absence = await service.updateScheduledAbsence(user.id, req.params.id as string, input);
+    res.status(200).json(absence);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteScheduledAbsenceHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);
-    await service.deleteOwnScheduledAbsence(user.id, req.params.id as string);
+    await service.deleteScheduledAbsence(user.id, user.role, req.params.id as string);
     res.status(204).send();
   } catch (err) {
     next(err);

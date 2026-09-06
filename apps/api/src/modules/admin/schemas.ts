@@ -6,6 +6,7 @@ export const createUserSchema = z.object({
   fullName: z.string().trim().min(1, "El nombre es obligatorio"),
   role: z.enum(ADMIN_CREATABLE_ROLES),
   weeklyTargetHours: z.coerce.number().positive().optional(),
+  hireDate: z.string().date("hireDate debe tener formato AAAA-MM-DD"),
 });
 
 export const updateUserSchema = z
@@ -15,6 +16,7 @@ export const updateUserSchema = z
     role: z.enum(ADMIN_CREATABLE_ROLES).optional(),
     weeklyTargetHours: z.coerce.number().positive().optional(),
     isActive: z.boolean().optional(),
+    hireDate: z.string().date("hireDate debe tener formato AAAA-MM-DD").optional(),
   })
   .refine((body) => Object.keys(body).length > 0, {
     message: "No se ha indicado ningún campo para actualizar",
@@ -38,8 +40,17 @@ export const exportUsersQuerySchema = z.object({
   role: z.enum(ADMIN_CREATABLE_ROLES).optional(),
 });
 
+/** "types" llega como una cadena separada por comas (una categoría entera
+ * a la vez, p. ej. "user_created,user_updated,user_role_changed,user_deleted"),
+ * no como varios parámetros repetidos: más simple de construir desde el
+ * frontend con URLSearchParams. Sin valor -> sin filtrar por tipo. */
 export const listActivityQuerySchema = z.object({
-  type: z.enum(ACTIVITY_EVENT_TYPES).optional(),
+  types: z
+    .string()
+    .transform((v) => v.split(","))
+    .pipe(z.array(z.enum(ACTIVITY_EVENT_TYPES)))
+    .optional(),
+  sortOrder: z.enum(["newest", "oldest"]).default("newest"),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(10),
 });

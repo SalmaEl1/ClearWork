@@ -36,7 +36,10 @@ function buildQuery(params: Record<string, string | number | boolean | undefined
 }
 
 export type AdminActivityQuery = {
-  type?: ActivityEventType;
+  /** Uno o varios tipos a la vez (una categoría entera) — sin ninguno,
+   * sin filtrar por tipo. */
+  types?: ActivityEventType[];
+  sortOrder?: "newest" | "oldest";
   page?: number;
   pageSize?: number;
 };
@@ -44,7 +47,10 @@ export type AdminActivityQuery = {
 export function fetchAdminActivity(
   query: AdminActivityQuery = {},
 ): Promise<Paginated<AdminActivityEventDTO>> {
-  return apiFetch<Paginated<AdminActivityEventDTO>>(`/admin/activity${buildQuery(query)}`);
+  const { types, ...rest } = query;
+  return apiFetch<Paginated<AdminActivityEventDTO>>(
+    `/admin/activity${buildQuery({ ...rest, types: types && types.length > 0 ? types.join(",") : undefined })}`,
+  );
 }
 
 export function fetchAdminSettings(): Promise<AppSettingsDTO> {

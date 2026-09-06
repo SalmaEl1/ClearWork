@@ -7,7 +7,10 @@ export type ActivityLogRow = {
 };
 
 export type ActivityListFilters = {
-  type?: string;
+  /** Uno o varios tipos a la vez (una categoría entera, p. ej. "Cuentas"
+   * son sus cuatro tipos juntos) — sin ninguno, no se filtra por tipo. */
+  types?: string[];
+  sortOrder?: "newest" | "oldest";
 };
 
 export type ActivityListPage = {
@@ -28,12 +31,13 @@ export async function listActivityPage(
   const conditions: string[] = [];
   const values: unknown[] = [];
 
-  if (filters.type) {
-    values.push(filters.type);
-    conditions.push(`type = $${values.length}`);
+  if (filters.types && filters.types.length > 0) {
+    values.push(filters.types);
+    conditions.push(`type = ANY($${values.length})`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const orderClause = filters.sortOrder === "oldest" ? "ORDER BY occurred_at ASC" : "ORDER BY occurred_at DESC";
 
   values.push(pageSize, (page - 1) * pageSize);
   const limitParam = values.length - 1;
@@ -43,7 +47,7 @@ export async function listActivityPage(
     `SELECT type, payload, occurred_at, COUNT(*) OVER() AS total_count
      FROM activity_log
      ${whereClause}
-     ORDER BY occurred_at DESC
+     ${orderClause}
      LIMIT $${limitParam} OFFSET $${offsetParam}`,
     values,
   );

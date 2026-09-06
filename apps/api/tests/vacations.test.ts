@@ -16,6 +16,12 @@ function isoDateOffset(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// createWorker/createUserViaAdmin dan de alta con fecha de contratación
+// 1 de enero del año en curso por defecto (ver defaultTestHireDate en
+// helpers.ts): saldo de vacaciones completo (23 días), sin depender de
+// en qué mes del año se ejecute la suite. Los tests de "saldo de
+// vacaciones" más abajo pasan su propia hireDate cuando quieren probar
+// justo el límite o la proporción.
 async function setupTeam(adminToken: string) {
   const supervisor = await createUserViaAdmin(adminToken, "supervisor");
   const supervisorToken = (
@@ -31,8 +37,6 @@ async function setupTeam(adminToken: string) {
 }
 
 describe("solicitudes de vacaciones", () => {
-  afterAll(closePool);
-
   it("un trabajador solicita vacaciones", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token);
@@ -251,5 +255,96 @@ describe("solicitudes de vacaciones", () => {
       .set(...authHeader(supervisorToken));
 
     expect(res.status).toBe(409);
+  });
+});
+
+describe("saldo de vacaciones", () => {
+  afterAll(closePool);
+
+  it("quien empezó el 1 de enero tiene 23 días de saldo, ni uno más", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
+
+    const withinBalance = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días
+    expect(withinBalance.status).toBe(201);
+
+    const stillFits = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(42) }); // 3 días más: 23 justos
+    expect(stillFits.status).toBe(201);
+
+    const overBudget = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(50), endDate: isoDateOffset(50) }); // 1 día más se pasa
+    expect(overBudget.status).toBe(409);
+  });
+
+  it("quien empezó a mitad de año tiene un saldo proporcional, no los 23 completos", async () => {
+    const admin = await createAdmin();
+    const year = new Date().getUTCFullYear();
+    // Empezó el 1 de julio: round(23 * (13-7) / 12) = 12 días de saldo.
+    const worker = await createWorker(admin.token, `${year}-07-01`);
+
+    const withinBalance = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(19) }); // 10 días
+    expect(withinBalance.status).toBe(201);
+
+    const overBudget = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(30), endDate: isoDateOffset(32) }); // 3 más: 13 > 12
+    expect(overBudget.status).toBe(409);
+
+    const stillFits = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(30), endDate: isoDateOffset(31) }); // 2 más: 12 justos
+    expect(stillFits.status).toBe(201);
+  });
+
+  it("una solicitud rechazada no cuenta para el saldo consumido", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+
+    const first = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días
+    expect(first.status).toBe(201);
+    await request(app)
+      .post(`/api/vacations/${first.body.id}/reject`)
+      .set(...authHeader(supervisorToken));
+
+    // Si la rechazada siguiera contando, esto (20 días más) se pasaría
+    // del saldo de 23; al no contar, cabe de sobra.
+    const second = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(59) });
+    expect(second.status).toBe(201);
+  });
+
+  it("el mensaje de error indica cuántos días quedan", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
+    await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días, quedan 3
+
+    const res = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(43) }); // pide 4, solo quedan 3
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain("quedan 3");
   });
 });

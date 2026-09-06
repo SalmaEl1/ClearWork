@@ -12,3 +12,7 @@ export function fetchLeaves(userId: string): Promise<LeaveDTO[]> {
 export function deleteLeave(id: string): Promise<void> {
   return apiFetch<void>(`/leaves/${id}`, { method: "DELETE" });
 }
+
+export function endLeave(id: string): Promise<LeaveDTO> {
+  return apiFetch<LeaveDTO>(`/leaves/${id}/end`, { method: "POST" });
+}
