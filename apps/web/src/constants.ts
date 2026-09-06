@@ -1,6 +1,7 @@
 import type {
   ActivityEventType,
   BreakType,
+  ContractType,
   LeaveType,
   NotificationChannel,
   NotificationType,
@@ -15,6 +16,14 @@ export const ROLE_LABEL: Record<Role, string> = {
   worker: "Trabajador",
   supervisor: "Supervisor",
   admin: "Admin",
+};
+
+/** Lo elige el admin al crear o editar una cuenta; el propio trabajador
+ * solo lo ve, no lo puede cambiar (ver Profile.tsx). */
+export const CONTRACT_TYPE_LABEL: Record<ContractType, string> = {
+  full_time: "Jornada completa",
+  part_time: "Media jornada",
+  internship: "Prácticas",
 };
 
 /** En minúscula a propósito: se usa dentro de una frase ("...a en curso"),
@@ -76,6 +85,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vacation_decided: "Se decide una solicitud de vacaciones suya",
   vacation_requested: "Alguien de su equipo solicita vacaciones",
   absence_scheduled: "Alguien de su equipo programa una ausencia",
+  document_shared: "Se comparte un documento con usted",
 };
 
 export const NOTIFICATION_CHANNEL_LABEL: Record<NotificationChannel, string> = {

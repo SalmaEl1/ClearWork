@@ -73,6 +73,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Flash breve de "guardado" (ver lib/useSavedFlash.ts): el botón cambia
+ * de color un momento para que se note que la acción surtió efecto,
+ * sobre todo cuando el guardado es tan rápido que si no pasaría
+ * desapercibido. */
+button.saved {
+  background: #1f9d55;
+  transition: background-color 0.2s ease;
+}
+
 input, select, textarea {
   font: inherit;
   padding: 0.5rem 0.6rem;
@@ -626,6 +635,20 @@ th {
 
 /* --- botones que son enlaces (Gestionar, Ver…) --- */
 
+/* Enlace dentro de una frase (a diferencia de .link-button, que es un
+ * enlace con aspecto de botón): sin el azul/subrayado por defecto del
+ * navegador, en el verde de la marca — mismo criterio que
+ * .kanban-card__title. */
+.text-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
 .link-button {
   display: inline-block;
   font: inherit;
@@ -1085,4 +1108,88 @@ th {
   color: var(--color-text-muted);
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Fin de semana o festivo (a diferencia de un día ya pasado, que solo
+ * usa :disabled): tachado, para que se note que no se puede elegir por
+ * un motivo distinto a "ya pasó". */
+.mini-calendar__day--disabled {
+  text-decoration: line-through;
+}
+
+/* Calendario personal del trabajador (WorkerCalendar.tsx): reutiliza la
+ * rejilla de mini-calendar, pero con <span> de solo lectura en vez de
+ * <button>, coloreados según lo que pase ese día (ver LEGEND). */
+.worker-calendar__day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  background: var(--status-bg, transparent);
+  color: var(--status-color, var(--color-text));
+}
+
+.worker-calendar__day--today {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  font-weight: 600;
+}
+
+.worker-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.worker-calendar__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Reserva de sitio (WorkerSeatBooking.tsx): una simple cuadrícula de
+ * números de asiento, sin mapa visual — ver la decisión tomada para
+ * esta función. */
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.seat-grid__seat {
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.seat-grid__seat:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+}
+
+.seat-grid__seat--mine {
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+}
+
+.seat-grid__seat--taken {
+  background: var(--color-danger);
+  color: white;
+  opacity: 0.7;
+}
+
+.worker-calendar__legend-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 3px;
+  background: var(--status-bg);
+  box-shadow: inset 0 0 0 2px var(--status-color);
 }

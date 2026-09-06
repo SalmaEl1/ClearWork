@@ -1,4 +1,5 @@
-import type { AdminUserSummary, LeaveDTO } from "@clearwork/shared";
+import type { AdminUserSummary, ContractType, LeaveDTO } from "@clearwork/shared";
+import { CONTRACT_TYPES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -12,7 +13,8 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
 import { Pagination } from "../../components/Pagination.js";
 import { RegisterLeaveForm } from "../../components/RegisterLeaveForm.js";
-import { LEAVE_TYPE_LABEL, ROLE_LABEL } from "../../constants.js";
+import { CONTRACT_TYPE_LABEL, LEAVE_TYPE_LABEL, ROLE_LABEL } from "../../constants.js";
+import { useSavedFlash } from "../../lib/useSavedFlash.js";
 import { usePaginatedList } from "../../lib/usePaginatedList.js";
 
 function UserHeaderCard({ user, isSelf }: { user: AdminUserSummary; isSelf: boolean }) {
@@ -49,9 +51,11 @@ function EditUserForm({
   const [email, setEmail] = useState(user.email);
   const [weeklyTargetHours, setWeeklyTargetHours] = useState(String(user.weeklyTargetHours));
   const [hireDate, setHireDate] = useState(user.hireDate);
+  const [contractType, setContractType] = useState<ContractType>(user.contractType);
   const [isActive, setIsActive] = useState(user.isActive);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, flash] = useSavedFlash();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -64,7 +68,9 @@ function EditUserForm({
         isActive,
         weeklyTargetHours: user.role === "worker" ? Number(weeklyTargetHours) : undefined,
         hireDate,
+        contractType,
       });
+      flash();
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo guardar");
@@ -77,6 +83,7 @@ function EditUserForm({
     <div className="card">
       <h3>Editar cuenta</h3>
       {error && <div className="error-banner">{error}</div>}
+      {justSaved && <div className="alert-banner status-ok">Cambios guardados.</div>}
       <form onSubmit={handleSubmit}>
         <label>
           <span>Nombre completo</span>
@@ -116,6 +123,16 @@ function EditUserForm({
             onChange={(e) => setHireDate(e.target.value)}
           />
         </label>
+        <label>
+          <span>Tipo de contrato</span>
+          <select value={contractType} onChange={(e) => setContractType(e.target.value as ContractType)}>
+            {CONTRACT_TYPES.map((c) => (
+              <option key={c} value={c}>
+                {CONTRACT_TYPE_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        </label>
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <input
             type="checkbox"
@@ -127,8 +144,8 @@ function EditUserForm({
           />
           <span style={{ margin: 0 }}>Cuenta activa</span>
         </label>
-        <button type="submit" disabled={isSaving}>
-          {isSaving ? "Guardando…" : "Guardar cambios"}
+        <button type="submit" className={justSaved ? "saved" : undefined} disabled={isSaving}>
+          {isSaving ? "Guardando…" : justSaved ? "✓ Guardado" : "Guardar cambios"}
         </button>
       </form>
     </div>
@@ -143,7 +160,9 @@ function ProjectInfoCard({ user }: { user: AdminUserSummary }) {
         {user.currentProjectId ? (
           <p>
             Actualmente en{" "}
-            <Link to={`/admin/projects/${user.currentProjectId}`}>{user.currentProjectName}</Link>
+            <Link to={`/admin/projects/${user.currentProjectId}`} className="text-link">
+              {user.currentProjectName}
+            </Link>
             . Para cambiarlo de proyecto, gestiona la membresía desde la ficha del proyecto.
           </p>
         ) : (
@@ -163,7 +182,11 @@ function ProjectInfoCard({ user }: { user: AdminUserSummary }) {
         <h3>Proyecto que supervisa</h3>
         {project ? (
           <p>
-            Actualmente a cargo de <Link to={`/admin/projects/${project.id}`}>{project.name}</Link>.
+            Actualmente a cargo de{" "}
+            <Link to={`/admin/projects/${project.id}`} className="text-link">
+              {project.name}
+            </Link>
+            .
           </p>
         ) : (
           <p>No supervisa ningún proyecto todavía.</p>

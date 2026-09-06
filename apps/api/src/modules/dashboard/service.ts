@@ -11,7 +11,7 @@ import { listActiveWorkersForSupervisor, listProjectsForSupervisor } from "../pr
 import { findActiveScheduledAbsencesForUsers } from "../scheduled-absences/repository.js";
 import { countTaskStatusesForSupervisor } from "../tasks/repository.js";
 import { findUserById } from "../users/repository.js";
-import { computeVacationBalance } from "../vacations/service.js";
+import { computeVacationBalance, getDayCountOptions } from "../vacations/service.js";
 import {
   findActiveApprovedVacationsForUsers,
   listVacationRequestsForUsers,
@@ -147,6 +147,15 @@ export async function getSupervisorDashboard(
   const scheduledAbsenceByUser = new Map(activeScheduledAbsences.map((a) => [a.user_id, a]));
   const vacationRequestsByUser = groupBy(yearVacationRequests, (r) => r.user_id);
   const currentYear = now.getUTCFullYear();
+  // Mismos ajustes/festivos para todo el equipo: se resuelven una sola
+  // vez aquí, no por cada persona en el team.map de abajo.
+  const dayCountOptions = await getDayCountOptions([
+    currentYear,
+    ...yearVacationRequests.flatMap((r) => [
+      Number(r.start_date.slice(0, 4)),
+      Number(r.end_date.slice(0, 4)),
+    ]),
+  ]);
 
   const weekBreaks = await listBreaksForSessions(weekSessions.map((s) => s.id));
   const weekBreaksBySession = groupBy(weekBreaks, (b) => b.work_session_id);
@@ -194,6 +203,7 @@ export async function getSupervisorDashboard(
         worker.hire_date,
         vacationRequestsByUser.get(worker.id) ?? [],
         currentYear,
+        dayCountOptions,
       ),
     };
   });

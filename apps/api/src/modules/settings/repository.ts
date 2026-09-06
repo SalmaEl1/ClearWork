@@ -11,13 +11,18 @@ export async function getSettingsRow(): Promise<AppSettingsRow> {
 
 export async function updateSettingsRow(
   defaultWeeklyTargetHours: number,
+  excludeWeekendsFromVacationDays: boolean,
+  officeSeatCount: number,
 ): Promise<AppSettingsRow> {
   const result = await pool.query<AppSettingsRow>(
     `UPDATE app_settings
-     SET default_weekly_target_hours = $1, updated_at = now()
+     SET default_weekly_target_hours = $1,
+         exclude_weekends_from_vacation_days = $2,
+         office_seat_count = $3,
+         updated_at = now()
      WHERE id = TRUE
      RETURNING *`,
-    [defaultWeeklyTargetHours],
+    [defaultWeeklyTargetHours, excludeWeekendsFromVacationDays, officeSeatCount],
   );
   const row = result.rows[0];
   if (!row) throw new Error("app_settings no tiene ninguna fila: falta aplicar la migración 006");

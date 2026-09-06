@@ -18,9 +18,44 @@ export function vacationDaysForYear(hireDate: string, year: number): number {
   return Math.round((ANNUAL_VACATION_DAYS * (13 - joinMonth)) / 12);
 }
 
-/** Días naturales entre dos fechas AAAA-MM-DD, ambos extremos incluidos. */
-export function daySpan(startDate: string, endDate: string): number {
-  const start = Date.parse(`${startDate}T00:00:00Z`);
-  const end = Date.parse(`${endDate}T00:00:00Z`);
-  return Math.round((end - start) / 86_400_000) + 1;
+/** Un día de la semana AAAA-MM-DD en UTC: 0 = domingo ... 6 = sábado. */
+function dayOfWeek(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay();
+}
+
+/** Fecha AAAA-MM-DD siguiente a la dada. */
+function nextDate(date: string): string {
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
+export type DayCountOptions = {
+  /** Si un fin de semana no cuenta como día de vacación (ver
+   * AppSettingsDTO.excludeWeekendsFromVacationDays). */
+  excludeWeekends: boolean;
+  /** Fechas (nacionales + personalizadas) que tampoco cuentan — ver
+   * holidays/service.ts::getHolidayDateSetForYears. */
+  holidayDates: Set<string>;
+};
+
+/**
+ * Días de vacación entre dos fechas AAAA-MM-DD (ambos extremos
+ * incluidos) que sí cuentan para el saldo: los fines de semana (si
+ * excludeWeekends) y los festivos nunca cuentan, sea cual sea el rango
+ * pedido.
+ */
+export function countVacationDays(
+  startDate: string,
+  endDate: string,
+  options: DayCountOptions,
+): number {
+  let count = 0;
+  for (let date = startDate; date <= endDate; date = nextDate(date)) {
+    const isWeekend = options.excludeWeekends && (dayOfWeek(date) === 0 || dayOfWeek(date) === 6);
+    if (!isWeekend && !options.holidayDates.has(date)) {
+      count++;
+    }
+  }
+  return count;
 }

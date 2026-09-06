@@ -1,4 +1,10 @@
-import type { CreateVacationRequestInput, TeamVacationRequestDTO, VacationRequestDTO } from "@clearwork/shared";
+import type {
+  CreateVacationRequestInput,
+  TeamVacationRequestDTO,
+  VacationBalanceDTO,
+  VacationRequestDTO,
+  VacationRulesDTO,
+} from "@clearwork/shared";
 import { apiFetch } from "./client.js";
 
 export function createVacationRequest(input: CreateVacationRequestInput): Promise<VacationRequestDTO> {
@@ -7,6 +13,14 @@ export function createVacationRequest(input: CreateVacationRequestInput): Promis
 
 export function fetchMyVacationRequests(): Promise<VacationRequestDTO[]> {
   return apiFetch<VacationRequestDTO[]>("/vacations/mine");
+}
+
+export function fetchMyVacationBalance(): Promise<VacationBalanceDTO> {
+  return apiFetch<VacationBalanceDTO>("/vacations/balance");
+}
+
+export function fetchVacationRules(): Promise<VacationRulesDTO> {
+  return apiFetch<VacationRulesDTO>("/vacations/rules");
 }
 
 export function cancelVacationRequest(id: string): Promise<VacationRequestDTO> {

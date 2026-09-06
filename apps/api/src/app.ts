@@ -6,11 +6,14 @@ import { generalRateLimit } from "./middleware/rateLimit.js";
 import { adminActivityRouter, adminUsersRouter } from "./modules/admin/routes.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
+import { documentsRouter } from "./modules/documents/routes.js";
+import { holidaysRouter } from "./modules/holidays/routes.js";
 import { leavesRouter } from "./modules/leaves/routes.js";
 import { notificationPreferencesRouter } from "./modules/notification-preferences/routes.js";
 import { notificationsRouter } from "./modules/notifications/routes.js";
 import { projectsRouter, supervisorProjectsRouter, workerProjectRouter } from "./modules/projects/routes.js";
 import { scheduledAbsencesRouter } from "./modules/scheduled-absences/routes.js";
+import { seatsRouter } from "./modules/seats/routes.js";
 import { settingsRouter } from "./modules/settings/routes.js";
 import { tasksRouter } from "./modules/tasks/routes.js";
 import { vacationsRouter } from "./modules/vacations/routes.js";
@@ -46,6 +49,9 @@ export function createApp() {
   app.use("/api/leaves", leavesRouter);
   app.use("/api/vacations", vacationsRouter);
   app.use("/api/scheduled-absences", scheduledAbsencesRouter);
+  app.use("/api/holidays", holidaysRouter);
+  app.use("/api/seats", seatsRouter);
+  app.use("/api/documents", documentsRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`No existe la ruta ${req.method} ${req.path}`));

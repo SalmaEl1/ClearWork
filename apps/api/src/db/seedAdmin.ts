@@ -29,6 +29,7 @@ async function seedAdmin() {
     fullName: env.ADMIN_FULL_NAME,
     role: "admin",
     hireDate: todayDateString(),
+    contractType: "full_time",
   });
 
   console.log(`Admin creado: ${user.email}`);

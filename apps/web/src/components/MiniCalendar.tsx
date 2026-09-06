@@ -20,9 +20,17 @@ function pad(n: number): string {
 export function MiniCalendar({
   selectedDates,
   onToggleDate,
+  disabledDates,
+  disabledReason,
 }: {
   selectedDates: Set<string>;
   onToggleDate: (date: string) => void;
+  /** Fechas que no se pueden elegir además de las ya pasadas (fines de
+   * semana y/o festivos, según los ajustes — ver WorkerVacations.tsx). */
+  disabledDates?: Set<string>;
+  /** Motivo a mostrar como título de esa celda (p. ej. el nombre del
+   * festivo), solo para las fechas en disabledDates. */
+  disabledReason?: (date: string) => string | undefined;
 }) {
   const today = todayDateString();
   const currentYear = new Date().getFullYear();
@@ -71,14 +79,16 @@ export function MiniCalendar({
         {cells.map((iso, index) => {
           if (!iso) return <span key={`empty-${index}`} />;
           const isPast = iso < today;
+          const isDisabled = disabledDates?.has(iso) ?? false;
           const isSelected = selectedDates.has(iso);
           return (
             <button
               key={iso}
               type="button"
-              disabled={isPast}
+              disabled={isPast || isDisabled}
               aria-pressed={isSelected}
-              className={`mini-calendar__day${isSelected ? " mini-calendar__day--selected" : ""}`}
+              title={isDisabled ? disabledReason?.(iso) : undefined}
+              className={`mini-calendar__day${isSelected ? " mini-calendar__day--selected" : ""}${isDisabled ? " mini-calendar__day--disabled" : ""}`}
               onClick={() => onToggleDate(iso)}
             >
               {Number(iso.slice(8, 10))}

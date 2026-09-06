@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import {
   app,
@@ -14,6 +14,36 @@ function isoDateOffset(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** El próximo día (a partir de mañana, nunca hoy) cuyo día de la semana
+ * en UTC sea `dow` (0 = domingo ... 6 = sábado) — para construir fechas
+ * de fin de semana o de un día laborable concreto sin depender de qué
+ * día de la semana sea "hoy" al ejecutar la suite. */
+function nextDow(dow: number): Date {
+  const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  while (d.getUTCDay() !== dow) d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+
+/** El resto de tests de este archivo no van sobre fines de semana: para
+ * que sus rangos con isoDateOffset (que no evitan sábados/domingos)
+ * sean deterministas, se desactiva este ajuste al entrar y se restaura
+ * el valor original al salir — mismo criterio que settings.test.ts con
+ * defaultWeeklyTargetHours. */
+async function setExcludeWeekends(adminToken: string, value: boolean): Promise<void> {
+  const current = await request(app).get("/api/admin/settings").set(...authHeader(adminToken));
+  await request(app)
+    .patch("/api/admin/settings")
+    .set(...authHeader(adminToken))
+    .send({
+      defaultWeeklyTargetHours: current.body.defaultWeeklyTargetHours,
+      excludeWeekendsFromVacationDays: value,
+    });
 }
 
 // createWorker/createUserViaAdmin dan de alta con fecha de contratación
@@ -37,6 +67,20 @@ async function setupTeam(adminToken: string) {
 }
 
 describe("solicitudes de vacaciones", () => {
+  let originalExcludeWeekends: boolean;
+
+  beforeAll(async () => {
+    const admin = await createAdmin();
+    const current = await request(app).get("/api/admin/settings").set(...authHeader(admin.token));
+    originalExcludeWeekends = current.body.excludeWeekendsFromVacationDays;
+    await setExcludeWeekends(admin.token, false);
+  });
+
+  afterAll(async () => {
+    const admin = await createAdmin();
+    await setExcludeWeekends(admin.token, originalExcludeWeekends);
+  });
+
   it("un trabajador solicita vacaciones", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token);
@@ -259,7 +303,20 @@ describe("solicitudes de vacaciones", () => {
 });
 
 describe("saldo de vacaciones", () => {
-  afterAll(closePool);
+  let originalExcludeWeekends: boolean;
+
+  beforeAll(async () => {
+    const admin = await createAdmin();
+    const current = await request(app).get("/api/admin/settings").set(...authHeader(admin.token));
+    originalExcludeWeekends = current.body.excludeWeekendsFromVacationDays;
+    await setExcludeWeekends(admin.token, false);
+  });
+
+  afterAll(async () => {
+    const admin = await createAdmin();
+    await setExcludeWeekends(admin.token, originalExcludeWeekends);
+    await closePool();
+  });
 
   it("quien empezó el 1 de enero tiene 23 días de saldo, ni uno más", async () => {
     const admin = await createAdmin();
@@ -346,5 +403,43 @@ describe("saldo de vacaciones", () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toContain("quedan 3");
+  });
+
+  it("un fin de semana dentro del rango no cuenta para el saldo si el ajuste está activo", async () => {
+    const admin = await createAdmin();
+    await setExcludeWeekends(admin.token, true);
+    const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
+
+    const friday = nextDow(5);
+    const monday = new Date(friday);
+    monday.setUTCDate(friday.getUTCDate() + 3);
+
+    // Viernes a lunes: 4 días naturales, pero sábado y domingo no
+    // cuentan, así que solo se consumen 2.
+    const res = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDate(friday), endDate: isoDate(monday) });
+    expect(res.status).toBe(201);
+
+    const balance = await request(app).get("/api/vacations/balance").set(...authHeader(worker.token));
+    expect(balance.body.used).toBe(2);
+  });
+
+  it("no se puede empezar ni terminar una solicitud en fin de semana si el ajuste está activo", async () => {
+    const admin = await createAdmin();
+    await setExcludeWeekends(admin.token, true);
+    const worker = await createWorker(admin.token);
+
+    const saturday = nextDow(6);
+    const sunday = new Date(saturday);
+    sunday.setUTCDate(saturday.getUTCDate() + 1);
+
+    const res = await request(app)
+      .post("/api/vacations")
+      .set(...authHeader(worker.token))
+      .send({ startDate: isoDate(saturday), endDate: isoDate(sunday) });
+
+    expect(res.status).toBe(400);
   });
 });

@@ -1,6 +1,7 @@
 import type {
   AdminCreatableRole,
   BreakType,
+  ContractType,
   LeaveType,
   NotificationChannel,
   NotificationType,
@@ -23,6 +24,7 @@ export type PublicUser = {
    * cuándo empezó a trabajar). Se usa para calcular el saldo anual de
    * vacaciones — ver VacationBalanceDTO. */
   hireDate: string;
+  contractType: ContractType;
 };
 
 export type LoginRequest = {
@@ -345,6 +347,7 @@ export type AdminUserSummary = {
   isActive: boolean;
   weeklyTargetHours: number;
   hireDate: string;
+  contractType: ContractType;
   /** Solo relevante para trabajadores: su proyecto activo, si tiene. */
   currentProjectId: string | null;
   currentProjectName: string | null;
@@ -358,6 +361,7 @@ export type AdminCreateUserRequest = {
   role: AdminCreatableRole;
   weeklyTargetHours?: number;
   hireDate: string;
+  contractType: ContractType;
 };
 
 /** Respuesta al crear una cuenta: la contraseña provisional se genera en
@@ -375,15 +379,94 @@ export type AdminUpdateUserRequest = {
   weeklyTargetHours?: number;
   isActive?: boolean;
   hireDate?: string;
+  contractType?: ContractType;
 };
 
 export type AppSettingsDTO = {
   defaultWeeklyTargetHours: number;
+  /** Si un fin de semana cae dentro de un rango de vacaciones pedido,
+   * si cuenta o no como día de vacación consumido (ver
+   * VacationBalanceDTO) — true = no cuenta. */
+  excludeWeekendsFromVacationDays: boolean;
+  /** Cuántos asientos numerados hay para reservar en la oficina (ver
+   * SeatAvailabilityDTO) — 1..officeSeatCount. */
+  officeSeatCount: number;
   updatedAt: string;
 };
 
 export type UpdateAppSettingsRequest = {
   defaultWeeklyTargetHours: number;
+  excludeWeekendsFromVacationDays: boolean;
+  officeSeatCount: number;
+};
+
+/** Un asiento reservado para un día concreto. */
+export type SeatReservationDTO = {
+  id: string;
+  userId: string;
+  userFullName: string;
+  date: string;
+  seatNumber: number;
+};
+
+/** Lo que ve el trabajador al elegir un día: cuántos asientos hay en
+ * total y cuáles ya están ocupados (y por quién), para poder elegir uno
+ * libre. */
+export type SeatAvailabilityDTO = {
+  date: string;
+  totalSeats: number;
+  reservations: SeatReservationDTO[];
+};
+
+export type CreateSeatReservationRequest = {
+  date: string;
+  seatNumber: number;
+};
+
+/* --- Documentos compartidos (nómina, políticas de empresa...) --- */
+
+/** Lo que ve quien recibió el documento (el trabajador): no necesita
+ * saber con quién más se compartió. */
+export type DocumentDTO = {
+  id: string;
+  label: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploaderName: string;
+  createdAt: string;
+};
+
+/** Lo que ve quien lo compartió (admin o supervisor): además, con quién
+ * exactamente — una sola persona ("individual") o varias a la vez
+ * ("de forma colectiva") son, para el modelo de datos, lo mismo: una
+ * lista de destinatarios. */
+export type SentDocumentDTO = DocumentDTO & {
+  recipients: { userId: string; fullName: string }[];
+};
+
+/** Solo la parte de AppSettingsDTO que necesita cualquier rol para saber
+ * qué fechas no se pueden elegir al pedir vacaciones (ver
+ * MiniCalendar.tsx) — a diferencia de AppSettingsDTO entero, que solo
+ * puede leer el admin. */
+export type VacationRulesDTO = {
+  excludeWeekendsFromVacationDays: boolean;
+};
+
+/** Un festivo, nacional (fijo, calculado en código — ver
+ * holidays/nationalHolidays.ts en el backend) o personalizado (lo añade
+ * el admin, id no nulo). Ninguno de los dos se puede elegir al pedir
+ * vacaciones ni cuenta como día consumido del saldo. */
+export type HolidayDTO = {
+  id: string | null;
+  date: string;
+  label: string;
+  isNational: boolean;
+};
+
+export type CreateHolidayRequest = {
+  date: string;
+  label: string;
 };
 
 /** Eventos recientes para el home del admin: altas de cuenta, cambios de
@@ -452,7 +535,8 @@ export type NotificationEvent =
       startTime: string;
       endTime: string;
       reason: string;
-    };
+    }
+  | { type: "document_shared"; documentId: string; label: string; uploaderName: string };
 
 /** Lo que hay guardado en base de datos de una notificación es
  * NotificationEvent (arriba) más lo que pone la propia tabla: id, si se

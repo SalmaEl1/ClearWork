@@ -57,6 +57,30 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 }
 
 /**
+ * Para peticiones con un archivo adjunto (de momento, solo compartir un
+ * documento): el cuerpo es un FormData, así que no se fija
+ * Content-Type a mano — el navegador pone el suyo propio con el
+ * boundary del multipart, algo que apiFetch (JSON siempre) no permite.
+ */
+export async function apiFetchFormData<T>(path: string, formData: FormData): Promise<T> {
+  const token = getStoredToken();
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new ApiError(data.error ?? "Error inesperado", response.status);
+  }
+
+  return data as T;
+}
+
+/**
  * Para respuestas que no son JSON (de momento, solo la exportación CSV):
  * pide el archivo con el mismo token que apiFetch, y dispara la descarga
  * en el navegador a través de un enlace temporal — es el mecanismo

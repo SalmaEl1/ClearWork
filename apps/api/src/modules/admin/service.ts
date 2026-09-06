@@ -169,6 +169,7 @@ const CSV_HEADERS_USERS = [
   "Activa",
   "Horas objetivo semanales",
   "Fecha de contratación",
+  "Tipo de contrato",
   "Alta en el sistema",
 ];
 
@@ -186,6 +187,7 @@ export async function exportUsersCsv(filters: {
     u.is_active ? "Sí" : "No",
     String(Number(u.weekly_target_hours)),
     u.hire_date,
+    u.contract_type,
     u.created_at.toISOString(),
   ]);
   return toCsv(CSV_HEADERS_USERS, csvRows);

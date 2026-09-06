@@ -4,23 +4,23 @@ import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client.js";
 import { fetchCurrentUser, updateProfile } from "../api/auth.js";
-import { ROLE_LABEL } from "../constants.js";
+import { ROLE_LABEL, CONTRACT_TYPE_LABEL } from "../constants.js";
+import { useSavedFlash } from "../lib/useSavedFlash.js";
 
 function EditProfileForm({ profile, onSaved }: { profile: MeResponse; onSaved: () => void }) {
   const [fullName, setFullName] = useState(profile.fullName);
   const [email, setEmail] = useState(profile.email);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [justSaved, flash] = useSavedFlash();
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setSuccess(false);
     setIsSaving(true);
     try {
       await updateProfile({ fullName, email });
-      setSuccess(true);
+      flash();
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo guardar");
@@ -33,7 +33,7 @@ function EditProfileForm({ profile, onSaved }: { profile: MeResponse; onSaved: (
     <div className="card">
       <h3>Mis datos</h3>
       {error && <div className="error-banner">{error}</div>}
-      {success && <div className="alert-banner status-ok">Perfil actualizado.</div>}
+      {justSaved && <div className="alert-banner status-ok">Perfil actualizado.</div>}
       <form onSubmit={handleSubmit}>
         <label>
           <span>Nombre completo</span>
@@ -64,8 +64,16 @@ function EditProfileForm({ profile, onSaved }: { profile: MeResponse; onSaved: (
             </label>
           </>
         )}
-        <button type="submit" disabled={isSaving}>
-          {isSaving ? "Guardando…" : "Guardar cambios"}
+        <label>
+          <span>Fecha de contratación</span>
+          <input value={profile.hireDate} disabled />
+        </label>
+        <label>
+          <span>Tipo de contrato</span>
+          <input value={CONTRACT_TYPE_LABEL[profile.contractType]} disabled />
+        </label>
+        <button type="submit" className={justSaved ? "saved" : undefined} disabled={isSaving}>
+          {isSaving ? "Guardando…" : justSaved ? "✓ Guardado" : "Guardar cambios"}
         </button>
       </form>
     </div>

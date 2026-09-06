@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTIVITY_EVENT_TYPES, ADMIN_CREATABLE_ROLES } from "@clearwork/shared";
+import { ACTIVITY_EVENT_TYPES, ADMIN_CREATABLE_ROLES, CONTRACT_TYPES } from "@clearwork/shared";
 
 export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email inválido"),
@@ -7,6 +7,7 @@ export const createUserSchema = z.object({
   role: z.enum(ADMIN_CREATABLE_ROLES),
   weeklyTargetHours: z.coerce.number().positive().optional(),
   hireDate: z.string().date("hireDate debe tener formato AAAA-MM-DD"),
+  contractType: z.enum(CONTRACT_TYPES),
 });
 
 export const updateUserSchema = z
@@ -17,6 +18,7 @@ export const updateUserSchema = z
     weeklyTargetHours: z.coerce.number().positive().optional(),
     isActive: z.boolean().optional(),
     hireDate: z.string().date("hireDate debe tener formato AAAA-MM-DD").optional(),
+    contractType: z.enum(CONTRACT_TYPES).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, {
     message: "No se ha indicado ningún campo para actualizar",

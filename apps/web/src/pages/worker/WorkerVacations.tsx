@@ -1,20 +1,80 @@
-import type { VacationRequestDTO } from "@clearwork/shared";
-import { useCallback, useEffect, useState } from "react";
+import type { HolidayDTO, VacationBalanceDTO, VacationRequestDTO, VacationRulesDTO } from "@clearwork/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
-import { cancelVacationRequest, createVacationRequest, fetchMyVacationRequests } from "../../api/vacations.js";
+import { fetchHolidays } from "../../api/holidays.js";
+import {
+  cancelVacationRequest,
+  createVacationRequest,
+  fetchMyVacationBalance,
+  fetchMyVacationRequests,
+  fetchVacationRules,
+} from "../../api/vacations.js";
 import { MiniCalendar } from "../../components/MiniCalendar.js";
 import { VACATION_STATUS_LABEL, VACATION_STATUS_PILL_CLASS } from "../../constants.js";
 import { todayDateString } from "../../lib/dates.js";
 
+/** Todas las fechas AAAA-MM-DD de sábado o domingo de un año — el
+ * calendario para pedir vacaciones no sale del año en curso (ver
+ * MiniCalendar), así que basta con precalcular las de ese año entero. */
+function weekendDatesForYear(year: number): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(Date.UTC(year, 0, 1));
+  while (cursor.getUTCFullYear() === year) {
+    const day = cursor.getUTCDay();
+    if (day === 0 || day === 6) dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function BalanceCard({ balance }: { balance: VacationBalanceDTO }) {
+  return (
+    <div className="card">
+      <h3>Saldo de vacaciones {balance.year}</h3>
+      <p style={{ fontSize: "1.1rem" }}>
+        Te quedan <strong>{balance.remaining}</strong> de {balance.total} días.
+      </p>
+      <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+        {balance.used} día(s) ya solicitados o disfrutados este año.
+      </p>
+    </div>
+  );
+}
+
 /** Cada día seleccionado en el calendario se manda como su propia
  * solicitud (startDate = endDate = ese día): "de forma puntual, día a
  * día", no un rango continuo. No hace falta ningún cambio en la API
- * para esto, ya aceptaba una solicitud de un solo día. */
-function RequestVacationCalendar({ onSaved }: { onSaved: () => void }) {
+ * para esto, ya aceptaba una solicitud de un solo día. Los fines de
+ * semana y festivos ni siquiera se pueden seleccionar (ver
+ * disabledDates), según el ajuste del admin y el calendario de
+ * festivos. */
+function RequestVacationCalendar({
+  holidays,
+  rules,
+  onSaved,
+}: {
+  holidays: HolidayDTO[];
+  rules: VacationRulesDTO | null;
+  onSaved: () => void;
+}) {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const holidayLabelByDate = useMemo(() => new Map(holidays.map((h) => [h.date, h.label])), [holidays]);
+
+  const disabledDates = useMemo(() => {
+    const set = new Set(holidayLabelByDate.keys());
+    if (rules?.excludeWeekendsFromVacationDays) {
+      for (const date of weekendDatesForYear(new Date().getFullYear())) set.add(date);
+    }
+    return set;
+  }, [holidayLabelByDate, rules]);
+
+  function disabledReason(date: string): string | undefined {
+    return holidayLabelByDate.get(date) ?? "Fin de semana";
+  }
 
   function toggleDate(date: string) {
     setSelectedDates((prev) => {
@@ -48,7 +108,12 @@ function RequestVacationCalendar({ onSaved }: { onSaved: () => void }) {
     <div className="card">
       <h3>Solicitar vacaciones</h3>
       {error && <div className="error-banner">{error}</div>}
-      <MiniCalendar selectedDates={selectedDates} onToggleDate={toggleDate} />
+      <MiniCalendar
+        selectedDates={selectedDates}
+        onToggleDate={toggleDate}
+        disabledDates={disabledDates}
+        disabledReason={disabledReason}
+      />
       <p style={{ fontSize: "0.85rem", marginTop: "0.75rem" }}>
         {sortedDates.length === 0
           ? "Elige uno o varios días del año en curso."
@@ -63,16 +128,30 @@ function RequestVacationCalendar({ onSaved }: { onSaved: () => void }) {
 
 export function WorkerVacations() {
   const [requests, setRequests] = useState<VacationRequestDTO[] | null>(null);
+  const [balance, setBalance] = useState<VacationBalanceDTO | null>(null);
+  const [holidays, setHolidays] = useState<HolidayDTO[]>([]);
+  const [rules, setRules] = useState<VacationRulesDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetchMyVacationRequests()
       .then(setRequests)
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las solicitudes"));
+    fetchMyVacationBalance()
+      .then(setBalance)
+      .catch(() => {
+        /* el resto de la página sigue siendo útil sin el saldo */
+      });
   }, []);
 
   useEffect(() => {
     load();
+    fetchHolidays(new Date().getFullYear())
+      .then(setHolidays)
+      .catch(() => setHolidays([]));
+    fetchVacationRules()
+      .then(setRules)
+      .catch(() => setRules({ excludeWeekendsFromVacationDays: true }));
   }, [load]);
 
   async function handleCancel(id: string) {
@@ -100,7 +179,9 @@ export function WorkerVacations() {
       </div>
       {error && <div className="error-banner">{error}</div>}
 
-      <RequestVacationCalendar onSaved={load} />
+      {balance && <BalanceCard balance={balance} />}
+
+      <RequestVacationCalendar holidays={holidays} rules={rules} onSaved={load} />
 
       <div className="card">
         <h3>Mis solicitudes</h3>

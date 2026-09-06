@@ -30,6 +30,25 @@ export async function listMyVacationRequestsHandler(req: Request, res: Response,
   }
 }
 
+export async function getVacationRulesHandler(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const rules = await service.getVacationRules();
+    res.status(200).json(rules);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyVacationBalanceHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const balance = await service.getOwnVacationBalance(user.id);
+    res.status(200).json(balance);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function cancelVacationRequestHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);

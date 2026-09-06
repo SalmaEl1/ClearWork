@@ -34,6 +34,7 @@ async function createWorkerWithTarget(adminToken: string, weeklyTargetHours: num
       role: "worker",
       weeklyTargetHours,
       hireDate: defaultTestHireDate(),
+      contractType: "full_time",
     });
   const token = await loginAs(res.body.email, res.body.temporaryPassword);
   return { ...res.body, token };

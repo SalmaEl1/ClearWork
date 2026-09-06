@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import type { Role } from "@clearwork/shared";
+import type { ContractType, Role } from "@clearwork/shared";
 import { ConflictError } from "../../shared/errors.js";
 import { generatePassword } from "../../shared/password.js";
 import { createUser, findUserByEmail, updateUserPassword } from "./repository.js";
@@ -17,6 +17,7 @@ export type CreateAccountInput = {
   role: Role;
   weeklyTargetHours?: number;
   hireDate: string;
+  contractType: ContractType;
 };
 
 export type CreateAccountResult = {
@@ -47,6 +48,7 @@ export async function createAccount(input: CreateAccountInput): Promise<CreateAc
     role: input.role,
     weeklyTargetHours: input.weeklyTargetHours,
     hireDate: input.hireDate,
+    contractType: input.contractType,
   });
 
   return { user, generatedPassword };

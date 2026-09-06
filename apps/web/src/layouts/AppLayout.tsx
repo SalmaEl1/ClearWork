@@ -6,8 +6,10 @@ import {
   IconCalendar,
   IconClock,
   IconDashboard,
+  IconDocument,
   IconFolder,
   IconHistory,
+  IconSeat,
   IconSettings,
   IconTasks,
   IconUsers,
@@ -46,6 +48,10 @@ export function AppLayout() {
               <IconSettings />
               <span>Ajustes</span>
             </NavLink>
+            <NavLink to="/admin/documents">
+              <IconDocument />
+              <span>Documentos</span>
+            </NavLink>
           </nav>
         )}
 
@@ -75,6 +81,18 @@ export function AppLayout() {
               <IconClock />
               <span>Ausencias</span>
             </NavLink>
+            <NavLink to="/worker/calendar">
+              <IconCalendar />
+              <span>Calendario</span>
+            </NavLink>
+            <NavLink to="/worker/seat">
+              <IconSeat />
+              <span>Reservar sitio</span>
+            </NavLink>
+            <NavLink to="/worker/documents">
+              <IconDocument />
+              <span>Documentos</span>
+            </NavLink>
           </nav>
         )}
 
@@ -103,6 +121,10 @@ export function AppLayout() {
             <NavLink to="/supervisor/absences">
               <IconClock />
               <span>Ausencias</span>
+            </NavLink>
+            <NavLink to="/supervisor/documents">
+              <IconDocument />
+              <span>Documentos</span>
             </NavLink>
           </nav>
         )}

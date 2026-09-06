@@ -5,6 +5,8 @@ import {
   approveVacationRequestHandler,
   cancelVacationRequestHandler,
   createVacationRequestHandler,
+  getMyVacationBalanceHandler,
+  getVacationRulesHandler,
   listMyVacationRequestsHandler,
   listTeamVacationRequestsHandler,
   rejectVacationRequestHandler,
@@ -17,8 +19,10 @@ export const vacationsRouter = Router();
 
 vacationsRouter.use(authenticate);
 
+vacationsRouter.get("/rules", getVacationRulesHandler);
 vacationsRouter.post("/", authorize("worker"), createVacationRequestHandler);
 vacationsRouter.get("/mine", authorize("worker"), listMyVacationRequestsHandler);
+vacationsRouter.get("/balance", authorize("worker"), getMyVacationBalanceHandler);
 vacationsRouter.post("/:id/cancel", authorize("worker"), cancelVacationRequestHandler);
 
 vacationsRouter.get("/team", authorize("supervisor"), listTeamVacationRequestsHandler);

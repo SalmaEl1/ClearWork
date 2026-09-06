@@ -8,11 +8,13 @@ describe("ajustes", () => {
   // persiste entre ejecuciones de test, así que hay que devolverlo a como
   // estaba al terminar.
   let originalDefaultWeeklyTargetHours: number;
+  let originalExcludeWeekends: boolean;
 
   beforeAll(async () => {
     const admin = await createAdmin();
     const res = await request(app).get("/api/admin/settings").set(...authHeader(admin.token));
     originalDefaultWeeklyTargetHours = res.body.defaultWeeklyTargetHours;
+    originalExcludeWeekends = res.body.excludeWeekendsFromVacationDays;
   });
 
   afterAll(async () => {
@@ -20,7 +22,10 @@ describe("ajustes", () => {
     await request(app)
       .patch("/api/admin/settings")
       .set(...authHeader(admin.token))
-      .send({ defaultWeeklyTargetHours: originalDefaultWeeklyTargetHours });
+      .send({
+        defaultWeeklyTargetHours: originalDefaultWeeklyTargetHours,
+        excludeWeekendsFromVacationDays: originalExcludeWeekends,
+      });
     await closePool();
   });
 
@@ -32,6 +37,39 @@ describe("ajustes", () => {
     expect(res.status).toBe(200);
     expect(typeof res.body.defaultWeeklyTargetHours).toBe("number");
     expect(res.body.defaultWeeklyTargetHours).toBeGreaterThan(0);
+    expect(typeof res.body.excludeWeekendsFromVacationDays).toBe("boolean");
+  });
+
+  it("el admin puede cambiar si los fines de semana cuentan como vacaciones, sin tocar las horas objetivo", async () => {
+    const admin = await createAdmin();
+    const before = await request(app).get("/api/admin/settings").set(...authHeader(admin.token));
+
+    const updated = await request(app)
+      .patch("/api/admin/settings")
+      .set(...authHeader(admin.token))
+      .send({
+        defaultWeeklyTargetHours: before.body.defaultWeeklyTargetHours,
+        excludeWeekendsFromVacationDays: !before.body.excludeWeekendsFromVacationDays,
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.excludeWeekendsFromVacationDays).toBe(!before.body.excludeWeekendsFromVacationDays);
+  });
+
+  it("si no se manda excludeWeekendsFromVacationDays, se deja como estaba", async () => {
+    const admin = await createAdmin();
+    await request(app)
+      .patch("/api/admin/settings")
+      .set(...authHeader(admin.token))
+      .send({ defaultWeeklyTargetHours: 38, excludeWeekendsFromVacationDays: true });
+
+    const updated = await request(app)
+      .patch("/api/admin/settings")
+      .set(...authHeader(admin.token))
+      .send({ defaultWeeklyTargetHours: 36 });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.excludeWeekendsFromVacationDays).toBe(true);
   });
 
   it("un trabajador o supervisor no pueden ver ni editar los ajustes", async () => {

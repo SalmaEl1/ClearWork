@@ -16,7 +16,7 @@ const { pool } = await import("./pool.js");
 // gen_random_uuid(), no hay ninguna secuencia que reiniciar.
 await pool.query(
   `TRUNCATE users, projects, tasks, task_status_history, project_members, work_sessions, breaks,
-            activity_log, password_reset_tokens
+            activity_log, password_reset_tokens, holidays, seat_reservations, documents
    CASCADE`,
 );
 await pool.end();

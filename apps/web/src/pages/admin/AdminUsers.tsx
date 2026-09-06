@@ -1,5 +1,10 @@
-import type { AdminCreatableRole, AdminCreateUserResponse, AdminUserSummary } from "@clearwork/shared";
-import { ADMIN_CREATABLE_ROLES } from "@clearwork/shared";
+import type {
+  AdminCreatableRole,
+  AdminCreateUserResponse,
+  AdminUserSummary,
+  ContractType,
+} from "@clearwork/shared";
+import { ADMIN_CREATABLE_ROLES, CONTRACT_TYPES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -14,7 +19,7 @@ import {
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { Modal } from "../../components/Modal.js";
 import { Pagination } from "../../components/Pagination.js";
-import { ROLE_LABEL } from "../../constants.js";
+import { CONTRACT_TYPE_LABEL, ROLE_LABEL } from "../../constants.js";
 import { todayDateString } from "../../lib/dates.js";
 
 type RoleFilter = AdminCreatableRole | "all";
@@ -65,6 +70,7 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
   const [role, setRole] = useState<AdminCreatableRole>("worker");
   const [weeklyTargetHours, setWeeklyTargetHours] = useState("40");
   const [hireDate, setHireDate] = useState(todayDateString());
+  const [contractType, setContractType] = useState<ContractType>("full_time");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<AdminCreateUserResponse | null>(null);
@@ -80,6 +86,7 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
         role,
         weeklyTargetHours: role === "worker" ? Number(weeklyTargetHours) : undefined,
         hireDate,
+        contractType,
       });
       setResult(created);
     } catch (err) {
@@ -141,6 +148,16 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
             value={hireDate}
             onChange={(e) => setHireDate(e.target.value)}
           />
+        </label>
+        <label>
+          <span>Tipo de contrato</span>
+          <select value={contractType} onChange={(e) => setContractType(e.target.value as ContractType)}>
+            {CONTRACT_TYPES.map((c) => (
+              <option key={c} value={c}>
+                {CONTRACT_TYPE_LABEL[c]}
+              </option>
+            ))}
+          </select>
         </label>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Creando…" : "Crear cuenta"}

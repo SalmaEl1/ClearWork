@@ -5,6 +5,7 @@ import { useAuth } from "./auth/AuthContext.js";
 import { roleHome } from "./auth/roleHome.js";
 import { AppLayout } from "./layouts/AppLayout.js";
 import { AdminActivity } from "./pages/admin/AdminActivity.js";
+import { AdminDocuments } from "./pages/admin/AdminDocuments.js";
 import { AdminHome } from "./pages/admin/AdminHome.js";
 import { AdminProjectDetail } from "./pages/admin/AdminProjectDetail.js";
 import { AdminProjects } from "./pages/admin/AdminProjects.js";
@@ -25,9 +26,13 @@ import { SupervisorTaskDetail } from "./pages/supervisor/SupervisorTaskDetail.js
 import { SupervisorTasks } from "./pages/supervisor/SupervisorTasks.js";
 import { SupervisorTeam } from "./pages/supervisor/SupervisorTeam.js";
 import { SupervisorAbsences } from "./pages/supervisor/SupervisorAbsences.js";
+import { SupervisorDocuments } from "./pages/supervisor/SupervisorDocuments.js";
 import { SupervisorVacations } from "./pages/supervisor/SupervisorVacations.js";
 import { WorkerAbsences } from "./pages/worker/WorkerAbsences.js";
 import { WorkerAbsencesHistory } from "./pages/worker/WorkerAbsencesHistory.js";
+import { WorkerCalendar } from "./pages/worker/WorkerCalendar.js";
+import { WorkerDocuments } from "./pages/worker/WorkerDocuments.js";
+import { WorkerSeatBooking } from "./pages/worker/WorkerSeatBooking.js";
 import { WorkerHistory } from "./pages/worker/WorkerHistory.js";
 import { WorkerHome } from "./pages/worker/WorkerHome.js";
 import { WorkerProject } from "./pages/worker/WorkerProject.js";
@@ -69,6 +74,9 @@ export const router = createBrowserRouter([
               { path: "/worker/vacations/history", element: <WorkerVacationsHistory /> },
               { path: "/worker/absences", element: <WorkerAbsences /> },
               { path: "/worker/absences/history", element: <WorkerAbsencesHistory /> },
+              { path: "/worker/calendar", element: <WorkerCalendar /> },
+              { path: "/worker/seat", element: <WorkerSeatBooking /> },
+              { path: "/worker/documents", element: <WorkerDocuments /> },
             ],
           },
           {
@@ -81,6 +89,7 @@ export const router = createBrowserRouter([
               { path: "/supervisor/projects/:id", element: <SupervisorProjectDetail /> },
               { path: "/supervisor/vacations", element: <SupervisorVacations /> },
               { path: "/supervisor/absences", element: <SupervisorAbsences /> },
+              { path: "/supervisor/documents", element: <SupervisorDocuments /> },
               { path: "/supervisor/team", element: <SupervisorTeam /> },
               { path: "/supervisor/team/:id/history", element: <SupervisorMemberHistory /> },
             ],
@@ -95,6 +104,7 @@ export const router = createBrowserRouter([
               { path: "/admin/projects", element: <AdminProjects /> },
               { path: "/admin/projects/:id", element: <AdminProjectDetail /> },
               { path: "/admin/settings", element: <AdminSettings /> },
+              { path: "/admin/documents", element: <AdminDocuments /> },
             ],
           },
         ],

@@ -39,6 +39,7 @@ export async function createAdmin(fullName = "Admin de test") {
     fullName,
     role: "admin",
     hireDate: defaultTestHireDate(),
+    contractType: "full_time",
   });
   const login = await request(app).post("/api/auth/login").send({ email, password });
   return { user, email, password, token: login.body.token as string };
@@ -61,7 +62,7 @@ export async function createUserViaAdmin(
   const res = await request(app)
     .post("/api/admin/users")
     .set(...authHeader(adminToken))
-    .send({ email, fullName, role, hireDate });
+    .send({ email, fullName, role, hireDate, contractType: "full_time" });
   if (res.status !== 201) {
     throw new Error(`No se pudo crear el usuario de test: ${res.status} ${JSON.stringify(res.body)}`);
   }

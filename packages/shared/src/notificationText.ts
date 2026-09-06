@@ -47,6 +47,8 @@ export function notificationMessage(notification: NotificationEvent): string {
       return `${notification.workerName} ha solicitado vacaciones (${notification.startDate} a ${notification.endDate}).`;
     case "absence_scheduled":
       return `${notification.workerName} ha programado una ausencia el ${notification.date} de ${notification.startTime} a ${notification.endTime} (${notification.reason}).`;
+    case "document_shared":
+      return `${notification.uploaderName} ha compartido con usted el documento "${notification.label}".`;
   }
 }
 
@@ -67,6 +69,8 @@ export function notificationLink(
       return role === "supervisor" ? "/supervisor/vacations" : null;
     case "project_assigned":
       return role === "supervisor" ? "/supervisor/projects" : null;
+    case "document_shared":
+      return role === "worker" ? "/worker/documents" : null;
     default:
       return null;
   }
