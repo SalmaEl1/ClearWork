@@ -26,14 +26,14 @@ export function Modal({
   }, [onClose]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="modal-overlay">
+      <button
+        type="button"
+        className="modal-overlay__backdrop"
+        aria-label="Cerrar"
+        onClick={onClose}
+      />
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__header">
           <h3>{title}</h3>
           <button type="button" className="modal__close" onClick={onClose} aria-label="Cerrar">

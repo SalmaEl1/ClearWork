@@ -81,38 +81,38 @@ export function DocumentUploadForm({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </label>
-        <label>
-          <span>Destinatarios</span>
-        </label>
-        {recipients.length === 0 && <p>No hay trabajadores a quien compartir documentos todavía.</p>}
-        {recipients.length > 0 && (
-          <>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <input
-                type="checkbox"
-                style={{ width: "auto" }}
-                checked={allSelected}
-                onChange={toggleSelectAll}
-              />
-              <span style={{ margin: 0 }}>Seleccionar todos (envío colectivo)</span>
-            </label>
-            <ul className="team-list">
-              {recipients.map((r) => (
-                <li key={r.id} className="team-list__item">
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
-                    <input
-                      type="checkbox"
-                      style={{ width: "auto" }}
-                      checked={selectedIds.has(r.id)}
-                      onChange={() => toggleRecipient(r.id)}
-                    />
-                    <span style={{ margin: 0 }}>{r.fullName}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <fieldset className="form-fieldset">
+          <legend>Destinatarios</legend>
+          {recipients.length === 0 && <p>No hay trabajadores a quien compartir documentos todavía.</p>}
+          {recipients.length > 0 && (
+            <>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                />
+                <span style={{ margin: 0 }}>Seleccionar todos (envío colectivo)</span>
+              </label>
+              <ul className="team-list">
+                {recipients.map((r) => (
+                  <li key={r.id} className="team-list__item">
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: "auto" }}
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleRecipient(r.id)}
+                      />
+                      <span style={{ margin: 0 }}>{r.fullName}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </fieldset>
         <button
           type="submit"
           className={justSaved ? "saved" : undefined}

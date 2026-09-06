@@ -38,6 +38,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Tests unitarios (packages/shared), con cobertura
+        run: npm run test:coverage --workspace packages/shared
+
       - name: Tests de integración (apps/api), con cobertura
         run: npm run test:api:coverage
 

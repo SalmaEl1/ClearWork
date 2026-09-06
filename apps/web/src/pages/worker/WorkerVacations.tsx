@@ -102,7 +102,7 @@ function RequestVacationCalendar({
     }
   }
 
-  const sortedDates = [...selectedDates].sort();
+  const sortedDates = [...selectedDates].sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="card">

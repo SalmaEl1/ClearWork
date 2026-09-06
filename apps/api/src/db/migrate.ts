@@ -27,7 +27,9 @@ async function runMigrations() {
   const applied = await getAppliedMigrations();
 
   const allFiles = await readdir(MIGRATIONS_DIR);
-  const pending = allFiles.filter((f) => f.endsWith(".sql") && !applied.has(f)).sort();
+  const pending = allFiles
+    .filter((f) => f.endsWith(".sql") && !applied.has(f))
+    .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 
   if (pending.length === 0) {
     console.log("No hay migraciones pendientes.");

@@ -107,6 +107,23 @@ label > span {
   font-weight: 600;
 }
 
+/* Grupo de casillas que necesita su propia etiqueta (p. ej. la lista de
+ * destinatarios en DocumentUploadForm.tsx): <fieldset>/<legend> en vez
+ * de un <label> suelto, sin el marco que el navegador pinta por defecto. */
+.form-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.9rem;
+  min-width: 0;
+}
+
+.form-fieldset > legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 /* Datos del cliente de un proyecto, de solo lectura para quien no sea
  * admin (ver SupervisorProjectDetail.tsx y WorkerProject.tsx). */
 .project-client-info {
@@ -895,7 +912,24 @@ th {
   z-index: 30;
 }
 
+/* Cerrar al pulsar fuera del diálogo: un <button> a pantalla completa
+ * detrás del modal, en vez de un onClick sobre el propio overlay (que no
+ * es un elemento interactivo nativo). Escape y la "×" también cierran. */
+.modal-overlay__backdrop,
+.modal-overlay__backdrop:hover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .modal {
+  position: relative;
+  z-index: 1;
   background: var(--color-surface);
   border-radius: var(--radius);
   width: 100%;
