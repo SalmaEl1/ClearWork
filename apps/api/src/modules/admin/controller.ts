@@ -1,9 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
-import { exportUsersQuerySchema, listActivityQuerySchema, listUsersQuerySchema } from "./schemas.js";
+import {
+  exportActivityQuerySchema,
+  exportUsersQuerySchema,
+  listActivityQuerySchema,
+  listUsersQuerySchema,
+} from "./schemas.js";
 import * as service from "./service.js";
 
-function requireAdminId(req: Request): string {
+function requireUserId(req: Request): string {
   if (!req.user) throw new UnauthorizedError();
   return req.user.id;
 }
@@ -51,7 +56,7 @@ export async function getUserHandler(req: Request, res: Response, next: NextFunc
 
 export async function updateUserHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = await service.updateUser(req.params.id as string, req.body, requireAdminId(req));
+    const user = await service.updateUser(req.params.id as string, req.body, requireUserId(req));
     res.status(200).json(user);
   } catch (err) {
     next(err);
@@ -60,7 +65,7 @@ export async function updateUserHandler(req: Request, res: Response, next: NextF
 
 export async function deleteUserHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    await service.deleteUser(req.params.id as string, requireAdminId(req));
+    await service.deleteUser(req.params.id as string, requireUserId(req));
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -81,6 +86,42 @@ export async function listActivityHandler(req: Request, res: Response, next: Nex
     const query = listActivityQuerySchema.parse(req.query);
     const events = await service.listRecentActivity(query);
     res.status(200).json(events);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportActivityHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = exportActivityQuerySchema.parse(req.query);
+    const csv = await service.exportActivityCsv(query);
+    res.status(200);
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="actividad.csv"');
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listTeamActivityHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = listActivityQuerySchema.parse(req.query);
+    const events = await service.listTeamActivity(requireUserId(req), query);
+    res.status(200).json(events);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportTeamActivityHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = exportActivityQuerySchema.parse(req.query);
+    const csv = await service.exportTeamActivityCsv(requireUserId(req), query);
+    res.status(200);
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="actividad-equipo.csv"');
+    res.send(csv);
   } catch (err) {
     next(err);
   }

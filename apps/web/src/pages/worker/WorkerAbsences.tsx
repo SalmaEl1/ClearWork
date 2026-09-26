@@ -1,31 +1,64 @@
-import type { ScheduledAbsenceDTO } from "@clearwork/shared";
-import { useCallback, useEffect, useState } from "react";
+import type { HolidayDTO, ScheduledAbsenceDTO } from "@clearwork/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../../api/client.js";
+import { fetchHolidays } from "../../api/holidays.js";
 import {
   createScheduledAbsence,
   deleteScheduledAbsence,
   fetchMyScheduledAbsences,
 } from "../../api/scheduledAbsences.js";
 import { MiniCalendar } from "../../components/MiniCalendar.js";
-import { todayDateString } from "../../lib/dates.js";
+import { isWeekend, todayDateString, weekendDatesForYear } from "../../lib/dates.js";
 
 type DateInputMode = "calendar" | "manual";
 
+/** No se puede programar una ausencia en fin de semana ni festivo
+ * nacional: ningún día de esos es laborable, así que no hay jornada de
+ * la que ausentarse. A diferencia de las vacaciones (WorkerVacations.tsx,
+ * donde excluir el fin de semana es un ajuste del admin), aquí es
+ * incondicional. */
 function ScheduleAbsenceForm({ onSaved }: { onSaved: () => void }) {
   const [dateMode, setDateMode] = useState<DateInputMode>("calendar");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [reason, setReason] = useState("");
+  const [holidays, setHolidays] = useState<HolidayDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchHolidays(new Date().getFullYear())
+      .then(setHolidays)
+      .catch(() => setHolidays([]));
+  }, []);
+
+  const holidayLabelByDate = useMemo(() => new Map(holidays.map((h) => [h.date, h.label])), [holidays]);
+
+  const disabledDates = useMemo(() => {
+    const set = new Set(holidayLabelByDate.keys());
+    for (const d of weekendDatesForYear(new Date().getFullYear())) set.add(d);
+    return set;
+  }, [holidayLabelByDate]);
+
+  function disabledReason(d: string): string | undefined {
+    return holidayLabelByDate.get(d) ?? "Fin de semana";
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!date) {
       setError("Elige un día");
+      return;
+    }
+    if (isWeekend(date) || holidayLabelByDate.has(date)) {
+      setError(
+        holidayLabelByDate.has(date)
+          ? `No se puede programar una ausencia en festivo (${holidayLabelByDate.get(date)})`
+          : "No se puede programar una ausencia en fin de semana",
+      );
       return;
     }
     setError(null);
@@ -69,6 +102,8 @@ function ScheduleAbsenceForm({ onSaved }: { onSaved: () => void }) {
         <MiniCalendar
           selectedDates={date ? new Set([date]) : new Set()}
           onToggleDate={(d) => setDate(d === date ? "" : d)}
+          disabledDates={disabledDates}
+          disabledReason={disabledReason}
         />
       ) : (
         <label>

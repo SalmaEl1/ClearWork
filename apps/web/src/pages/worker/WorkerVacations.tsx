@@ -12,21 +12,7 @@ import {
 } from "../../api/vacations.js";
 import { MiniCalendar } from "../../components/MiniCalendar.js";
 import { VACATION_STATUS_LABEL, VACATION_STATUS_PILL_CLASS } from "../../constants.js";
-import { todayDateString } from "../../lib/dates.js";
-
-/** Todas las fechas AAAA-MM-DD de sábado o domingo de un año — el
- * calendario para pedir vacaciones no sale del año en curso (ver
- * MiniCalendar), así que basta con precalcular las de ese año entero. */
-function weekendDatesForYear(year: number): string[] {
-  const dates: string[] = [];
-  const cursor = new Date(Date.UTC(year, 0, 1));
-  while (cursor.getUTCFullYear() === year) {
-    const day = cursor.getUTCDay();
-    if (day === 0 || day === 6) dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return dates;
-}
+import { todayDateString, weekendDatesForYear } from "../../lib/dates.js";
 
 function BalanceCard({ balance }: { balance: VacationBalanceDTO }) {
   return (

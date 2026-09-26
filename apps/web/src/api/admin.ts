@@ -53,6 +53,12 @@ export function fetchAdminActivity(
   );
 }
 
+export function exportAdminActivityCsv(query: Omit<AdminActivityQuery, "page" | "pageSize"> = {}): Promise<void> {
+  const { types, ...rest } = query;
+  const qs = buildQuery({ ...rest, types: types && types.length > 0 ? types.join(",") : undefined });
+  return downloadFile(`/admin/activity/export${qs}`, "actividad.csv");
+}
+
 export function fetchAdminSettings(): Promise<AppSettingsDTO> {
   return apiFetch<AppSettingsDTO>("/admin/settings");
 }

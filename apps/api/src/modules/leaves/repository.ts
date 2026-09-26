@@ -37,6 +37,20 @@ export async function listLeavesForUser(userId: string): Promise<LeaveRow[]> {
   return result.rows;
 }
 
+/** Todas las bajas/permisos de un equipo entero, sin acotar a un día
+ * (a diferencia de findActiveLeavesForUsers, que es solo "en vigor en
+ * onDate", para el estado del dashboard) — para el calendario del
+ * supervisor (issue #134), que necesita ver cualquier baja que toque el
+ * mes visible, pasada, en curso o futura. */
+export async function listLeavesForUsers(userIds: string[]): Promise<LeaveRow[]> {
+  if (userIds.length === 0) return [];
+  const result = await pool.query<LeaveRow>(
+    "SELECT * FROM leaves WHERE user_id = ANY($1) ORDER BY start_date DESC",
+    [userIds],
+  );
+  return result.rows;
+}
+
 export async function findLeaveById(id: string): Promise<LeaveRow | null> {
   const result = await pool.query<LeaveRow>("SELECT * FROM leaves WHERE id = $1", [id]);
   return result.rows[0] ?? null;

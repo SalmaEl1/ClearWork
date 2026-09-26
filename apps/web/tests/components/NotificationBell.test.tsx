@@ -1,7 +1,6 @@
 import type { NotificationDTO, Paginated } from "@clearwork/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationBell } from "../../src/components/NotificationBell.js";
 
@@ -9,7 +8,6 @@ const fetchNotifications = vi.hoisted(() => vi.fn());
 const fetchUnreadNotificationCount = vi.hoisted(() => vi.fn());
 const markNotificationRead = vi.hoisted(() => vi.fn());
 const markAllNotificationsRead = vi.hoisted(() => vi.fn());
-const navigate = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/api/notifications.js", () => ({
   fetchNotifications,
@@ -17,11 +15,6 @@ vi.mock("../../src/api/notifications.js", () => ({
   markNotificationRead,
   markAllNotificationsRead,
 }));
-
-vi.mock("react-router-dom", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router-dom")>();
-  return { ...actual, useNavigate: () => navigate };
-});
 
 function page(items: NotificationDTO[]): Paginated<NotificationDTO> {
   return { items, total: items.length, page: 1, pageSize: 20 };
@@ -46,11 +39,7 @@ const memberAdded: NotificationDTO = {
 };
 
 function renderBell() {
-  return render(
-    <MemoryRouter>
-      <NotificationBell role="worker" />
-    </MemoryRouter>,
-  );
+  return render(<NotificationBell />);
 }
 
 describe("NotificationBell", () => {
@@ -59,7 +48,6 @@ describe("NotificationBell", () => {
     fetchUnreadNotificationCount.mockReset().mockResolvedValue({ count: 1 });
     markNotificationRead.mockReset().mockResolvedValue(assigned);
     markAllNotificationsRead.mockReset().mockResolvedValue(undefined);
-    navigate.mockReset();
   });
 
   it("pide el contador de no leídas al montar y lo muestra como badge", async () => {
@@ -84,15 +72,29 @@ describe("NotificationBell", () => {
     expect(screen.getByText(/Se le ha incorporado al proyecto/)).toBeInTheDocument();
   });
 
-  it("al hacer clic en una notificación sin leer, la marca como leída y navega a su enlace", async () => {
+  it("al hacer clic en una notificación sin leer, solo la marca como leída (no navega a ningún sitio)", async () => {
     const user = userEvent.setup();
     renderBell();
 
     await user.click(screen.getByRole("button", { name: "Notificaciones" }));
-    await user.click(await screen.findByText(/Se le ha asignado la tarea/));
+    const item = await screen.findByText(/Se le ha asignado la tarea/);
+    await user.click(item);
 
     expect(markNotificationRead).toHaveBeenCalledWith("n1");
-    expect(navigate).toHaveBeenCalledWith("/worker/tasks/t1");
+    // El desplegable sigue abierto y la notificación sigue en la lista,
+    // solo que ya no cuenta como no leída.
+    expect(screen.getByText(/Se le ha asignado la tarea/)).toBeInTheDocument();
+    expect(item.closest("button")).not.toHaveClass("notification-bell__item--unread");
+  });
+
+  it("hacer clic en una notificación ya leída no vuelve a llamar a la API", async () => {
+    const user = userEvent.setup();
+    renderBell();
+
+    await user.click(screen.getByRole("button", { name: "Notificaciones" }));
+    await user.click(await screen.findByText(/Se le ha incorporado al proyecto/));
+
+    expect(markNotificationRead).not.toHaveBeenCalled();
   });
 
   it("'Marcar todo como leído' limpia el badge y llama a la API", async () => {

@@ -56,3 +56,16 @@ export const listActivityQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(10),
 });
+
+/** Mismos filtros que listActivityQuerySchema, sin paginar: igual que
+ * exportUsersQuerySchema, la exportación siempre trae todo lo que
+ * coincide, no solo la página que se estuviera viendo. Comparte esta
+ * misma definición /admin/activity/export y /supervisor/activity/export. */
+export const exportActivityQuerySchema = z.object({
+  types: z
+    .string()
+    .transform((v) => v.split(","))
+    .pipe(z.array(z.enum(ACTIVITY_EVENT_TYPES)))
+    .optional(),
+  sortOrder: z.enum(["newest", "oldest"]).default("newest"),
+});

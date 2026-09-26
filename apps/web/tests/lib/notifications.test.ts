@@ -1,6 +1,6 @@
 import type { NotificationDTO } from "@clearwork/shared";
 import { describe, expect, it } from "vitest";
-import { notificationLink, notificationMessage } from "../../src/lib/notifications.js";
+import { notificationMessage } from "../../src/lib/notifications.js";
 
 function base(overrides: Partial<NotificationDTO> & Pick<NotificationDTO, "type">): NotificationDTO {
   return {
@@ -66,46 +66,5 @@ describe("notificationMessage", () => {
     expect(notificationMessage(n)).toBe(
       "Su solicitud de vacaciones (2026-03-01 a 2026-03-10) ha sido rechazada.",
     );
-  });
-});
-
-describe("notificationLink", () => {
-  it("enlaza a la tarea para task_assigned, con la ruta del rol de quien la recibe", () => {
-    const n = base({ type: "task_assigned", taskId: "t1", taskTitle: "X", projectName: "P" });
-    expect(notificationLink(n, "worker")).toBe("/worker/tasks/t1");
-    expect(notificationLink(n, "supervisor")).toBe("/supervisor/tasks/t1");
-  });
-
-  it("enlaza a la tarea para task_status_changed", () => {
-    const n = base({
-      type: "task_status_changed",
-      taskId: "t1",
-      taskTitle: "X",
-      projectName: "P",
-      status: "pending",
-      actorName: "A",
-    });
-    expect(notificationLink(n, "worker")).toBe("/worker/tasks/t1");
-  });
-
-  it("no enlaza a ningún sitio para el resto de tipos (ya no hay recurso al que ir)", () => {
-    expect(notificationLink(base({ type: "task_unassigned", taskTitle: "X", projectName: "P" }), "worker")).toBeNull();
-    expect(notificationLink(base({ type: "project_member_added", projectName: "P" }), "worker")).toBeNull();
-    expect(notificationLink(base({ type: "project_member_removed", projectName: "P" }), "worker")).toBeNull();
-    expect(
-      notificationLink(base({ type: "project_supervisor_removed", projectName: "P" }), "supervisor"),
-    ).toBeNull();
-  });
-
-  it("enlaza a /worker/vacations para vacation_decided, solo si quien la recibe es worker", () => {
-    const n = base({ type: "vacation_decided", status: "approved", startDate: "2026-03-01", endDate: "2026-03-10" });
-    expect(notificationLink(n, "worker")).toBe("/worker/vacations");
-    expect(notificationLink(n, "supervisor")).toBeNull();
-  });
-
-  it("enlaza a /supervisor/projects para project_assigned, solo si quien la recibe es supervisor", () => {
-    const n = base({ type: "project_assigned", projectName: "Web" });
-    expect(notificationLink(n, "supervisor")).toBe("/supervisor/projects");
-    expect(notificationLink(n, "worker")).toBeNull();
   });
 });

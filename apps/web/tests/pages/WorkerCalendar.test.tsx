@@ -43,7 +43,7 @@ describe("WorkerCalendar", () => {
 
   it("muestra la leyenda de colores", async () => {
     render(<WorkerCalendar />);
-    expect(await screen.findByText("Baja")).toBeInTheDocument();
+    expect(await screen.findByText("Baja/permiso")).toBeInTheDocument();
     expect(screen.getByText("Vacaciones")).toBeInTheDocument();
     expect(screen.getByText("Ausencia puntual")).toBeInTheDocument();
     expect(screen.getByText("Festivo")).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("WorkerCalendar", () => {
     expect(await screen.findByTitle("Festivo: Día festivo")).toBeInTheDocument();
   });
 
-  it("marca un día de baja en curso", async () => {
+  it("marca un día de baja/permiso en curso", async () => {
     const now = new Date();
     const startOfMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
     fetchLeaves.mockResolvedValue([
@@ -68,7 +68,18 @@ describe("WorkerCalendar", () => {
 
     render(<WorkerCalendar />);
 
-    expect((await screen.findAllByTitle("Baja: Enfermedad")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByTitle("Baja/permiso: Enfermedad")).length).toBeGreaterThan(0);
+  });
+
+  it("lista los eventos del mes al lado del calendario", async () => {
+    const now = new Date();
+    const holidayDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-15`;
+    fetchHolidays.mockResolvedValue([{ id: null, date: holidayDate, label: "Día festivo", isNational: true }]);
+
+    render(<WorkerCalendar />);
+
+    expect(await screen.findByText("Festivo: Día festivo")).toBeInTheDocument();
+    expect(screen.getByText(holidayDate)).toBeInTheDocument();
   });
 
   it("cambia de mes al navegar", async () => {

@@ -12,7 +12,7 @@ function requireUser(req: Request): AuthUser {
 export async function listPreferencesHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);
-    const preferences = await service.listPreferences(user.id);
+    const preferences = await service.listPreferences(user.id, user.role);
     res.status(200).json(preferences);
   } catch (err) {
     next(err);
@@ -24,7 +24,7 @@ export async function updatePreferenceHandler(req: Request, res: Response, next:
     const user = requireUser(req);
     const { type } = notificationTypeParamSchema.parse(req.params);
     const { channel } = updatePreferenceSchema.parse(req.body);
-    const preference = await service.updatePreference(user.id, type, channel);
+    const preference = await service.updatePreference(user.id, user.role, type, channel);
     res.status(200).json(preference);
   } catch (err) {
     next(err);

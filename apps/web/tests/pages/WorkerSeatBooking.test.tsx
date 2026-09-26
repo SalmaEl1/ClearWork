@@ -6,11 +6,17 @@ import { todayDateString } from "../../src/lib/dates.js";
 import { WorkerSeatBooking } from "../../src/pages/worker/WorkerSeatBooking.js";
 
 const fetchSeatAvailability = vi.hoisted(() => vi.fn());
+const fetchMySeatReservations = vi.hoisted(() => vi.fn());
 const reserveSeat = vi.hoisted(() => vi.fn());
 const cancelSeatReservation = vi.hoisted(() => vi.fn());
 const useAuth = vi.hoisted(() => vi.fn());
 
-vi.mock("../../src/api/seats.js", () => ({ fetchSeatAvailability, reserveSeat, cancelSeatReservation }));
+vi.mock("../../src/api/seats.js", () => ({
+  fetchSeatAvailability,
+  fetchMySeatReservations,
+  reserveSeat,
+  cancelSeatReservation,
+}));
 vi.mock("../../src/auth/AuthContext.js", () => ({ useAuth }));
 
 const worker: PublicUser = {
@@ -33,6 +39,7 @@ describe("WorkerSeatBooking", () => {
   beforeEach(() => {
     useAuth.mockReset().mockReturnValue({ user: worker });
     fetchSeatAvailability.mockReset().mockResolvedValue(availability());
+    fetchMySeatReservations.mockReset().mockResolvedValue([]);
     reserveSeat.mockReset().mockResolvedValue({});
     cancelSeatReservation.mockReset().mockResolvedValue(undefined);
   });
@@ -43,10 +50,17 @@ describe("WorkerSeatBooking", () => {
     expect(screen.getByRole("button", { name: "5" })).toBeInTheDocument();
   });
 
-  it("reserva un asiento libre al pincharlo", async () => {
+  it("selecciona un asiento libre y lo reserva al pulsar Reservar", async () => {
     const user = userEvent.setup();
     render(<WorkerSeatBooking />);
-    await user.click(await screen.findByRole("button", { name: "3" }));
+    const reservarButton = await screen.findByRole("button", { name: "Reservar" });
+    expect(reservarButton).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "3" }));
+    expect(reservarButton).toBeEnabled();
+    expect(reserveSeat).not.toHaveBeenCalled();
+
+    await user.click(reservarButton);
 
     await waitFor(() =>
       expect(reserveSeat).toHaveBeenCalledWith({ date: todayDateString(), seatNumber: 3 }),
@@ -79,5 +93,15 @@ describe("WorkerSeatBooking", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancelar reserva" }));
 
     await waitFor(() => expect(cancelSeatReservation).toHaveBeenCalledWith("r1"));
+  });
+
+  it("lista las reservas del mes en curso", async () => {
+    fetchMySeatReservations.mockResolvedValue([
+      { id: "r9", userId: "u1", userFullName: "Juan Worker", date: todayDateString(), seatNumber: 7 },
+    ]);
+    render(<WorkerSeatBooking />);
+
+    expect(await screen.findByText(todayDateString())).toBeInTheDocument();
+    expect(screen.getByText("Asiento 7")).toBeInTheDocument();
   });
 });

@@ -122,6 +122,14 @@ export function AppLayout() {
               <IconClock />
               <span>Ausencias</span>
             </NavLink>
+            <NavLink to="/supervisor/calendar">
+              <IconCalendar />
+              <span>Calendario</span>
+            </NavLink>
+            <NavLink to="/supervisor/activity">
+              <IconActivity />
+              <span>Actividad</span>
+            </NavLink>
             <NavLink to="/supervisor/documents">
               <IconDocument />
               <span>Documentos</span>
@@ -129,9 +137,7 @@ export function AppLayout() {
           </nav>
         )}
 
-        {(user?.role === "worker" || user?.role === "supervisor") && (
-          <NotificationBell role={user.role} />
-        )}
+        {(user?.role === "worker" || user?.role === "supervisor") && <NotificationBell />}
         <UserMenu />
       </header>
       <main className="app-content">

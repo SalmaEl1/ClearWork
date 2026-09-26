@@ -18,6 +18,8 @@ import { Login } from "./pages/Login.js";
 import { NotificationSettings } from "./pages/NotificationSettings.js";
 import { Profile } from "./pages/Profile.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
+import { SupervisorActivity } from "./pages/supervisor/SupervisorActivity.js";
+import { SupervisorCalendar } from "./pages/supervisor/SupervisorCalendar.js";
 import { SupervisorHome } from "./pages/supervisor/SupervisorHome.js";
 import { SupervisorMemberHistory } from "./pages/supervisor/SupervisorMemberHistory.js";
 import { SupervisorProjectDetail } from "./pages/supervisor/SupervisorProjectDetail.js";
@@ -83,6 +85,8 @@ export const router = createBrowserRouter([
             element: <RequireRole role="supervisor" />,
             children: [
               { path: "/supervisor", element: <SupervisorHome /> },
+              { path: "/supervisor/activity", element: <SupervisorActivity /> },
+              { path: "/supervisor/calendar", element: <SupervisorCalendar /> },
               { path: "/supervisor/tasks", element: <SupervisorTasks /> },
               { path: "/supervisor/tasks/:id", element: <SupervisorTaskDetail /> },
               { path: "/supervisor/projects", element: <SupervisorProjects /> },

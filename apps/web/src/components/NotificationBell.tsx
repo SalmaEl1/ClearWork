@@ -1,6 +1,5 @@
 import type { NotificationDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
@@ -8,7 +7,7 @@ import {
   markNotificationRead,
 } from "../api/notifications.js";
 import { formatRelativeTime } from "../lib/activity.js";
-import { notificationLink, notificationMessage } from "../lib/notifications.js";
+import { notificationMessage } from "../lib/notifications.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -16,10 +15,13 @@ const POLL_INTERVAL_MS = 30_000;
  * Icono de la cabecera con el contador de no leídas, para trabajador y
  * supervisor (el admin ya tiene su propio feed de actividad en
  * /admin/activity). El contador se refresca solo cada 30s; la lista de
- * notificaciones se pide al abrir el desplegable, no antes.
+ * notificaciones se pide al abrir el desplegable, no antes. Pinchar una
+ * notificación no lleva a ningún sitio (issue #133) — solo la marca como
+ * leída; el enlace por tipo (notificationLink, @clearwork/shared) sigue
+ * existiendo, pero solo lo usa ya el correo (ver
+ * apps/api/src/shared/notifications.ts).
  */
-export function NotificationBell({ role }: { role: "worker" | "supervisor" }) {
-  const navigate = useNavigate();
+export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<NotificationDTO[] | null>(null);
@@ -72,17 +74,16 @@ export function NotificationBell({ role }: { role: "worker" | "supervisor" }) {
     if (next) loadNotifications();
   }
 
-  async function handleItemClick(notification: NotificationDTO) {
-    if (!notification.readAt) {
-      setUnreadCount((count) => Math.max(0, count - 1));
-      markNotificationRead(notification.id).catch(() => {
-        // Best-effort: si falla, el peor caso es que siga apareciendo
-        // como no leída — no hace falta bloquear la navegación por eso.
-      });
-    }
-    const link = notificationLink(notification, role);
-    setIsOpen(false);
-    if (link) navigate(link);
+  function handleItemClick(notification: NotificationDTO) {
+    if (notification.readAt) return;
+    setUnreadCount((count) => Math.max(0, count - 1));
+    setNotifications((prev) =>
+      prev?.map((n) => (n.id === notification.id ? { ...n, readAt: new Date().toISOString() } : n)) ?? null,
+    );
+    markNotificationRead(notification.id).catch(() => {
+      // Best-effort: si falla, el peor caso es que siga apareciendo como
+      // no leída en la próxima carga — no hay nada más que deshacer.
+    });
   }
 
   async function handleMarkAllRead() {

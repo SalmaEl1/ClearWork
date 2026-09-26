@@ -473,23 +473,42 @@ export type CreateHolidayRequest = {
  * estado de tarea, y entradas/salidas de un proyecto. Cada variante trae
  * solo los datos que necesita — el frontend arma el texto a partir de
  * ellos, igual que ya hace con ROLE_LABEL para el rol. */
+/**
+ * `supervisorId` (o `fromSupervisorId`/`toSupervisorId` en el cambio de
+ * supervisor) va en todos los tipos salvo los 4 de cuentas: es lo que
+ * permite filtrar este mismo feed para el supervisor de ese proyecto
+ * (issue #134, GET /supervisor/activity), sin depender de nombres —que
+ * pueden repetirse o cambiar— para decidir si un evento es "suyo".
+ * Ausente en eventos guardados antes de este campo (activity_log ya
+ * tenía filas): esos simplemente no aparecen en ningún feed de
+ * supervisor, solo en el del admin.
+ */
 export type AdminActivityEventDTO =
   | { type: "user_created"; occurredAt: string; userName: string; role: Role }
   | { type: "user_updated"; occurredAt: string; userName: string }
   | { type: "user_role_changed"; occurredAt: string; userName: string; fromRole: Role; toRole: Role }
   | { type: "user_deleted"; occurredAt: string; userName: string; role: Role }
-  | { type: "project_created"; occurredAt: string; projectName: string; supervisorName: string }
-  | { type: "project_updated"; occurredAt: string; projectName: string }
-  | { type: "project_archived"; occurredAt: string; projectName: string; archived: boolean }
+  | { type: "project_created"; occurredAt: string; projectName: string; supervisorName: string; supervisorId?: string }
+  | { type: "project_updated"; occurredAt: string; projectName: string; supervisorId?: string }
+  | { type: "project_archived"; occurredAt: string; projectName: string; archived: boolean; supervisorId?: string }
   | {
       type: "project_supervisor_changed";
       occurredAt: string;
       projectName: string;
       fromSupervisorName: string;
       toSupervisorName: string;
+      fromSupervisorId?: string;
+      toSupervisorId?: string;
     }
-  | { type: "project_deleted"; occurredAt: string; projectName: string }
-  | { type: "task_created"; occurredAt: string; userName: string; taskTitle: string; projectName: string }
+  | { type: "project_deleted"; occurredAt: string; projectName: string; supervisorId?: string }
+  | {
+      type: "task_created";
+      occurredAt: string;
+      userName: string;
+      taskTitle: string;
+      projectName: string;
+      supervisorId?: string;
+    }
   | {
       type: "task_status_changed";
       occurredAt: string;
@@ -497,10 +516,18 @@ export type AdminActivityEventDTO =
       taskTitle: string;
       projectName: string;
       toStatus: TaskStatus;
+      supervisorId?: string;
     }
-  | { type: "task_deleted"; occurredAt: string; userName: string; taskTitle: string; projectName: string }
-  | { type: "member_joined"; occurredAt: string; userName: string; projectName: string }
-  | { type: "member_left"; occurredAt: string; userName: string; projectName: string };
+  | {
+      type: "task_deleted";
+      occurredAt: string;
+      userName: string;
+      taskTitle: string;
+      projectName: string;
+      supervisorId?: string;
+    }
+  | { type: "member_joined"; occurredAt: string; userName: string; projectName: string; supervisorId?: string }
+  | { type: "member_left"; occurredAt: string; userName: string; projectName: string; supervisorId?: string };
 
 /* --- Notificaciones dentro de la plataforma (trabajador y supervisor) --- */
 
@@ -575,6 +602,11 @@ export type LeaveDTO = {
   createdBy: string;
   createdAt: string;
 };
+
+/** Igual patrón que TeamVacationRequestDTO/TeamScheduledAbsenceDTO: para
+ * el calendario del supervisor (issue #134, GET /leaves/team), que
+ * necesita el nombre de cada persona sin tener que resolverlo aparte. */
+export type TeamLeaveDTO = LeaveDTO & { userFullName: string };
 
 export type CreateLeaveRequest = {
   userId: string;

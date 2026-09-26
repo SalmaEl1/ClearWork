@@ -12,7 +12,7 @@ const STATUS_COPY: Record<TeamMemberStatus, { label: string; className: string }
   working: { label: "Trabajando", className: "status-ok" },
   on_break: { label: "En pausa", className: "status-warning" },
   offline: { label: "Desconectado", className: "status-neutral" },
-  on_leave: { label: "De baja", className: "status-neutral" },
+  on_leave: { label: "De baja/permiso", className: "status-neutral" },
   on_vacation: { label: "De vacaciones", className: "status-neutral" },
   on_scheduled_absence: { label: "Fuera", className: "status-neutral" },
 };
@@ -37,7 +37,7 @@ export function TeamStatusList({ team, onChanged }: { team: TeamMemberSummary[];
       setEndingFor(null);
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo finalizar la baja");
+      setError(err instanceof ApiError ? err.message : "No se pudo finalizar la baja/permiso");
     } finally {
       setIsEnding(false);
     }
@@ -85,11 +85,11 @@ export function TeamStatusList({ team, onChanged }: { team: TeamMemberSummary[];
                 </Link>
                 {member.status === "on_leave" ? (
                   <button type="button" className="secondary" onClick={() => setEndingFor(member)}>
-                    Finalizar baja
+                    Finalizar baja/permiso
                   </button>
                 ) : (
                   <button type="button" className="secondary" onClick={() => setRegisteringFor(member)}>
-                    Registrar baja
+                    Registrar baja/permiso
                   </button>
                 )}
               </div>
@@ -99,7 +99,7 @@ export function TeamStatusList({ team, onChanged }: { team: TeamMemberSummary[];
       </ul>
 
       {registeringFor && (
-        <Modal title={`Registrar baja: ${registeringFor.fullName}`} onClose={() => setRegisteringFor(null)}>
+        <Modal title={`Registrar baja/permiso: ${registeringFor.fullName}`} onClose={() => setRegisteringFor(null)}>
           <RegisterLeaveForm
             userId={registeringFor.id}
             onSaved={() => {
@@ -112,8 +112,8 @@ export function TeamStatusList({ team, onChanged }: { team: TeamMemberSummary[];
 
       {endingFor && (
         <ConfirmDialog
-          title="Finalizar baja"
-          message={`¿Finalizar la baja de ${endingFor.fullName} hoy?`}
+          title="Finalizar baja/permiso"
+          message={`¿Finalizar la baja/permiso de ${endingFor.fullName} hoy?`}
           confirmLabel="Finalizar"
           confirmingLabel="Finalizando…"
           isConfirming={isEnding}

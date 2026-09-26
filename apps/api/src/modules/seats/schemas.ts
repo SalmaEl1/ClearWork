@@ -9,3 +9,7 @@ export const createSeatReservationSchema = z
 export const getSeatAvailabilityQuerySchema = z.object({
   date: z.string().date("date debe tener formato AAAA-MM-DD"),
 });
+
+export const getMySeatReservationsQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/, "month debe tener formato AAAA-MM"),
+});

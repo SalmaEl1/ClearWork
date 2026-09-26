@@ -4,6 +4,7 @@ import { authorize } from "../../middleware/authorize.js";
 import {
   cancelSeatReservationHandler,
   createSeatReservationHandler,
+  getMySeatReservationsHandler,
   getSeatAvailabilityHandler,
 } from "./controller.js";
 
@@ -15,5 +16,8 @@ export const seatsRouter = Router();
 seatsRouter.use(authenticate);
 
 seatsRouter.get("/", getSeatAvailabilityHandler);
+// Antes de cualquier ruta con :id — no aplica aquí (no hay GET /:id), pero
+// mantiene el mismo criterio que el resto de módulos.
+seatsRouter.get("/mine", authorize("worker"), getMySeatReservationsHandler);
 seatsRouter.post("/", authorize("worker"), createSeatReservationHandler);
 seatsRouter.delete("/:id", authorize("worker"), cancelSeatReservationHandler);

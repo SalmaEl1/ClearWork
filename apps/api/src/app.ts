@@ -3,7 +3,7 @@ import express from "express";
 import { corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { generalRateLimit } from "./middleware/rateLimit.js";
-import { adminActivityRouter, adminUsersRouter } from "./modules/admin/routes.js";
+import { adminActivityRouter, adminUsersRouter, supervisorActivityRouter } from "./modules/admin/routes.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
 import { documentsRouter } from "./modules/documents/routes.js";
@@ -43,6 +43,7 @@ export function createApp() {
   app.use("/api/admin/activity", adminActivityRouter);
   app.use("/api/admin/settings", settingsRouter);
   app.use("/api/supervisor/projects", supervisorProjectsRouter);
+  app.use("/api/supervisor/activity", supervisorActivityRouter);
   app.use("/api/worker/project", workerProjectRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/notification-preferences", notificationPreferencesRouter);

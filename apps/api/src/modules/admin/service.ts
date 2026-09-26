@@ -4,6 +4,7 @@ import type {
   AdminUserSummary,
   Paginated,
 } from "@clearwork/shared";
+import { activityMessage } from "@clearwork/shared";
 import { env } from "../../config/env.js";
 import { isForeignKeyViolation } from "../../db/errors.js";
 import { sendMail } from "../../email/mailer.js";
@@ -20,7 +21,7 @@ import {
   listProjectsForSupervisor,
   type WorkerCurrentProjectRow,
 } from "../projects/repository.js";
-import { listActivityPage } from "./repository.js";
+import { listActivityPage, type ActivityLogRow } from "./repository.js";
 import { getSettings } from "../settings/service.js";
 import {
   deleteUserById,
@@ -35,6 +36,7 @@ import type { UserRow } from "../users/types.js";
 import type { z } from "zod";
 import type {
   createUserSchema,
+  exportActivityQuerySchema,
   listActivityQuerySchema,
   listUsersQuerySchema,
   updateUserSchema,
@@ -44,6 +46,7 @@ type CreateUserInput = z.infer<typeof createUserSchema>;
 type UpdateUserInput = z.infer<typeof updateUserSchema>;
 type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 type ListActivityQuery = z.infer<typeof listActivityQuerySchema>;
+type ExportActivityQuery = z.infer<typeof exportActivityQuerySchema>;
 
 type SupervisedProject = { id: string; name: string };
 
@@ -253,6 +256,7 @@ export async function updateUser(
             type: "member_left",
             userName: existing.full_name,
             projectName: project.name,
+            supervisorId: project.supervisor_id,
           });
         }
       }
@@ -319,13 +323,19 @@ export async function deleteUser(userId: string, actingAdminId: string): Promise
   await recordActivity({ type: "user_deleted", userName: user.full_name, role: user.role });
 }
 
-/**
- * Lee de activity_log (ver repository.ts): cada evento ya se guardó con
- * sus datos legibles en el momento en que ocurrió (ver shared/activityLog.ts
- * y sus llamadas en este archivo, en tasks/service.ts y en
- * projects/service.ts), así que aquí no hace falta ningún JOIN ni
- * recomputar nada — solo paginar y, si se pide, filtrar por tipo.
- */
+/** Cada fila de activity_log ya se guardó con sus datos legibles en el
+ * momento en que ocurrió (ver shared/activityLog.ts y sus llamadas en
+ * este archivo, en tasks/service.ts y en projects/service.ts), así que
+ * reconstruir el DTO es solo juntar tipo + fecha + payload — sin JOIN ni
+ * recomputar nada. Compartido por la lista paginada y la exportación CSV. */
+function toActivityEventDTO(row: ActivityLogRow): AdminActivityEventDTO {
+  return {
+    type: row.type,
+    occurredAt: row.occurred_at.toISOString(),
+    ...row.payload,
+  } as AdminActivityEventDTO;
+}
+
 export async function listRecentActivity(
   query: ListActivityQuery,
 ): Promise<Paginated<AdminActivityEventDTO>> {
@@ -336,16 +346,54 @@ export async function listRecentActivity(
   );
 
   return {
-    items: rows.map(
-      (row) =>
-        ({
-          type: row.type,
-          occurredAt: row.occurred_at.toISOString(),
-          ...row.payload,
-        }) as AdminActivityEventDTO,
-    ),
+    items: rows.map(toActivityEventDTO),
     total,
     page: query.page,
     pageSize: query.pageSize,
   };
+}
+
+const CSV_HEADERS_ACTIVITY = ["Fecha", "Tipo", "Descripción"];
+
+function activityToCsvRows(events: AdminActivityEventDTO[]): string[][] {
+  return events.map((event) => [event.occurredAt, event.type, activityMessage(event)]);
+}
+
+/** Sin paginar, como el resto de exportaciones (exportUsersCsv,
+ * exportProjectsCsv): siempre trae todo lo que coincide con el filtro. */
+export async function exportActivityCsv(query: ExportActivityQuery): Promise<string> {
+  const { rows } = await listActivityPage({ types: query.types, sortOrder: query.sortOrder }, 1, 1_000_000);
+  return toCsv(CSV_HEADERS_ACTIVITY, activityToCsvRows(rows.map(toActivityEventDTO)));
+}
+
+/** Igual que listRecentActivity, pero acotado a los eventos de los
+ * proyectos/tareas de este supervisor (repository.ts filtra por
+ * supervisorId en el payload) — para /supervisor/activity (issue #134).
+ * Los 4 tipos de cuenta nunca llevan ese campo, así que quedan fuera sin
+ * necesidad de excluirlos aparte. */
+export async function listTeamActivity(
+  supervisorId: string,
+  query: ListActivityQuery,
+): Promise<Paginated<AdminActivityEventDTO>> {
+  const { rows, total } = await listActivityPage(
+    { types: query.types, sortOrder: query.sortOrder, supervisorId },
+    query.page,
+    query.pageSize,
+  );
+
+  return {
+    items: rows.map(toActivityEventDTO),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
+}
+
+export async function exportTeamActivityCsv(supervisorId: string, query: ExportActivityQuery): Promise<string> {
+  const { rows } = await listActivityPage(
+    { types: query.types, sortOrder: query.sortOrder, supervisorId },
+    1,
+    1_000_000,
+  );
+  return toCsv(CSV_HEADERS_ACTIVITY, activityToCsvRows(rows.map(toActivityEventDTO)));
 }

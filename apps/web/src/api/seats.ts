@@ -5,6 +5,10 @@ export function fetchSeatAvailability(date: string): Promise<SeatAvailabilityDTO
   return apiFetch<SeatAvailabilityDTO>(`/seats?date=${date}`);
 }
 
+export function fetchMySeatReservations(month: string): Promise<SeatReservationDTO[]> {
+  return apiFetch<SeatReservationDTO[]>(`/seats/mine?month=${month}`);
+}
+
 export function reserveSeat(input: CreateSeatReservationRequest): Promise<SeatReservationDTO> {
   return apiFetch<SeatReservationDTO>("/seats", { method: "POST", body: input });
 }

@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
 import type { AuthUser } from "../auth/jwt.js";
-import { createSeatReservationSchema, getSeatAvailabilityQuerySchema } from "./schemas.js";
+import {
+  createSeatReservationSchema,
+  getMySeatReservationsQuerySchema,
+  getSeatAvailabilityQuerySchema,
+} from "./schemas.js";
 import * as service from "./service.js";
 
 function requireUser(req: Request): AuthUser {
@@ -15,6 +19,17 @@ export async function getSeatAvailabilityHandler(req: Request, res: Response, ne
     const { date } = getSeatAvailabilityQuerySchema.parse(req.query);
     const availability = await service.getSeatAvailability(date);
     res.status(200).json(availability);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMySeatReservationsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const { month } = getMySeatReservationsQuerySchema.parse(req.query);
+    const reservations = await service.getMyReservationsForMonth(user.id, month);
+    res.status(200).json(reservations);
   } catch (err) {
     next(err);
   }

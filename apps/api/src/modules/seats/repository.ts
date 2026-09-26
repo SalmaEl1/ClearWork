@@ -16,6 +16,22 @@ export async function listReservationsForDate(date: string): Promise<SeatReserva
   return result.rows;
 }
 
+/** Todas las reservas de una persona dentro de un mes (AAAA-MM), para su
+ * propia lista de "mis reservas este mes" — a diferencia de
+ * listReservationsForDate, que es de un solo día y de todo el mundo. */
+export async function listReservationsForUserInMonth(
+  userId: string,
+  month: string,
+): Promise<SeatReservationRow[]> {
+  const result = await pool.query<SeatReservationRow>(
+    `SELECT * FROM seat_reservations
+     WHERE user_id = $1 AND to_char(date, 'YYYY-MM') = $2
+     ORDER BY date ASC`,
+    [userId, month],
+  );
+  return result.rows;
+}
+
 export async function findReservationById(id: string): Promise<SeatReservationRow | null> {
   const result = await pool.query<SeatReservationRow>(
     "SELECT * FROM seat_reservations WHERE id = $1",

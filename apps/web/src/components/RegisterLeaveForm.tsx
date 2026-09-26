@@ -31,7 +31,7 @@ export function RegisterLeaveForm({
       await createLeave({ userId, type, startDate, endDate: endDate || null });
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo registrar la baja");
+      setError(err instanceof ApiError ? err.message : "No se pudo registrar la baja/permiso");
     } finally {
       setIsSaving(false);
     }
@@ -59,7 +59,7 @@ export function RegisterLeaveForm({
         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
       </label>
       <button type="submit" disabled={isSaving}>
-        {isSaving ? "Guardando…" : "Registrar baja"}
+        {isSaving ? "Guardando…" : "Registrar baja/permiso"}
       </button>
     </form>
   );

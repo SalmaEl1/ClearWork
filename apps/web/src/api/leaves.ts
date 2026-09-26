@@ -1,4 +1,4 @@
-import type { CreateLeaveRequest, LeaveDTO } from "@clearwork/shared";
+import type { CreateLeaveRequest, LeaveDTO, TeamLeaveDTO } from "@clearwork/shared";
 import { apiFetch } from "./client.js";
 
 export function createLeave(input: CreateLeaveRequest): Promise<LeaveDTO> {
@@ -7,6 +7,10 @@ export function createLeave(input: CreateLeaveRequest): Promise<LeaveDTO> {
 
 export function fetchLeaves(userId: string): Promise<LeaveDTO[]> {
   return apiFetch<LeaveDTO[]>(`/leaves?userId=${userId}`);
+}
+
+export function fetchTeamLeaves(): Promise<TeamLeaveDTO[]> {
+  return apiFetch<TeamLeaveDTO[]>("/leaves/team");
 }
 
 export function deleteLeave(id: string): Promise<void> {

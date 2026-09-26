@@ -8,17 +8,33 @@ import { WorkerAbsences } from "../../src/pages/worker/WorkerAbsences.js";
 const createScheduledAbsence = vi.hoisted(() => vi.fn());
 const fetchMyScheduledAbsences = vi.hoisted(() => vi.fn());
 const deleteScheduledAbsence = vi.hoisted(() => vi.fn());
+const fetchHolidays = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/api/scheduledAbsences.js", () => ({
   createScheduledAbsence,
   fetchMyScheduledAbsences,
   deleteScheduledAbsence,
 }));
+vi.mock("../../src/api/holidays.js", () => ({ fetchHolidays }));
 
 function isoOffset(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/** El mini-calendario ya no deja elegir fin de semana (sin festivos
+ * mockeados, esa es la única razón por la que un día podría estar
+ * deshabilitado aquí): el primer día a partir de `minOffset` que caiga
+ * entre semana, dentro del mismo mes que hoy. */
+function nextWeekdayOffset(minOffset: number): number {
+  for (let offset = minOffset; offset < minOffset + 7; offset++) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    const weekday = d.getDay();
+    if (weekday !== 0 && weekday !== 6) return offset;
+  }
+  return minOffset;
 }
 
 function absence(overrides: Partial<ScheduledAbsenceDTO> = {}): ScheduledAbsenceDTO {
@@ -47,6 +63,7 @@ describe("WorkerAbsences", () => {
     fetchMyScheduledAbsences.mockReset().mockResolvedValue([absence()]);
     createScheduledAbsence.mockReset().mockResolvedValue(absence());
     deleteScheduledAbsence.mockReset().mockResolvedValue(undefined);
+    fetchHolidays.mockReset().mockResolvedValue([]);
   });
 
   it("lista las ausencias puntuales próximas", async () => {
@@ -60,8 +77,10 @@ describe("WorkerAbsences", () => {
     renderPage();
     await screen.findByText("Cita médica");
 
-    const now = new Date();
-    await user.click(screen.getByRole("button", { name: String(now.getDate()) }));
+    const offset = nextWeekdayOffset(0);
+    const day = new Date();
+    day.setDate(day.getDate() + offset);
+    await user.click(screen.getByRole("button", { name: String(day.getDate()) }));
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
     fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
     await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
@@ -69,12 +88,34 @@ describe("WorkerAbsences", () => {
 
     await waitFor(() =>
       expect(createScheduledAbsence).toHaveBeenCalledWith({
-        date: isoOffset(0),
+        date: isoOffset(offset),
         startTime: "09:00",
         endTime: "09:30",
         reason: "Gestión legal",
       }),
     );
+  });
+
+  it("no deja elegir un fin de semana en el calendario", async () => {
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    const now = new Date();
+    // Busca el próximo sábado a partir de hoy, dentro del mismo mes.
+    let saturdayOffset = -1;
+    for (let offset = 0; offset < 7; offset++) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      if (d.getDay() === 6 && d.getMonth() === now.getMonth()) {
+        saturdayOffset = offset;
+        break;
+      }
+    }
+    if (saturdayOffset === -1) return; // no hay sábado este mes desde hoy: nada que comprobar.
+
+    const saturday = new Date();
+    saturday.setDate(saturday.getDate() + saturdayOffset);
+    expect(screen.getByRole("button", { name: String(saturday.getDate()) })).toBeDisabled();
   });
 
   it("programa una ausencia con la fecha manual", async () => {
@@ -83,7 +124,7 @@ describe("WorkerAbsences", () => {
     await screen.findByText("Cita médica");
 
     await user.click(screen.getByRole("button", { name: "Fecha manual" }));
-    const day = isoOffset(7);
+    const day = isoOffset(nextWeekdayOffset(7));
     fireEvent.change(screen.getByLabelText("Día"), { target: { value: day } });
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
     fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
@@ -98,6 +139,54 @@ describe("WorkerAbsences", () => {
         reason: "Gestión legal",
       }),
     );
+  });
+
+  it("rechaza un fin de semana escrito a mano, sin llamar a la API", async () => {
+    let saturdayOffset = -1;
+    for (let offset = 0; offset < 14; offset++) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      if (d.getDay() === 6) {
+        saturdayOffset = offset;
+        break;
+      }
+    }
+    const saturday = isoOffset(saturdayOffset);
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    await user.click(screen.getByRole("button", { name: "Fecha manual" }));
+    fireEvent.change(screen.getByLabelText("Día"), { target: { value: saturday } });
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
+    await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("No se puede programar una ausencia en fin de semana")).toBeInTheDocument();
+    expect(createScheduledAbsence).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un festivo escrito a mano, sin llamar a la API", async () => {
+    const holidayDate = isoOffset(nextWeekdayOffset(3));
+    fetchHolidays.mockResolvedValue([{ id: "h1", date: holidayDate, label: "Día del Trabajo", isNational: true }]);
+
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    await user.click(screen.getByRole("button", { name: "Fecha manual" }));
+    fireEvent.change(screen.getByLabelText("Día"), { target: { value: holidayDate } });
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
+    await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(
+      await screen.findByText(`No se puede programar una ausencia en festivo (Día del Trabajo)`),
+    ).toBeInTheDocument();
+    expect(createScheduledAbsence).not.toHaveBeenCalled();
   });
 
   it("elimina una ausencia puntual programada", async () => {

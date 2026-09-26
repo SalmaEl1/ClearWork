@@ -206,7 +206,7 @@ function LeavesCard({ userId }: { userId: string }) {
   const load = useCallback(() => {
     fetchLeaves(userId)
       .then(setLeaves)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las bajas"));
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las bajas/permisos"));
   }, [userId]);
 
   useEffect(() => {
@@ -227,10 +227,10 @@ function LeavesCard({ userId }: { userId: string }) {
 
   return (
     <div className="card">
-      <h3>Bajas y ausencias</h3>
+      <h3>Bajas/permisos y ausencias</h3>
       {error && <div className="error-banner">{error}</div>}
       {!leaves && <p>Cargando…</p>}
-      {leaves && leaves.length === 0 && <p>No hay bajas ni ausencias registradas.</p>}
+      {leaves && leaves.length === 0 && <p>No hay bajas/permisos ni ausencias registradas.</p>}
       {leaves && leaves.length > 0 && (
         <>
           <ul className="team-list">
@@ -256,11 +256,11 @@ function LeavesCard({ userId }: { userId: string }) {
         </>
       )}
       <button type="button" style={{ marginTop: "1rem" }} onClick={() => setIsRegistering(true)}>
-        Registrar baja
+        Registrar baja/permiso
       </button>
 
       {isRegistering && (
-        <Modal title="Registrar baja" onClose={() => setIsRegistering(false)}>
+        <Modal title="Registrar baja/permiso" onClose={() => setIsRegistering(false)}>
           <RegisterLeaveForm
             userId={userId}
             onSaved={() => {

@@ -11,6 +11,11 @@ export type ActivityListFilters = {
    * son sus cuatro tipos juntos) — sin ninguno, no se filtra por tipo. */
   types?: string[];
   sortOrder?: "newest" | "oldest";
+  /** Solo eventos de proyectos/tareas de este supervisor (GET
+   * /supervisor/activity) — comprueba los tres campos posibles según el
+   * tipo de evento, ver AdminActivityEventDTO en packages/shared. Sin
+   * esto, sin filtrar (feed del admin, sobre todo el mundo). */
+  supervisorId?: string;
 };
 
 export type ActivityListPage = {
@@ -34,6 +39,14 @@ export async function listActivityPage(
   if (filters.types && filters.types.length > 0) {
     values.push(filters.types);
     conditions.push(`type = ANY($${values.length})`);
+  }
+
+  if (filters.supervisorId) {
+    values.push(filters.supervisorId);
+    const p = values.length;
+    conditions.push(
+      `(payload->>'supervisorId' = $${p} OR payload->>'fromSupervisorId' = $${p} OR payload->>'toSupervisorId' = $${p})`,
+    );
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";

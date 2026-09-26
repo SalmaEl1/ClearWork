@@ -23,6 +23,7 @@ import * as notificationPreferences from "../../src/api/notificationPreferences.
 import * as notifications from "../../src/api/notifications.js";
 import * as scheduledAbsences from "../../src/api/scheduledAbsences.js";
 import * as seats from "../../src/api/seats.js";
+import * as supervisorActivity from "../../src/api/supervisorActivity.js";
 import * as supervisorProjects from "../../src/api/supervisorProjects.js";
 import * as tasks from "../../src/api/tasks.js";
 import * as vacations from "../../src/api/vacations.js";
@@ -68,6 +69,10 @@ describe("seats", () => {
     await seats.cancelSeatReservation("r1");
     expect(lastCall()).toEqual(["/seats/r1", { method: "DELETE" }]);
   });
+  it("fetchMySeatReservations filtra por mes", async () => {
+    await seats.fetchMySeatReservations("2026-03");
+    expect(lastCall()[0]).toBe("/seats/mine?month=2026-03");
+  });
 });
 
 describe("leaves", () => {
@@ -80,6 +85,8 @@ describe("leaves", () => {
     expect(lastCall()).toEqual(["/leaves/l1", { method: "DELETE" }]);
     await leaves.endLeave("l1");
     expect(lastCall()).toEqual(["/leaves/l1/end", { method: "POST" }]);
+    await leaves.fetchTeamLeaves();
+    expect(lastCall()[0]).toBe("/leaves/team");
   });
 });
 
@@ -276,6 +283,20 @@ describe("admin", () => {
     await admin.exportAdminProjectsCsv({ archived: true });
     expect(downloadFile).toHaveBeenCalledWith("/admin/users/export?role=worker", "usuarios.csv");
     expect(downloadFile).toHaveBeenCalledWith("/admin/projects/export?archived=true", "proyectos.csv");
+    await admin.exportAdminActivityCsv({ types: ["task_created"], sortOrder: "oldest" });
+    expect(downloadFile).toHaveBeenCalledWith(
+      "/admin/activity/export?sortOrder=oldest&types=task_created",
+      "actividad.csv",
+    );
+  });
+});
+
+describe("supervisorActivity", () => {
+  it("lista la actividad del equipo y exporta a CSV con el mismo filtro", async () => {
+    await supervisorActivity.fetchTeamActivity({ types: ["task_created", "task_deleted"], sortOrder: "oldest" });
+    expect(lastCall()[0]).toBe("/supervisor/activity?sortOrder=oldest&types=task_created%2Ctask_deleted");
+    await supervisorActivity.exportTeamActivityCsv({ sortOrder: "oldest" });
+    expect(downloadFile).toHaveBeenCalledWith("/supervisor/activity/export?sortOrder=oldest", "actividad-equipo.csv");
   });
 });
 

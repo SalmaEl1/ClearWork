@@ -79,6 +79,35 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
  * cambiado nada. Solo task_assigned y task_status_changed mandaban correo
  * además de guardarse en la plataforma (ver email/templates.ts); el
  * resto solo se veían dentro de la app. */
+/** Qué tipos de notificación puede llegar a recibir cada rol, para que la
+ * pantalla de preferencias (issue #112, NotificationSettings.tsx) no
+ * ofrezca personalizar un tipo que esa persona nunca va a recibir —
+ * antes se mostraban los 11 tipos a los tres roles por igual. Deducido
+ * de cada llamada a notify() en el backend (apps/api/src/modules/*):
+ * task_status_changed puede tocarle a cualquiera de los dos según quién
+ * cambie el estado, así que está en ambas listas. admin no recibe
+ * ninguna hoy (ni bell ni email — ver shared/notifications.ts), de ahí
+ * la lista vacía. */
+export const NOTIFICATION_TYPES_BY_ROLE: Record<Role, NotificationType[]> = {
+  worker: [
+    "task_assigned",
+    "task_unassigned",
+    "task_status_changed",
+    "project_member_added",
+    "project_member_removed",
+    "vacation_decided",
+    "document_shared",
+  ],
+  supervisor: [
+    "task_status_changed",
+    "project_supervisor_removed",
+    "project_assigned",
+    "vacation_requested",
+    "absence_scheduled",
+  ],
+  admin: [],
+};
+
 export const DEFAULT_NOTIFICATION_CHANNEL: Record<NotificationType, NotificationChannel> = {
   task_assigned: "both",
   task_unassigned: "in_app",

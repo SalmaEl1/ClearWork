@@ -34,6 +34,16 @@ export async function listLeavesHandler(req: Request, res: Response, next: NextF
   }
 }
 
+export async function listTeamLeavesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = requireUser(req);
+    const leaves = await service.listTeamLeaves(user.id);
+    res.status(200).json(leaves);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteLeaveHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);

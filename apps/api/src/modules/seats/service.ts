@@ -30,6 +30,12 @@ export async function getSeatAvailability(date: string): Promise<SeatAvailabilit
   };
 }
 
+export async function getMyReservationsForMonth(userId: string, month: string): Promise<SeatReservationDTO[]> {
+  const rows = await repo.listReservationsForUserInMonth(userId, month);
+  const user = await findUserById(userId);
+  return rows.map((row) => toDTO(row, user?.full_name ?? ""));
+}
+
 export async function createReservation(
   userId: string,
   input: { date: string; seatNumber: number },

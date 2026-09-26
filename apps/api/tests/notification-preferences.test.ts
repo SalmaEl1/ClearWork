@@ -35,7 +35,50 @@ describe("preferencias de notificación", () => {
     expect(byType.get("task_assigned")).toBe("both");
     expect(byType.get("task_status_changed")).toBe("both");
     expect(byType.get("project_member_added")).toBe("in_app");
-    expect(byType.get("vacation_requested")).toBe("in_app");
+    expect(byType.get("document_shared")).toBe("both");
+  });
+
+  it("solo devuelve los tipos que aplican al rol de quien pregunta", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+
+    const workerRes = await request(app)
+      .get("/api/notification-preferences")
+      .set(...authHeader(worker.token));
+    const workerTypes = new Set(workerRes.body.map((p: { type: string }) => p.type));
+    expect(workerTypes.has("task_assigned")).toBe(true);
+    // vacation_requested y absence_scheduled son avisos para el
+    // supervisor de un trabajador, nunca para el propio trabajador.
+    expect(workerTypes.has("vacation_requested")).toBe(false);
+    expect(workerTypes.has("absence_scheduled")).toBe(false);
+
+    const supervisorRes = await request(app)
+      .get("/api/notification-preferences")
+      .set(...authHeader(supervisorToken));
+    const supervisorTypes = new Set(supervisorRes.body.map((p: { type: string }) => p.type));
+    expect(supervisorTypes.has("vacation_requested")).toBe(true);
+    // task_assigned/task_unassigned son avisos para quien tiene la tarea
+    // asignada (un trabajador), nunca para el supervisor.
+    expect(supervisorTypes.has("task_assigned")).toBe(false);
+
+    const adminToken = admin.token;
+    const adminRes = await request(app)
+      .get("/api/notification-preferences")
+      .set(...authHeader(adminToken));
+    expect(adminRes.body).toEqual([]);
+  });
+
+  it("rechaza cambiar una preferencia de un tipo que no aplica al rol de quien la pide", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const res = await request(app)
+      .patch("/api/notification-preferences/vacation_requested")
+      .set(...authHeader(worker.token))
+      .send({ channel: "none" });
+    expect(res.status).toBe(403);
   });
 
   it("cambia una preferencia y la conserva en la siguiente consulta", async () => {

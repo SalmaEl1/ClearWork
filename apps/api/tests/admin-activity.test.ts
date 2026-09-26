@@ -8,6 +8,7 @@ import {
   createProjectViaAdmin,
   createUserViaAdmin,
   createWorker,
+  loginAs,
 } from "./helpers.js";
 
 // pageSize grande a propósito en casi todos estos tests: la tabla de
@@ -19,8 +20,9 @@ import {
 // estos tests robustos frente a ese ruido.
 
 describe("actividad del admin", () => {
-  afterAll(closePool);
-
+  // El pool se cierra una sola vez para todo el archivo, en el afterAll
+  // del último describe (más abajo) — dos afterAll(closePool) en el
+  // mismo archivo cerrarían el pool compartido a mitad de la suite.
   it("sin filtro, trae eventos de cualquier tipo", async () => {
     const admin = await createAdmin();
     const supervisor = await createUserViaAdmin(admin.token, "supervisor");
@@ -131,5 +133,84 @@ describe("actividad del admin", () => {
       .set(...authHeader(worker.token));
 
     expect(res.status).toBe(403);
+  });
+
+  it("exporta a CSV con cabecera y una fila por evento, respetando el filtro de tipo", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const projectName = `Proyecto CSV ${Date.now()}`;
+    await createProjectViaAdmin(admin.token, supervisor.id, projectName);
+
+    const res = await request(app)
+      .get("/api/admin/activity/export")
+      .query({ types: "project_created" })
+      .set(...authHeader(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.text).toContain("Fecha,Tipo,Descripción");
+    expect(res.text).toContain(`Se creó el proyecto ${projectName}`);
+  });
+});
+
+describe("actividad del equipo (supervisor)", () => {
+  afterAll(closePool);
+
+  it("solo trae eventos de los proyectos del propio supervisor", async () => {
+    const admin = await createAdmin();
+    const supervisorA = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorAToken = await loginAs(supervisorA.email, supervisorA.password);
+    const projectAName = `Proyecto A ${Date.now()}`;
+    await createProjectViaAdmin(admin.token, supervisorA.id, projectAName);
+
+    const supervisorB = await createUserViaAdmin(admin.token, "supervisor");
+    const projectBName = `Proyecto B ${Date.now()}`;
+    await createProjectViaAdmin(admin.token, supervisorB.id, projectBName);
+
+    const res = await request(app)
+      .get("/api/supervisor/activity")
+      .query({ types: "project_created", pageSize: 100 })
+      .set(...authHeader(supervisorAToken));
+
+    expect(res.status).toBe(200);
+    const events = res.body.items as Array<{ projectName?: string }>;
+    expect(events.some((e) => e.projectName === projectAName)).toBe(true);
+    expect(events.some((e) => e.projectName === projectBName)).toBe(false);
+  });
+
+  it("no puede ver el feed del equipo un trabajador ni un admin", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const workerRes = await request(app)
+      .get("/api/supervisor/activity")
+      .set(...authHeader(worker.token));
+    expect(workerRes.status).toBe(403);
+
+    const adminRes = await request(app)
+      .get("/api/supervisor/activity")
+      .set(...authHeader(admin.token));
+    expect(adminRes.status).toBe(403);
+  });
+
+  it("exporta a CSV solo los eventos del propio equipo", async () => {
+    const admin = await createAdmin();
+    const supervisorA = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorAToken = await loginAs(supervisorA.email, supervisorA.password);
+    const projectAName = `Proyecto export A ${Date.now()}`;
+    await createProjectViaAdmin(admin.token, supervisorA.id, projectAName);
+
+    const supervisorB = await createUserViaAdmin(admin.token, "supervisor");
+    const projectBName = `Proyecto export B ${Date.now()}`;
+    await createProjectViaAdmin(admin.token, supervisorB.id, projectBName);
+
+    const res = await request(app)
+      .get("/api/supervisor/activity/export")
+      .query({ types: "project_created" })
+      .set(...authHeader(supervisorAToken));
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(projectAName);
+    expect(res.text).not.toContain(projectBName);
   });
 });

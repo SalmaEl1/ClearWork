@@ -111,7 +111,12 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectD
 
   const supervisorName = await resolveUserName(input.supervisorId);
   if (supervisorName) {
-    await recordActivity({ type: "project_created", projectName: project.name, supervisorName });
+    await recordActivity({
+      type: "project_created",
+      projectName: project.name,
+      supervisorName,
+      supervisorId: input.supervisorId,
+    });
   }
   await notify(input.supervisorId, { type: "project_assigned", projectName: project.name });
 
@@ -196,13 +201,14 @@ export async function updateProject(
   // Tres eventos distintos y no excluyentes: un mismo PATCH puede traer
   // cualquier combinación de estos cambios a la vez.
   if (input.name !== undefined || input.description !== undefined) {
-    await recordActivity({ type: "project_updated", projectName: updated.name });
+    await recordActivity({ type: "project_updated", projectName: updated.name, supervisorId: updated.supervisor_id });
   }
   if (input.isArchived !== undefined && input.isArchived !== existing.is_archived) {
     await recordActivity({
       type: "project_archived",
       projectName: updated.name,
       archived: input.isArchived,
+      supervisorId: updated.supervisor_id,
     });
   }
   if (input.supervisorId !== undefined && input.supervisorId !== existing.supervisor_id) {
@@ -216,6 +222,8 @@ export async function updateProject(
         projectName: updated.name,
         fromSupervisorName,
         toSupervisorName,
+        fromSupervisorId: existing.supervisor_id,
+        toSupervisorId: input.supervisorId,
       });
     }
     await notify(existing.supervisor_id, {
@@ -263,6 +271,7 @@ export async function assignMember(
           type: "member_left",
           userName: workerName,
           projectName: previousProject.name,
+          supervisorId: previousProject.supervisor_id,
         });
         await notify(input.userId, {
           type: "project_member_removed",
@@ -270,7 +279,12 @@ export async function assignMember(
         });
       }
     }
-    await recordActivity({ type: "member_joined", userName: workerName, projectName: project.name });
+    await recordActivity({
+      type: "member_joined",
+      userName: workerName,
+      projectName: project.name,
+      supervisorId: project.supervisor_id,
+    });
     await notify(input.userId, { type: "project_member_added", projectName: project.name });
   }
 
@@ -293,7 +307,12 @@ export async function removeMember(
 
   const workerName = await resolveUserName(userId);
   if (workerName) {
-    await recordActivity({ type: "member_left", userName: workerName, projectName: project.name });
+    await recordActivity({
+      type: "member_left",
+      userName: workerName,
+      projectName: project.name,
+      supervisorId: project.supervisor_id,
+    });
   }
   await notify(userId, { type: "project_member_removed", projectName: project.name });
 
@@ -304,7 +323,7 @@ export async function deleteProject(projectId: string): Promise<void> {
   const project = await repo.findProjectById(projectId);
   if (!project) throw new NotFoundError("Proyecto no encontrado");
   await repo.deleteProjectById(projectId);
-  await recordActivity({ type: "project_deleted", projectName: project.name });
+  await recordActivity({ type: "project_deleted", projectName: project.name, supervisorId: project.supervisor_id });
 }
 
 /** Proyectos que supervisa quien llama — para que elija en cuál gestionar

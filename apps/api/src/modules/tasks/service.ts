@@ -167,6 +167,7 @@ export async function createTask(
       userName: supervisor.full_name,
       taskTitle: task.title,
       projectName: project.name,
+      supervisorId,
     });
   }
 
@@ -313,6 +314,7 @@ export async function updateTaskStatus(
       taskTitle: existing.title,
       projectName: project.name,
       toStatus: status,
+      supervisorId: project.supervisor_id,
     });
 
     // A "la otra parte": si cambia el trabajador se notifica al
@@ -404,6 +406,7 @@ export async function deleteTask(taskId: string, supervisorId: string): Promise<
       userName: supervisor.full_name,
       taskTitle: existing.title,
       projectName: project.name,
+      supervisorId,
     });
   }
 }

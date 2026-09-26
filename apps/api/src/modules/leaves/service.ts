@@ -1,4 +1,4 @@
-import type { LeaveDTO, Role } from "@clearwork/shared";
+import type { LeaveDTO, Role, TeamLeaveDTO } from "@clearwork/shared";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import { todayDateString } from "../../shared/time.js";
 import { listActiveWorkersForSupervisor } from "../projects/repository.js";
@@ -75,9 +75,22 @@ export async function listLeaves(
   return rows.map(toDTO);
 }
 
+/** Todas las bajas/permisos del equipo del supervisor, con el nombre de
+ * cada persona ya resuelto — para el calendario del supervisor (issue
+ * #134). Igual resolución de equipo que listTeamVacationRequests
+ * (vacations/service.ts) y listScheduledAbsencesForTeam
+ * (scheduled-absences/service.ts). */
+export async function listTeamLeaves(supervisorId: string): Promise<TeamLeaveDTO[]> {
+  const team = await listActiveWorkersForSupervisor(supervisorId);
+  const nameById = new Map(team.map((w) => [w.id, w.full_name]));
+
+  const rows = await repo.listLeavesForUsers(team.map((w) => w.id));
+  return rows.map((row) => ({ ...toDTO(row), userFullName: nameById.get(row.user_id) ?? "" }));
+}
+
 export async function deleteLeave(actorId: string, actorRole: Role, leaveId: string): Promise<void> {
   const leave = await repo.findLeaveById(leaveId);
-  if (!leave) throw new NotFoundError("Baja no encontrada");
+  if (!leave) throw new NotFoundError("Baja/permiso no encontrada");
 
   await assertCanManage(actorId, actorRole, leave.user_id);
   await repo.deleteLeaveById(leaveId);
@@ -91,13 +104,13 @@ export async function deleteLeave(actorId: string, actorRole: Role, leaveId: str
  * así que "vuelve a aparecer el botón de dar de baja" ocurre gratis. */
 export async function endLeave(actorId: string, actorRole: Role, leaveId: string): Promise<LeaveDTO> {
   const leave = await repo.findLeaveById(leaveId);
-  if (!leave) throw new NotFoundError("Baja no encontrada");
+  if (!leave) throw new NotFoundError("Baja/permiso no encontrada");
 
   await assertCanManage(actorId, actorRole, leave.user_id);
 
   const today = todayDateString();
   if (leave.end_date !== null && leave.end_date < today) {
-    throw new ConflictError("Esta baja ya ha terminado");
+    throw new ConflictError("Esta baja/permiso ya ha terminado");
   }
 
   const yesterday = todayDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));

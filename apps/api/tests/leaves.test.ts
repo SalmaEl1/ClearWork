@@ -34,8 +34,9 @@ async function setupTeam(adminToken: string) {
 }
 
 describe("bajas y ausencias prolongadas", () => {
-  afterAll(closePool);
-
+  // El pool se cierra una sola vez para todo el archivo, en el afterAll
+  // del último describe (más abajo) — dos afterAll(closePool) en el
+  // mismo archivo cerrarían el pool compartido a mitad de la suite.
   it("un admin da de alta una baja a cualquier persona", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token);
@@ -336,5 +337,55 @@ describe("bajas y ausencias prolongadas", () => {
       .set(...authHeader(admin.token));
 
     expect(res.status).toBe(409);
+  });
+});
+
+describe("bajas/permisos del equipo (calendario del supervisor)", () => {
+  afterAll(closePool);
+
+  it("trae las bajas de todo el equipo, con el nombre de cada persona", async () => {
+    const admin = await createAdmin();
+    const { supervisorToken, worker } = await setupTeam(admin.token);
+    await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id, type: "sick_leave", startDate: isoDateOffset(0) });
+
+    const res = await request(app)
+      .get("/api/leaves/team")
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({ userId: worker.id, userFullName: worker.fullName, type: "sick_leave" }),
+    ]);
+  });
+
+  it("no incluye bajas de gente fuera del equipo de ese supervisor", async () => {
+    const admin = await createAdmin();
+    const outsider = await createWorker(admin.token);
+    await request(app)
+      .post("/api/leaves")
+      .set(...authHeader(admin.token))
+      .send({ userId: outsider.id, type: "sick_leave", startDate: isoDateOffset(0) });
+    const { supervisorToken } = await setupTeam(admin.token);
+
+    const res = await request(app)
+      .get("/api/leaves/team")
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("un trabajador no puede consultar la baja del equipo", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const res = await request(app)
+      .get("/api/leaves/team")
+      .set(...authHeader(worker.token));
+
+    expect(res.status).toBe(403);
   });
 });

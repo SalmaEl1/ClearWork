@@ -1,6 +1,7 @@
 import type { NotificationChannel, NotificationPreferenceDTO, NotificationType } from "@clearwork/shared";
-import { NOTIFICATION_CHANNELS } from "@clearwork/shared";
+import { NOTIFICATION_CHANNELS, NOTIFICATION_TYPES_BY_ROLE } from "@clearwork/shared";
 import { useEffect, useState } from "react";
+import { useAuth } from "../auth/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { fetchNotificationPreferences, updateNotificationPreference } from "../api/notificationPreferences.js";
 import { BackLink } from "../components/BackLink.js";
@@ -13,16 +14,21 @@ import { useSavedConfirmation } from "../lib/useSavedConfirmation.js";
  * en el que el medio de cada tipo estaba fijado en el código del
  * backend (ver api/src/shared/notifications.ts). */
 export function NotificationSettings() {
+  const { user } = useAuth();
   const [preferences, setPreferences] = useState<NotificationPreferenceDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingType, setSavingType] = useState<NotificationType | null>(null);
   const [isSaved, triggerSaved] = useSavedConfirmation();
 
+  const role = user?.role;
+
   useEffect(() => {
+    if (!role) return;
+    const relevantTypes: NotificationType[] = NOTIFICATION_TYPES_BY_ROLE[role];
     fetchNotificationPreferences()
-      .then(setPreferences)
+      .then((all) => setPreferences(all.filter((p) => relevantTypes.includes(p.type))))
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las preferencias"));
-  }, []);
+  }, [role]);
 
   async function handleChange(type: NotificationType, channel: NotificationChannel) {
     setError(null);
@@ -48,7 +54,13 @@ export function NotificationSettings() {
       {isSaved && <div className="alert-banner status-ok">Preferencia guardada.</div>}
       {!preferences && !error && <p>Cargando…</p>}
 
-      {preferences && (
+      {preferences && preferences.length === 0 && (
+        <div className="card">
+          <p>Tu rol no tiene notificaciones que personalizar.</p>
+        </div>
+      )}
+
+      {preferences && preferences.length > 0 && (
         <div className="card">
           <p>Elija, para cada tipo de aviso, por dónde quiere recibirlo.</p>
           <ul className="team-list">

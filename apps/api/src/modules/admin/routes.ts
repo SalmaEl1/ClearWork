@@ -5,9 +5,12 @@ import { validateBody } from "../../middleware/validate.js";
 import {
   createUserHandler,
   deleteUserHandler,
+  exportActivityHandler,
+  exportTeamActivityHandler,
   exportUsersHandler,
   getUserHandler,
   listActivityHandler,
+  listTeamActivityHandler,
   listUsersHandler,
   resendWelcomeHandler,
   updateUserHandler,
@@ -30,4 +33,18 @@ adminUsersRouter.post("/:id/resend-welcome", resendWelcomeHandler);
 export const adminActivityRouter = Router();
 
 adminActivityRouter.use(authenticate, authorize("admin"));
+// Antes de "/:id" no aplica aquí (no hay ninguna), pero se mantiene el
+// mismo criterio que adminUsersRouter para las rutas fijas.
+adminActivityRouter.get("/export", exportActivityHandler);
 adminActivityRouter.get("/", listActivityHandler);
+
+/** Mismo feed que adminActivityRouter, pero acotado al equipo de quien
+ * pregunta (issue #134) — vive en este módulo, no en uno de
+ * "supervisor" aparte, igual que supervisorProjectsRouter vive en
+ * modules/projects/routes.ts: el router cruzado de rol vive junto al
+ * recurso al que pertenece. */
+export const supervisorActivityRouter = Router();
+
+supervisorActivityRouter.use(authenticate, authorize("supervisor"));
+supervisorActivityRouter.get("/export", exportTeamActivityHandler);
+supervisorActivityRouter.get("/", listTeamActivityHandler);

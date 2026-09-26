@@ -1,13 +1,19 @@
 import type { ActivityEventType, AdminActivityEventDTO } from "@clearwork/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "../../api/client.js";
-import { exportAdminActivityCsv, fetchAdminActivity } from "../../api/admin.js";
+import { exportTeamActivityCsv, fetchTeamActivity } from "../../api/supervisorActivity.js";
 import { Pagination } from "../../components/Pagination.js";
 import type { ActivityCategory } from "../../constants.js";
 import { ACTIVITY_CATEGORIES, ACTIVITY_EVENT_TYPE_LABEL } from "../../constants.js";
 import { activityIcon, activityMessage, formatRelativeTime } from "../../lib/activity.js";
 
 const DEFAULT_PAGE_SIZE = 10;
+
+// Sin "accounts": gestionar cuentas es cosa del admin, no tiene sentido
+// ofrecérselo como filtro a un supervisor cuyo feed nunca va a traer
+// ninguno de esos cuatro tipos (listTeamActivity los excluye por no
+// llevar supervisorId en el payload).
+const SUPERVISOR_ACTIVITY_CATEGORIES: ActivityCategory[] = ["projects", "tasks"];
 
 type CategoryFilter = "all" | ActivityCategory;
 type SubFilter = ActivityEventType | "all";
@@ -18,7 +24,9 @@ const SORT_ORDER_LABEL: Record<SortOrder, string> = {
   oldest: "Más antiguas primero",
 };
 
-export function AdminActivity() {
+/** Mismo feed que /admin/activity, acotado a los proyectos y tareas de
+ * este supervisor (issue #134) — ver GET /supervisor/activity. */
+export function SupervisorActivity() {
   const [events, setEvents] = useState<AdminActivityEventDTO[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +37,6 @@ export function AdminActivity() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Cambiar de categoría invalida el sub-filtro de la anterior: "Cambios
-  // de rol" no significa nada dentro de "Proyectos".
   useEffect(() => {
     setSubFilter("all");
   }, [category]);
@@ -44,19 +50,13 @@ export function AdminActivity() {
     setPage(1);
   }
 
-  // "Todo" -> sin filtrar. Una categoría con su sub-filtro en "all" ->
-  // todos los tipos de esa categoría a la vez. Un sub-filtro concreto ->
-  // solo ese tipo. Compartido por la carga paginada y la exportación:
-  // ambas respetan el mismo filtro activo. Memoizado para que su
-  // identidad solo cambie cuando category/subFilter cambian de verdad —
-  // si no, "load" de abajo se recrearía (y refetchearía) en cada render.
   const activeTypes = useMemo<ActivityEventType[] | undefined>(
     () => (category === "all" ? undefined : subFilter === "all" ? ACTIVITY_CATEGORIES[category].types : [subFilter]),
     [category, subFilter],
   );
 
   const load = useCallback(() => {
-    fetchAdminActivity({ types: activeTypes, sortOrder, page, pageSize })
+    fetchTeamActivity({ types: activeTypes, sortOrder, page, pageSize })
       .then((result) => {
         setEvents(result.items);
         setTotal(result.total);
@@ -72,7 +72,7 @@ export function AdminActivity() {
     setError(null);
     setIsExporting(true);
     try {
-      await exportAdminActivityCsv({ types: activeTypes, sortOrder });
+      await exportTeamActivityCsv({ types: activeTypes, sortOrder });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo exportar la actividad");
     } finally {
@@ -96,7 +96,7 @@ export function AdminActivity() {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="card">
-        <h3>Todos los eventos</h3>
+        <h3>Actividad de tu equipo</h3>
         {!events && !error && <p>Cargando…</p>}
 
         <div className="filter-bar">
@@ -107,7 +107,7 @@ export function AdminActivity() {
           >
             Todo
           </button>
-          {(Object.keys(ACTIVITY_CATEGORIES) as ActivityCategory[]).map((key) => (
+          {SUPERVISOR_ACTIVITY_CATEGORIES.map((key) => (
             <button
               key={key}
               type="button"
@@ -141,7 +141,7 @@ export function AdminActivity() {
           </div>
         )}
 
-        {events && events.length === 0 && <p>Todavía no hay actividad que mostrar.</p>}
+        {events && events.length === 0 && <p>Todavía no hay actividad de tu equipo que mostrar.</p>}
 
         {events && events.length > 0 && (
           <ul className="activity-list">

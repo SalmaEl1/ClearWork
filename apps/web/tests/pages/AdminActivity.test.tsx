@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminActivity } from "../../src/pages/admin/AdminActivity.js";
 
 const fetchAdminActivity = vi.hoisted(() => vi.fn());
-vi.mock("../../src/api/admin.js", () => ({ fetchAdminActivity }));
+const exportAdminActivityCsv = vi.hoisted(() => vi.fn());
+vi.mock("../../src/api/admin.js", () => ({ fetchAdminActivity, exportAdminActivityCsv }));
 
 function page(items: AdminActivityEventDTO[] = []) {
   return { items, total: items.length, page: 1, pageSize: 10 };
@@ -21,6 +22,7 @@ const sampleEvent: AdminActivityEventDTO = {
 describe("AdminActivity", () => {
   beforeEach(() => {
     fetchAdminActivity.mockReset().mockResolvedValue(page([sampleEvent]));
+    exportAdminActivityCsv.mockReset().mockResolvedValue(undefined);
   });
 
   it("de entrada pide todo sin filtrar por tipo, más recientes primero", async () => {
@@ -121,6 +123,22 @@ describe("AdminActivity", () => {
       }),
     );
     expect(screen.queryByRole("button", { name: "Bajas" })).not.toBeInTheDocument();
+  });
+
+  it("exporta a CSV respetando el filtro de categoría activo", async () => {
+    const user = userEvent.setup();
+    render(<AdminActivity />);
+    await screen.findByRole("button", { name: "Todo" });
+
+    await user.click(screen.getByRole("button", { name: "Tareas" }));
+    await user.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+    await waitFor(() =>
+      expect(exportAdminActivityCsv).toHaveBeenCalledWith({
+        types: ["task_created", "task_status_changed", "task_deleted"],
+        sortOrder: "newest",
+      }),
+    );
   });
 
   it("el botón de orden empieza en 'más recientes primero' y se puede invertir", async () => {

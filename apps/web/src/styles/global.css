@@ -1151,6 +1151,21 @@ th {
   text-decoration: line-through;
 }
 
+/* Calendario + lista de eventos del mes lado a lado (WorkerCalendar.tsx,
+ * SupervisorCalendar.tsx): una columna en pantallas estrechas. */
+.worker-calendar__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .worker-calendar__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Calendario personal del trabajador (WorkerCalendar.tsx): reutiliza la
  * rejilla de mini-calendar, pero con <span> de solo lectura en vez de
  * <button>, coloreados según lo que pase ese día (ver LEGEND). */
@@ -1217,6 +1232,13 @@ th {
   background: var(--color-danger);
   color: white;
   opacity: 0.7;
+}
+
+.seat-grid__seat--selected {
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .worker-calendar__legend-swatch {
