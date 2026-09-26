@@ -38,6 +38,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Compilar packages/shared
+        run: npm run build:shared
+
       - name: Tests unitarios (packages/shared), con cobertura
         run: npm run test:coverage --workspace packages/shared
 
