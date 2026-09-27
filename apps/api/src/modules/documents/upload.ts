@@ -16,6 +16,21 @@ const storage = multer.diskStorage({
   filename: (_req, file, cb) => cb(null, `${randomUUID()}${path.extname(file.originalname)}`),
 });
 
-/** Middleware de subida para POST /api/documents: un único archivo en el
- * campo "file" del multipart/form-data. */
-export const uploadDocument = multer({ storage, limits: { fileSize: MAX_FILE_SIZE_BYTES } }).single("file");
+/**
+ * Límites explícitos sobre la petición entera, no solo sobre el peso del
+ * archivo: sin esto, multer deja sin acotar el número de campos de
+ * texto y el peso de cada uno, lo que permitiría agotar memoria con una
+ * petición multipart/form-data con muchísimos campos o campos enormes
+ * aunque el archivo en sí respete MAX_FILE_SIZE_BYTES. El formulario
+ * real (apps/web/src/api/documents.ts) manda un único archivo más dos
+ * campos de texto — "label" y "recipientIds" —, de ahí files/fields.
+ */
+export const uploadDocument = multer({
+  storage,
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: 1,
+    fields: 2,
+    fieldSize: 1 * 1024 * 1024,
+  },
+}).single("file");
