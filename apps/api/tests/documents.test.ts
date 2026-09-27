@@ -174,6 +174,37 @@ describe("documentos compartidos", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rechaza un archivo que supere el tamaño máximo, con un 400 claro (no un 500)", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const oversized = Buffer.alloc(5 * 1024 * 1024 + 1);
+    const res = await request(app)
+      .post("/api/documents")
+      .set(...authHeader(admin.token))
+      .field("label", "Archivo enorme")
+      .field("recipientIds", JSON.stringify([worker.id]))
+      .attach("file", oversized, "enorme.pdf");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("tamaño máximo");
+  });
+
+  it("rechaza una solicitud con más campos de texto de los esperados", async () => {
+    const admin = await createAdmin();
+    const worker = await createWorker(admin.token);
+
+    const res = await request(app)
+      .post("/api/documents")
+      .set(...authHeader(admin.token))
+      .field("label", "Con campo de más")
+      .field("recipientIds", JSON.stringify([worker.id]))
+      .field("campoInesperado", "x")
+      .attach("file", Buffer.from("contenido de prueba"), "nomina.pdf");
+
+    expect(res.status).toBe(400);
+  });
+
   it("quien lo compartió puede eliminarlo, y deja de poder descargarse", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token);

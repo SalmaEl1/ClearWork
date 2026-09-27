@@ -5,9 +5,11 @@ import { DOCUMENTS_DIR, ensureDocumentsDir } from "./storage.js";
 
 ensureDocumentsDir();
 
-/** De sobra para una nómina o una política en PDF/Word/imagen; evita que
- * un archivo enorme agote disco o memoria sin querer. */
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
+/** De sobra para una nómina o una política en PDF/Word/imagen (unas
+ * pocas páginas escaneadas caben holgadamente); un tope bajo, no solo
+ * "alto pero acotado", es justo lo que evita que una única subida
+ * agote disco o memoria sin querer. */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DOCUMENTS_DIR),
