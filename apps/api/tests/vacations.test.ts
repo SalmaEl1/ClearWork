@@ -36,17 +36,31 @@ function isNationalHoliday(date: string): boolean {
   return nationalHolidaysForYear(year).some((h) => h.date === date);
 }
 
-/** Construye un rango [startDate, endDate] que empieza en `startDate` y
- * cuenta exactamente `neededDays` días de vacaciones (mismo criterio
- * que countVacationDays, balance.ts): avanza día a día, saltándose los
- * festivos nacionales de fecha fija que puedan caer en medio (p. ej. el
- * 12 de octubre) en vez de darlos por buenos. Sin esto, estos tests de
- * saldo (que necesitan una cuenta exacta de días) dependerían de en qué
- * época del año se ejecute la suite — justo lo que ya evita nextDow más
- * abajo para los tests de fin de semana. excludeWeekends está
- * desactivado para todo este describe, así que aquí solo hace falta
- * esquivar festivos, no fines de semana. */
-function vacationRangeFrom(startDate: string, neededDays: number): { startDate: string; endDate: string } {
+/** El primer día a partir de `date` (incluido) que no sea festivo
+ * nacional: assertWithinVacationBalance (vacations/service.ts) rechaza
+ * con 400 cualquier solicitud que EMPIECE (o termine) justo en festivo,
+ * aparte de que ese día tampoco cuente para el total — dos reglas
+ * distintas, y esta cubre la primera. */
+function firstNonHoliday(date: string): string {
+  const d = new Date(date);
+  while (isNationalHoliday(isoDate(d))) d.setDate(d.getDate() + 1);
+  return isoDate(d);
+}
+
+/** Construye un rango [startDate, endDate] que cuenta exactamente
+ * `neededDays` días de vacaciones (mismo criterio que
+ * countVacationDays, balance.ts) a partir de `rawStartDate`: si ese día
+ * es festivo, arranca en el siguiente que no lo sea (ver
+ * firstNonHoliday); desde ahí avanza día a día, saltándose también los
+ * festivos que puedan caer en medio (p. ej. el 12 de octubre) en vez de
+ * darlos por buenos. Sin esto, estos tests de saldo (que necesitan una
+ * cuenta exacta de días, y que la propia fecha de inicio no sea
+ * festiva) dependerían de en qué época del año se ejecute la suite —
+ * justo lo que ya evita nextDow más abajo para los tests de fin de
+ * semana. excludeWeekends está desactivado para todo este describe, así
+ * que aquí solo hace falta esquivar festivos, no fines de semana. */
+function vacationRangeFrom(rawStartDate: string, neededDays: number): { startDate: string; endDate: string } {
+  const startDate = firstNonHoliday(rawStartDate);
   const cursor = new Date(startDate);
   let counted = 0;
   while (counted < neededDays) {
