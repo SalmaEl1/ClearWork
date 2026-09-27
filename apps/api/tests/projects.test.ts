@@ -449,6 +449,53 @@ describe("proyectos", () => {
       .send({ userId: worker.id });
 
     expect(res.status).toBe(404);
+
+    // Tampoco puede quitar a nadie de ese mismo proyecto ajeno.
+    const removeForeign = await request(app)
+      .delete(`/api/supervisor/projects/${project.id}/members/${worker.id}`)
+      .set(...authHeader(intruderToken));
+    expect(removeForeign.status).toBe(404);
+  });
+
+  it("el supervisor obtiene la lista de sus propios proyectos", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const otherSupervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+    const project = await createProjectViaAdmin(admin.token, supervisor.id);
+    await createProjectViaAdmin(admin.token, otherSupervisor.id);
+
+    const res = await request(app)
+      .get("/api/supervisor/projects")
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { id: string }) => p.id)).toEqual([project.id]);
+  });
+
+  it("el supervisor obtiene los miembros de su propio proyecto, pero no los de uno ajeno", async () => {
+    const admin = await createAdmin();
+    const owner = await createUserViaAdmin(admin.token, "supervisor");
+    const intruder = await createUserViaAdmin(admin.token, "supervisor");
+    const ownerToken = await loginAs(owner.email, owner.password);
+    const intruderToken = await loginAs(intruder.email, intruder.password);
+    const project = await createProjectViaAdmin(admin.token, owner.id);
+    const worker = await createWorker(admin.token);
+    await request(app)
+      .post(`/api/admin/projects/${project.id}/members`)
+      .set(...authHeader(admin.token))
+      .send({ userId: worker.id });
+
+    const own = await request(app)
+      .get(`/api/supervisor/projects/${project.id}/members`)
+      .set(...authHeader(ownerToken));
+    expect(own.status).toBe(200);
+    expect(own.body.map((m: { userId: string }) => m.userId)).toContain(worker.id);
+
+    const foreign = await request(app)
+      .get(`/api/supervisor/projects/${project.id}/members`)
+      .set(...authHeader(intruderToken));
+    expect(foreign.status).toBe(404);
   });
 
   it("la lista de trabajadores para asignar refleja su proyecto actual", async () => {

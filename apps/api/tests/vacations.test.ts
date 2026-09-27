@@ -9,6 +9,7 @@ import {
   createUserViaAdmin,
   createWorker,
 } from "./helpers.js";
+import { nationalHolidaysForYear } from "../src/modules/holidays/nationalHolidays.js";
 
 function isoDateOffset(days: number): string {
   const d = new Date();
@@ -28,6 +29,49 @@ function nextDow(dow: number): Date {
   const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
   while (d.getUTCDay() !== dow) d.setUTCDate(d.getUTCDate() + 1);
   return d;
+}
+
+function isNationalHoliday(date: string): boolean {
+  const year = Number(date.slice(0, 4));
+  return nationalHolidaysForYear(year).some((h) => h.date === date);
+}
+
+/** Construye un rango [startDate, endDate] que empieza en `startDate` y
+ * cuenta exactamente `neededDays` días de vacaciones (mismo criterio
+ * que countVacationDays, balance.ts): avanza día a día, saltándose los
+ * festivos nacionales de fecha fija que puedan caer en medio (p. ej. el
+ * 12 de octubre) en vez de darlos por buenos. Sin esto, estos tests de
+ * saldo (que necesitan una cuenta exacta de días) dependerían de en qué
+ * época del año se ejecute la suite — justo lo que ya evita nextDow más
+ * abajo para los tests de fin de semana. excludeWeekends está
+ * desactivado para todo este describe, así que aquí solo hace falta
+ * esquivar festivos, no fines de semana. */
+function vacationRangeFrom(startDate: string, neededDays: number): { startDate: string; endDate: string } {
+  const cursor = new Date(startDate);
+  let counted = 0;
+  while (counted < neededDays) {
+    if (!isNationalHoliday(isoDate(cursor))) counted++;
+    if (counted < neededDays) cursor.setDate(cursor.getDate() + 1);
+  }
+  return { startDate, endDate: isoDate(cursor) };
+}
+
+function vacationRange(startOffset: number, neededDays: number): { startDate: string; endDate: string } {
+  return vacationRangeFrom(isoDateOffset(startOffset), neededDays);
+}
+
+/** El siguiente rango tras uno ya construido, dejando un hueco de unos
+ * días para no pegarlo justo detrás — dos solicitudes vecinas en vez de
+ * saltar a un offset grande y arriesgarse a cruzar a un año distinto
+ * (con su propio saldo nuevo, ver vacationDaysForYear en balance.ts). */
+function vacationRangeAfter(
+  previous: { endDate: string },
+  gapDays: number,
+  neededDays: number,
+): { startDate: string; endDate: string } {
+  const start = new Date(previous.endDate);
+  start.setDate(start.getDate() + gapDays);
+  return vacationRangeFrom(isoDate(start), neededDays);
 }
 
 /** El resto de tests de este archivo no van sobre fines de semana: para
@@ -322,22 +366,25 @@ describe("saldo de vacaciones", () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
 
+    const first = vacationRange(10, 20); // 20 días
     const withinBalance = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días
+      .send(first);
     expect(withinBalance.status).toBe(201);
 
+    const second = vacationRangeAfter(first, 5, 3); // 3 días más: 23 justos
     const stillFits = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(42) }); // 3 días más: 23 justos
+      .send(second);
     expect(stillFits.status).toBe(201);
 
+    const third = vacationRangeAfter(second, 5, 1); // 1 día más se pasa
     const overBudget = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(50), endDate: isoDateOffset(50) }); // 1 día más se pasa
+      .send(third);
     expect(overBudget.status).toBe(409);
   });
 
@@ -347,22 +394,25 @@ describe("saldo de vacaciones", () => {
     // Empezó el 1 de julio: round(23 * (13-7) / 12) = 12 días de saldo.
     const worker = await createWorker(admin.token, `${year}-07-01`);
 
+    const first = vacationRange(10, 10); // 10 días
     const withinBalance = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(19) }); // 10 días
+      .send(first);
     expect(withinBalance.status).toBe(201);
 
+    const second = vacationRangeAfter(first, 5, 3); // 3 más: 13 > 12
     const overBudget = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(30), endDate: isoDateOffset(32) }); // 3 más: 13 > 12
+      .send(second);
     expect(overBudget.status).toBe(409);
 
+    const third = vacationRangeFrom(second.startDate, 2); // 2 más: 12 justos (la anterior fue rechazada, no consume saldo)
     const stillFits = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(30), endDate: isoDateOffset(31) }); // 2 más: 12 justos
+      .send(third);
     expect(stillFits.status).toBe(201);
   });
 
@@ -391,15 +441,16 @@ describe("saldo de vacaciones", () => {
   it("el mensaje de error indica cuántos días quedan", async () => {
     const admin = await createAdmin();
     const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
+    const first = vacationRange(10, 20); // 20 días, quedan 3
     await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días, quedan 3
+      .send(first);
 
     const res = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(43) }); // pide 4, solo quedan 3
+      .send(vacationRangeAfter(first, 5, 4)); // pide 4, solo quedan 3
 
     expect(res.status).toBe(409);
     expect(res.body.error).toContain("quedan 3");

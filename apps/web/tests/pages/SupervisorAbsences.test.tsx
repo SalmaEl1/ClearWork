@@ -2,6 +2,7 @@ import type { SupervisorDashboardResponse, TeamScheduledAbsenceDTO } from "@clea
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { SupervisorAbsences } from "../../src/pages/supervisor/SupervisorAbsences.js";
 
 const fetchSupervisorDashboard = vi.hoisted(() => vi.fn());
@@ -149,5 +150,83 @@ describe("SupervisorAbsences", () => {
     await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
 
     await waitFor(() => expect(deleteScheduledAbsence).toHaveBeenCalledWith("a1"));
+  });
+
+  it("muestra el mensaje de un ApiError si falla programar una ausencia", async () => {
+    setup();
+    createTeamScheduledAbsence.mockRejectedValue(new ApiError("Ese trabajador ya tiene una ausencia ese día", 409));
+    const user = userEvent.setup();
+    render(<SupervisorAbsences />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "+ Programar ausencia" }));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: isoOffset(5) } });
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "10:00" } });
+    await user.type(screen.getByLabelText("Motivo"), "Cita médica");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("Ese trabajador ya tiene una ausencia ese día")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al programar una ausencia no es un ApiError", async () => {
+    setup();
+    createTeamScheduledAbsence.mockRejectedValue(new Error("boom"));
+    const user = userEvent.setup();
+    render(<SupervisorAbsences />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "+ Programar ausencia" }));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: isoOffset(5) } });
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "10:00" } });
+    await user.type(screen.getByLabelText("Motivo"), "Cita médica");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("No se pudo guardar")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla la carga de ausencias o del equipo", async () => {
+    setup();
+    fetchTeamScheduledAbsences.mockRejectedValue(new ApiError("No autorizado", 403));
+    render(<SupervisorAbsences />);
+
+    expect(await screen.findByText("No autorizado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error de carga no es un ApiError", async () => {
+    setup();
+    fetchSupervisorDashboard.mockRejectedValue(new Error("boom"));
+    render(<SupervisorAbsences />);
+
+    expect(await screen.findByText("No se pudieron cargar las ausencias")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla eliminar una ausencia", async () => {
+    setup();
+    deleteScheduledAbsence.mockRejectedValue(new ApiError("No se puede eliminar ya pasada", 409));
+    const user = userEvent.setup();
+    render(<SupervisorAbsences />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se puede eliminar ya pasada")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al eliminar una ausencia no es un ApiError", async () => {
+    setup();
+    deleteScheduledAbsence.mockRejectedValue(new Error("boom"));
+    const user = userEvent.setup();
+    render(<SupervisorAbsences />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se pudo eliminar")).toBeInTheDocument();
   });
 });

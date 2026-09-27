@@ -151,6 +151,17 @@ describe("actividad del admin", () => {
     expect(res.text).toContain("Fecha,Tipo,Descripción");
     expect(res.text).toContain(`Se creó el proyecto ${projectName}`);
   });
+
+  it("rechaza un tipo que no existe también al exportar a CSV", async () => {
+    const admin = await createAdmin();
+
+    const res = await request(app)
+      .get("/api/admin/activity/export")
+      .query({ types: "not_a_real_type" })
+      .set(...authHeader(admin.token));
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("actividad del equipo (supervisor)", () => {
@@ -212,5 +223,31 @@ describe("actividad del equipo (supervisor)", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain(projectAName);
     expect(res.text).not.toContain(projectBName);
+  });
+
+  it("rechaza un tipo que no existe al listar la actividad del equipo", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+
+    const res = await request(app)
+      .get("/api/supervisor/activity")
+      .query({ types: "not_a_real_type" })
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rechaza un tipo que no existe al exportar la actividad del equipo", async () => {
+    const admin = await createAdmin();
+    const supervisor = await createUserViaAdmin(admin.token, "supervisor");
+    const supervisorToken = await loginAs(supervisor.email, supervisor.password);
+
+    const res = await request(app)
+      .get("/api/supervisor/activity/export")
+      .query({ types: "not_a_real_type" })
+      .set(...authHeader(supervisorToken));
+
+    expect(res.status).toBe(400);
   });
 });

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { WorkerVacations } from "../../src/pages/worker/WorkerVacations.js";
 
 const createVacationRequest = vi.hoisted(() => vi.fn());
@@ -129,5 +130,98 @@ describe("WorkerVacations", () => {
       "href",
       "/worker/vacations/history",
     );
+  });
+
+  it("deseleccionar un día ya elegido lo quita de la lista", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(isoOffset(10));
+
+    const now = new Date();
+    const dayButton = screen.getByRole("button", { name: String(now.getDate()) });
+    await user.click(dayButton);
+    expect(await screen.findByText(/día\(s\) elegido\(s\)/)).toBeInTheDocument();
+
+    await user.click(dayButton);
+    expect(screen.getByText("Elige uno o varios días del año en curso.")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla enviar la solicitud de vacaciones", async () => {
+    const user = userEvent.setup();
+    createVacationRequest.mockRejectedValue(new ApiError("Ya tienes vacaciones ese día", 409));
+    renderPage();
+    await screen.findByText(isoOffset(10));
+
+    const now = new Date();
+    await user.click(screen.getByRole("button", { name: String(now.getDate()) }));
+    await user.click(screen.getByRole("button", { name: "Solicitar" }));
+
+    expect(await screen.findByText("Ya tienes vacaciones ese día")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al enviar la solicitud no es un ApiError", async () => {
+    const user = userEvent.setup();
+    createVacationRequest.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText(isoOffset(10));
+
+    const now = new Date();
+    await user.click(screen.getByRole("button", { name: String(now.getDate()) }));
+    await user.click(screen.getByRole("button", { name: "Solicitar" }));
+
+    expect(await screen.findByText("No se pudo enviar la solicitud")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla la carga de solicitudes", async () => {
+    fetchMyVacationRequests.mockRejectedValue(new ApiError("No autorizado", 403));
+    renderPage();
+    expect(await screen.findByText("No autorizado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error de carga de solicitudes no es un ApiError", async () => {
+    fetchMyVacationRequests.mockRejectedValue(new Error("boom"));
+    renderPage();
+    expect(await screen.findByText("No se pudieron cargar las solicitudes")).toBeInTheDocument();
+  });
+
+  it("no muestra la tarjeta de saldo si falla su carga, pero el resto sigue funcionando", async () => {
+    fetchMyVacationBalance.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText(isoOffset(10));
+    expect(screen.queryByText(/Saldo de vacaciones/)).not.toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla cancelar una solicitud", async () => {
+    const user = userEvent.setup();
+    cancelVacationRequest.mockRejectedValue(new ApiError("No se puede cancelar ya en curso", 409));
+    renderPage();
+    await screen.findByText(isoOffset(10));
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(await screen.findByText("No se puede cancelar ya en curso")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al cancelar no es un ApiError", async () => {
+    const user = userEvent.setup();
+    cancelVacationRequest.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText(isoOffset(10));
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(await screen.findByText("No se pudo cancelar")).toBeInTheDocument();
+  });
+
+  it("muestra un mensaje cuando no hay solicitudes próximas", async () => {
+    fetchMyVacationRequests.mockResolvedValue([]);
+    renderPage();
+    expect(await screen.findByText("No tienes vacaciones solicitadas próximamente.")).toBeInTheDocument();
+  });
+
+  it("muestra el rango de una solicitud de varios días", async () => {
+    fetchMyVacationRequests.mockResolvedValue([request({ startDate: isoOffset(10), endDate: isoOffset(15) })]);
+    renderPage();
+    expect(await screen.findByText(`${isoOffset(10)} – ${isoOffset(15)}`)).toBeInTheDocument();
   });
 });

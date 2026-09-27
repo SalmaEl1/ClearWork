@@ -16,6 +16,8 @@ vi.mock("../../src/api/client.js", () => ({
 }));
 
 import * as admin from "../../src/api/admin.js";
+import * as auth from "../../src/api/auth.js";
+import * as dashboard from "../../src/api/dashboard.js";
 import * as documents from "../../src/api/documents.js";
 import * as holidays from "../../src/api/holidays.js";
 import * as leaves from "../../src/api/leaves.js";
@@ -40,6 +42,64 @@ beforeEach(() => {
 function lastCall() {
   return apiFetch.mock.calls.at(-1) as [string, { method?: string; body?: unknown } | undefined];
 }
+
+describe("auth", () => {
+  it("login hace POST con las credenciales", async () => {
+    await auth.login({ email: "ana@test.dev", password: "secreta" });
+    expect(lastCall()).toEqual([
+      "/auth/login",
+      { method: "POST", body: { email: "ana@test.dev", password: "secreta" } },
+    ]);
+  });
+  it("fetchCurrentUser pide el propio perfil", async () => {
+    await auth.fetchCurrentUser();
+    expect(lastCall()[0]).toBe("/auth/me");
+  });
+  it("updateProfile hace PATCH sobre el propio perfil", async () => {
+    await auth.updateProfile({ fullName: "Ana B", email: "ana@test.dev" });
+    expect(lastCall()).toEqual([
+      "/auth/me",
+      { method: "PATCH", body: { fullName: "Ana B", email: "ana@test.dev" } },
+    ]);
+  });
+  it("changePassword hace PATCH con la contraseña actual y la nueva", async () => {
+    await auth.changePassword({ currentPassword: "vieja", newPassword: "nueva123" });
+    expect(lastCall()).toEqual([
+      "/auth/password",
+      { method: "PATCH", body: { currentPassword: "vieja", newPassword: "nueva123" } },
+    ]);
+  });
+  it("forgotPassword hace POST con el email", async () => {
+    await auth.forgotPassword({ email: "ana@test.dev" });
+    expect(lastCall()).toEqual(["/auth/forgot-password", { method: "POST", body: { email: "ana@test.dev" } }]);
+  });
+  it("resetPassword hace POST con el token y la nueva contraseña", async () => {
+    await auth.resetPassword({ token: "tok123", newPassword: "nueva123" });
+    expect(lastCall()).toEqual([
+      "/auth/reset-password",
+      { method: "POST", body: { token: "tok123", newPassword: "nueva123" } },
+    ]);
+  });
+});
+
+describe("dashboard", () => {
+  it("fetchWorkerDashboard sin offset no añade query", async () => {
+    await dashboard.fetchWorkerDashboard();
+    expect(lastCall()[0]).toBe("/dashboard/worker");
+  });
+  it("fetchWorkerDashboard con offset lo añade a la query", async () => {
+    await dashboard.fetchWorkerDashboard(-2);
+    expect(lastCall()[0]).toBe("/dashboard/worker?weekOffset=-2");
+  });
+  it("fetchSupervisorDashboard sin offset no añade query", async () => {
+    await dashboard.fetchSupervisorDashboard();
+    expect(lastCall()[0]).toBe("/dashboard/supervisor");
+  });
+  it("fetchSupervisorDashboard con offset lo añade a la query", async () => {
+    await dashboard.fetchSupervisorDashboard(-1);
+    expect(lastCall()[0]).toBe("/dashboard/supervisor?weekOffset=-1");
+  });
+});
 
 describe("holidays", () => {
   it("fetchHolidays añade el año a la query", async () => {

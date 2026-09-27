@@ -1,8 +1,9 @@
 import type { ProjectDTO, ProjectMemberDTO, TaskDTO } from "@clearwork/shared";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { SupervisorTasks } from "../../src/pages/supervisor/SupervisorTasks.js";
 
 const createTask = vi.hoisted(() => vi.fn());
@@ -289,5 +290,323 @@ describe("SupervisorTasks — tablero", () => {
     renderPage();
     expect(await screen.findByText("pendiente (1)")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("vuelve al modo lista tras cambiar a tablero", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Tablero" }));
+    await screen.findByText("pendiente (1)");
+
+    await user.click(screen.getByRole("button", { name: "Lista" }));
+
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pendiente" })).toBeInTheDocument();
+  });
+});
+
+describe("SupervisorTasks — carga y errores de proyectos y tareas", () => {
+  beforeEach(() => {
+    fetchMyProjects.mockReset();
+    fetchMyProjectMembers.mockReset().mockResolvedValue(members);
+    fetchTasks.mockReset().mockResolvedValue(taskPage([task()]));
+  });
+
+  it("muestra 'Cargando…' mientras se obtienen los proyectos supervisados", async () => {
+    let resolveProjects!: (value: ProjectDTO[]) => void;
+    fetchMyProjects.mockImplementation(
+      () =>
+        new Promise<ProjectDTO[]>((resolve) => {
+          resolveProjects = resolve;
+        }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText("Cargando…")).toBeInTheDocument();
+    resolveProjects([project()]);
+
+    expect(await screen.findByText("Diseñar login")).toBeInTheDocument();
+    expect(screen.queryByText("Cargando…")).not.toBeInTheDocument();
+  });
+
+  it("muestra un mensaje cuando el supervisor no tiene proyectos asignados", async () => {
+    fetchMyProjects.mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByText("Todavía no supervisas ningún proyecto.")).toBeInTheDocument();
+    expect(fetchTasks).not.toHaveBeenCalled();
+  });
+
+  it("muestra el mensaje de un ApiError cuando fallan los proyectos supervisados", async () => {
+    fetchMyProjects.mockRejectedValue(new ApiError("Error al cargar proyectos", 500));
+
+    renderPage();
+
+    expect(await screen.findByText("Error al cargar proyectos")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico cuando el error de proyectos no es un ApiError", async () => {
+    fetchMyProjects.mockRejectedValue(new Error("boom"));
+
+    renderPage();
+
+    expect(await screen.findByText("No se pudieron cargar los proyectos")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError cuando fallan las tareas o los miembros del proyecto", async () => {
+    fetchMyProjects.mockResolvedValue([project()]);
+    fetchTasks.mockRejectedValue(new ApiError("Error al cargar tareas", 500));
+
+    renderPage();
+
+    expect(await screen.findByText("Error al cargar tareas")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico cuando el error de tareas no es un ApiError", async () => {
+    fetchMyProjects.mockResolvedValue([project()]);
+    fetchTasks.mockRejectedValue(new Error("boom"));
+
+    renderPage();
+
+    expect(await screen.findByText("No se pudieron cargar las tareas")).toBeInTheDocument();
+  });
+
+  it("permite cambiar de proyecto seleccionado y marca los archivados en la lista", async () => {
+    const user = userEvent.setup();
+    fetchMyProjects.mockResolvedValue([
+      project(),
+      project({ id: "p2", name: "Proyecto App", isArchived: true }),
+    ]);
+
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    expect(screen.getByRole("option", { name: "Proyecto App (archivado)" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Proyecto"), "p2");
+
+    await waitFor(() =>
+      expect(fetchTasks).toHaveBeenLastCalledWith({ projectId: "p2", status: undefined, page: 1, pageSize: 10 }),
+    );
+  });
+});
+
+describe("SupervisorTasks — paginación y cambio de estado", () => {
+  beforeEach(() => {
+    fetchMyProjects.mockReset().mockResolvedValue([project()]);
+    fetchMyProjectMembers.mockReset().mockResolvedValue(members);
+    fetchTasks.mockReset().mockResolvedValue(taskPage([task()]));
+    updateTaskStatus.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("cambiar los elementos por página resetea a la página 1 y vuelve a pedir tareas", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.selectOptions(screen.getByLabelText("Elementos por página"), "25");
+
+    await waitFor(() =>
+      expect(fetchTasks).toHaveBeenLastCalledWith({ projectId: "p1", status: undefined, page: 1, pageSize: 25 }),
+    );
+  });
+
+  it("cambiar el estado de una tarea desde la lista la actualiza y recarga la lista", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.selectOptions(screen.getByDisplayValue("pendiente"), "in_progress");
+
+    await waitFor(() => expect(updateTaskStatus).toHaveBeenCalledWith("t1", "in_progress"));
+    await waitFor(() => expect(fetchTasks.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it("muestra el mensaje de un ApiError si falla el cambio de estado de una tarea", async () => {
+    const user = userEvent.setup();
+    updateTaskStatus.mockRejectedValue(new ApiError("No autorizado para cambiar el estado", 403));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.selectOptions(screen.getByDisplayValue("pendiente"), "in_progress");
+
+    expect(await screen.findByText("No autorizado para cambiar el estado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al cambiar el estado no es un ApiError", async () => {
+    const user = userEvent.setup();
+    updateTaskStatus.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.selectOptions(screen.getByDisplayValue("pendiente"), "in_progress");
+
+    expect(await screen.findByText("No se pudo cambiar el estado")).toBeInTheDocument();
+  });
+});
+
+describe("SupervisorTasks — borrado de tareas", () => {
+  beforeEach(() => {
+    fetchMyProjects.mockReset().mockResolvedValue([project()]);
+    fetchMyProjectMembers.mockReset().mockResolvedValue(members);
+    fetchTasks.mockReset().mockResolvedValue(taskPage([task()]));
+    deleteTask.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("abre y cancela el diálogo de confirmación para eliminar una tarea sin borrarla", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/¿Eliminar "Diseñar login"\?/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(deleteTask).not.toHaveBeenCalled();
+  });
+
+  it("elimina una tarea tras confirmar y recarga la lista", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    await waitFor(() => expect(deleteTask).toHaveBeenCalledWith("t1"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(fetchTasks.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it("muestra el mensaje de un ApiError si falla el borrado de una tarea", async () => {
+    const user = userEvent.setup();
+    deleteTask.mockRejectedValue(new ApiError("No se puede eliminar una tarea con horas registradas", 409));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se puede eliminar una tarea con horas registradas")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al eliminar una tarea no es un ApiError", async () => {
+    const user = userEvent.setup();
+    deleteTask.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se pudo eliminar")).toBeInTheDocument();
+  });
+});
+
+describe("SupervisorTasks — formulario de tarea", () => {
+  beforeEach(() => {
+    fetchMyProjects.mockReset().mockResolvedValue([project()]);
+    fetchMyProjectMembers.mockReset().mockResolvedValue(members);
+    fetchTasks.mockReset().mockResolvedValue(taskPage([task()]));
+    createTask.mockReset().mockResolvedValue(task());
+    updateTask.mockReset().mockResolvedValue(task());
+  });
+
+  it("rellena descripción, responsable y horas estimadas al crear una tarea", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    await user.type(screen.getByLabelText("Título"), "Nueva");
+    await user.type(screen.getByLabelText("Descripción (opcional)"), "Detalles de la tarea");
+    await user.selectOptions(screen.getByLabelText("Responsable"), "u1");
+    await user.type(screen.getByLabelText("Horas estimadas (opcional)"), "3.5");
+    await user.click(screen.getByRole("button", { name: "Crear tarea" }));
+
+    await waitFor(() =>
+      expect(createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Detalles de la tarea", assigneeId: "u1", estimatedHours: 3.5 }),
+      ),
+    );
+  });
+
+  it("muestra el mensaje de un ApiError si falla la creación de la tarea", async () => {
+    const user = userEvent.setup();
+    createTask.mockRejectedValue(new ApiError("El proyecto está archivado", 409));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    await user.type(screen.getByLabelText("Título"), "Nueva");
+    await user.click(screen.getByRole("button", { name: "Crear tarea" }));
+
+    expect(await screen.findByText("El proyecto está archivado")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error de creación no es un ApiError", async () => {
+    const user = userEvent.setup();
+    createTask.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    await user.type(screen.getByLabelText("Título"), "Nueva");
+    await user.click(screen.getByRole("button", { name: "Crear tarea" }));
+
+    expect(await screen.findByText("No se pudo guardar")).toBeInTheDocument();
+  });
+
+  it("cierra el modal de nueva tarea al pulsar cerrar", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva tarea" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
+  it("cierra el modal de edición al pulsar cerrar", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
+  it("actualiza la fecha límite de una tarea al editarla a una fecha futura válida", async () => {
+    const user = userEvent.setup();
+    fetchTasks.mockResolvedValue(taskPage([task({ dueDate: isoOffset(-5) })]));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.change(screen.getByLabelText("Fecha límite (opcional)"), { target: { value: isoOffset(5) } });
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() =>
+      expect(updateTask).toHaveBeenCalledWith("t1", expect.objectContaining({ dueDate: isoOffset(5) })),
+    );
   });
 });

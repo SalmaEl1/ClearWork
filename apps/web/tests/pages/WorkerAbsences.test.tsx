@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { WorkerAbsences } from "../../src/pages/worker/WorkerAbsences.js";
 
 const createScheduledAbsence = vi.hoisted(() => vi.fn());
@@ -206,5 +207,112 @@ describe("WorkerAbsences", () => {
       "href",
       "/worker/absences/history",
     );
+  });
+
+  it("exige elegir un día antes de programar la ausencia", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
+    await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("Elige un día")).toBeInTheDocument();
+    expect(createScheduledAbsence).not.toHaveBeenCalled();
+  });
+
+  it("deseleccionar el día elegido en el calendario lo quita de la selección", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    const offset = nextWeekdayOffset(0);
+    const day = new Date();
+    day.setDate(day.getDate() + offset);
+    const dayButton = screen.getByRole("button", { name: String(day.getDate()) });
+
+    await user.click(dayButton);
+    expect(dayButton).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(dayButton);
+    expect(dayButton).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("muestra el mensaje de un ApiError si falla programar una ausencia", async () => {
+    const user = userEvent.setup();
+    createScheduledAbsence.mockRejectedValue(new ApiError("Ya tienes una ausencia ese día", 409));
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    const offset = nextWeekdayOffset(0);
+    const day = new Date();
+    day.setDate(day.getDate() + offset);
+    await user.click(screen.getByRole("button", { name: String(day.getDate()) }));
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
+    await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("Ya tienes una ausencia ese día")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al programar una ausencia no es un ApiError", async () => {
+    const user = userEvent.setup();
+    createScheduledAbsence.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    const offset = nextWeekdayOffset(0);
+    const day = new Date();
+    day.setDate(day.getDate() + offset);
+    await user.click(screen.getByRole("button", { name: String(day.getDate()) }));
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "09:30" } });
+    await user.type(screen.getByLabelText("Motivo"), "Gestión legal");
+    await user.click(screen.getByRole("button", { name: "Programar" }));
+
+    expect(await screen.findByText("No se pudo programar la ausencia")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla la carga de ausencias", async () => {
+    fetchMyScheduledAbsences.mockRejectedValue(new ApiError("No autorizado", 403));
+    renderPage();
+    expect(await screen.findByText("No autorizado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error de carga de ausencias no es un ApiError", async () => {
+    fetchMyScheduledAbsences.mockRejectedValue(new Error("boom"));
+    renderPage();
+    expect(await screen.findByText("No se pudieron cargar las ausencias")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla eliminar una ausencia", async () => {
+    const user = userEvent.setup();
+    deleteScheduledAbsence.mockRejectedValue(new ApiError("No se puede eliminar ya pasada", 409));
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se puede eliminar ya pasada")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al eliminar una ausencia no es un ApiError", async () => {
+    const user = userEvent.setup();
+    deleteScheduledAbsence.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Cita médica");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+    expect(await screen.findByText("No se pudo eliminar")).toBeInTheDocument();
+  });
+
+  it("muestra un mensaje cuando no hay ausencias puntuales próximas", async () => {
+    fetchMyScheduledAbsences.mockResolvedValue([]);
+    renderPage();
+    expect(await screen.findByText("No tienes ausencias puntuales programadas.")).toBeInTheDocument();
   });
 });

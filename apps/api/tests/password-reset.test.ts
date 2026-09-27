@@ -2,7 +2,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createPasswordResetToken } from "../src/modules/auth/passwordResetRepository.js";
-import { app, closePool, createAdmin, createUserViaAdmin } from "./helpers.js";
+import { app, authHeader, closePool, createAdmin, createUserViaAdmin } from "./helpers.js";
 
 // Mismo algoritmo que auth/service.ts (hashResetToken, no exportada): el
 // token en claro solo existe en el correo real, así que el test genera el
@@ -26,6 +26,26 @@ describe("recuperación de contraseña", () => {
     expect(existing.status).toBe(200);
     expect(missing.status).toBe(200);
     expect(existing.body.message).toBe(missing.body.message);
+  });
+
+  it("forgot-password para una cuenta desactivada responde igual que si no existiera", async () => {
+    const admin = await createAdmin();
+    const worker = await createUserViaAdmin(admin.token, "worker");
+    await request(app)
+      .patch(`/api/admin/users/${worker.id}`)
+      .set(...authHeader(admin.token))
+      .send({ isActive: false });
+
+    const deactivated = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: worker.email });
+    const missing = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: "no-existe-tampoco@test.clearwork.dev" });
+
+    expect(deactivated.status).toBe(200);
+    expect(missing.status).toBe(200);
+    expect(deactivated.body.message).toBe(missing.body.message);
   });
 
   it("un token válido permite cambiar la contraseña, y la vieja deja de servir", async () => {

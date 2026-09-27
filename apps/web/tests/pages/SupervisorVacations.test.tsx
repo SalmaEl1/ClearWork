@@ -2,6 +2,7 @@ import type { TeamVacationRequestDTO } from "@clearwork/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { SupervisorVacations } from "../../src/pages/supervisor/SupervisorVacations.js";
 
 const fetchTeamVacationRequests = vi.hoisted(() => vi.fn());
@@ -79,5 +80,61 @@ describe("SupervisorVacations", () => {
     render(<SupervisorVacations />);
     await screen.findByText("Juan Worker");
     expect(screen.queryByRole("button", { name: "Aprobar" })).not.toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError cuando falla la carga de solicitudes", async () => {
+    fetchTeamVacationRequests.mockRejectedValue(new ApiError("No autorizado", 403));
+    render(<SupervisorVacations />);
+    expect(await screen.findByText("No autorizado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico cuando el error de carga no es un ApiError", async () => {
+    fetchTeamVacationRequests.mockRejectedValue(new Error("boom"));
+    render(<SupervisorVacations />);
+    expect(await screen.findByText("No se pudieron cargar las solicitudes")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla aprobar una solicitud", async () => {
+    const user = userEvent.setup();
+    approveVacationRequest.mockRejectedValue(new ApiError("No se puede aprobar ya cancelada", 409));
+    render(<SupervisorVacations />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Aprobar" }));
+
+    expect(await screen.findByText("No se puede aprobar ya cancelada")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al aprobar no es un ApiError", async () => {
+    const user = userEvent.setup();
+    approveVacationRequest.mockRejectedValue(new Error("boom"));
+    render(<SupervisorVacations />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Aprobar" }));
+
+    expect(await screen.findByText("No se pudo aprobar")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla rechazar una solicitud", async () => {
+    const user = userEvent.setup();
+    rejectVacationRequest.mockRejectedValue(new ApiError("No se puede rechazar ya cancelada", 409));
+    render(<SupervisorVacations />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Rechazar" }));
+
+    expect(await screen.findByText("No se puede rechazar ya cancelada")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al rechazar no es un ApiError", async () => {
+    const user = userEvent.setup();
+    rejectVacationRequest.mockRejectedValue(new Error("boom"));
+    render(<SupervisorVacations />);
+    await screen.findByText("Juan Worker");
+
+    await user.click(screen.getByRole("button", { name: "Rechazar" }));
+
+    expect(await screen.findByText("No se pudo rechazar")).toBeInTheDocument();
   });
 });

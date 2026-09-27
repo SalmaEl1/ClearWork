@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { WorkerTasks } from "../../src/pages/worker/WorkerTasks.js";
 
 const fetchTasks = vi.hoisted(() => vi.fn());
@@ -139,5 +140,111 @@ describe("WorkerTasks — tablero", () => {
     renderPage();
     expect(await screen.findByText("pendiente (1)")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+describe("WorkerTasks — filtros y errores de carga", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    fetchTasks.mockReset().mockResolvedValue({ items: [task()], total: 1, page: 1, pageSize: 10 });
+    updateTaskStatus.mockReset();
+  });
+
+  it("filtra las tareas por estado usando el selector de la lista", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    const filterSelect = screen.getAllByRole("combobox")[0];
+    await user.selectOptions(filterSelect, "in_progress");
+
+    await waitFor(() =>
+      expect(fetchTasks).toHaveBeenLastCalledWith({ status: "in_progress", page: 1, pageSize: 10 }),
+    );
+  });
+
+  it("muestra un mensaje distinto según haya o no un filtro activo sin tareas", async () => {
+    const user = userEvent.setup();
+    fetchTasks.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 });
+    renderPage();
+
+    expect(await screen.findByText("No tienes tareas asignadas.")).toBeInTheDocument();
+
+    const filterSelect = screen.getAllByRole("combobox")[0];
+    await user.selectOptions(filterSelect, "pending");
+
+    expect(await screen.findByText("No tienes tareas en ese estado.")).toBeInTheDocument();
+  });
+
+  it("muestra tareas con descripción junto al título", async () => {
+    fetchTasks.mockResolvedValue({
+      items: [task({ description: "Usar el nuevo diseño del sistema" })],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+    renderPage();
+
+    expect(await screen.findByText("Usar el nuevo diseño del sistema")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError cuando falla la carga de tareas", async () => {
+    fetchTasks.mockRejectedValue(new ApiError("No se pudo conectar con el servidor", 500));
+
+    renderPage();
+
+    expect(await screen.findByText("No se pudo conectar con el servidor")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico cuando el error de carga no es un ApiError", async () => {
+    fetchTasks.mockRejectedValue(new Error("boom"));
+
+    renderPage();
+
+    expect(await screen.findByText("No se pudieron cargar las tareas")).toBeInTheDocument();
+  });
+});
+
+describe("WorkerTasks — cambio de estado desde la lista", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    fetchTasks.mockReset().mockResolvedValue({ items: [task()], total: 1, page: 1, pageSize: 10 });
+    updateTaskStatus.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("cambiar el estado de una tarea desde la lista la actualiza y recarga", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    const rowSelect = screen.getAllByRole("combobox")[1];
+    await user.selectOptions(rowSelect, "in_progress");
+
+    await waitFor(() => expect(updateTaskStatus).toHaveBeenCalledWith("t1", "in_progress"));
+    await waitFor(() => expect(fetchTasks.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it("muestra el mensaje de un ApiError si falla el cambio de estado de una tarea", async () => {
+    const user = userEvent.setup();
+    updateTaskStatus.mockRejectedValue(new ApiError("No autorizado para cambiar el estado", 403));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    const rowSelect = screen.getAllByRole("combobox")[1];
+    await user.selectOptions(rowSelect, "in_progress");
+
+    expect(await screen.findByText("No autorizado para cambiar el estado")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al cambiar el estado no es un ApiError", async () => {
+    const user = userEvent.setup();
+    updateTaskStatus.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("Diseñar login");
+
+    const rowSelect = screen.getAllByRole("combobox")[1];
+    await user.selectOptions(rowSelect, "in_progress");
+
+    expect(await screen.findByText("No se pudo cambiar el estado")).toBeInTheDocument();
   });
 });

@@ -29,6 +29,82 @@ describe("HistoryTable", () => {
     expect(screen.getByText("8h 0min")).toBeInTheDocument();
   });
 
+  it("muestra 'En curso' cuando el fichaje no tiene hora de salida", () => {
+    const entries: HistoryEntry[] = [
+      {
+        kind: "session",
+        id: "s1",
+        sortDate: "2026-03-05T09:00:00.000Z",
+        session: {
+          id: "s1",
+          userId: "u1",
+          startedAt: "2026-03-05T09:00:00.000Z",
+          endedAt: null,
+          workedMinutes: 120,
+          breaks: [],
+        },
+      },
+    ];
+    render(<HistoryTable entries={entries} />);
+    expect(screen.getByText("En curso")).toBeInTheDocument();
+  });
+
+  it("muestra la duración de una pausa ya terminada", () => {
+    const entries: HistoryEntry[] = [
+      {
+        kind: "session",
+        id: "s1",
+        sortDate: "2026-03-05T09:00:00.000Z",
+        session: {
+          id: "s1",
+          userId: "u1",
+          startedAt: "2026-03-05T09:00:00.000Z",
+          endedAt: "2026-03-05T17:00:00.000Z",
+          workedMinutes: 450,
+          breaks: [
+            {
+              id: "b1",
+              workSessionId: "s1",
+              type: "lunch",
+              startedAt: "2026-03-05T13:00:00.000Z",
+              endedAt: "2026-03-05T13:30:00.000Z",
+            },
+          ],
+        },
+      },
+    ];
+    render(<HistoryTable entries={entries} />);
+    expect(screen.getByText("Pausa para comer (0h 30min)")).toBeInTheDocument();
+  });
+
+  it("muestra una pausa abierta como 'en curso'", () => {
+    const entries: HistoryEntry[] = [
+      {
+        kind: "session",
+        id: "s1",
+        sortDate: "2026-03-05T09:00:00.000Z",
+        session: {
+          id: "s1",
+          userId: "u1",
+          startedAt: "2026-03-05T09:00:00.000Z",
+          endedAt: null,
+          workedMinutes: 240,
+          breaks: [
+            {
+              id: "b1",
+              workSessionId: "s1",
+              type: "ergonomic",
+              startedAt: "2026-03-05T13:00:00.000Z",
+              endedAt: null,
+            },
+          ],
+        },
+      },
+    ];
+    render(<HistoryTable entries={entries} />);
+    expect(screen.getByText("Pausa ergonómica (en curso)")).toBeInTheDocument();
+  });
+
   it("pinta una fila de baja con su rango y etiqueta", () => {
     const entries: HistoryEntry[] = [
       { kind: "leave", id: "l1", sortDate: "2026-03-01", label: "Enfermedad", startDate: "2026-03-01", endDate: "2026-03-03" },

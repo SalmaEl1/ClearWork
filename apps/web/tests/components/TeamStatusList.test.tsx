@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/client.js";
 import { TeamStatusList } from "../../src/components/TeamStatusList.js";
 
 const createLeave = vi.hoisted(() => vi.fn());
@@ -41,6 +42,11 @@ describe("TeamStatusList", () => {
   it("muestra el estado vacío cuando no hay equipo", () => {
     renderList([]);
     expect(screen.getByText("Todavía no tienes trabajadores a tu cargo.")).toBeInTheDocument();
+  });
+
+  it("muestra 'En pausa' con el tipo de pausa cuando el estado es on_break", () => {
+    renderList([member({ status: "on_break", breakType: "lunch" })]);
+    expect(screen.getByText("En pausa (comida)")).toBeInTheDocument();
   });
 
   it("muestra 'De baja/permiso' con el tipo cuando el estado es on_leave", () => {
@@ -110,5 +116,64 @@ describe("TeamStatusList", () => {
   it("muestra el saldo de vacaciones de cada persona", () => {
     renderList([member({ vacationBalance: { year: 2026, total: 12, used: 4, remaining: 8 } })]);
     expect(screen.getByText("Vacaciones 2026: 8/12 días")).toBeInTheDocument();
+  });
+
+  it("muestra el mensaje de un ApiError si falla al finalizar una baja/permiso", async () => {
+    const user = userEvent.setup();
+    endLeave.mockRejectedValue(new ApiError("No se pudo contactar con el servidor", 500));
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: "l1" })]);
+
+    await user.click(screen.getByRole("button", { name: "Finalizar baja/permiso" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Finalizar" }));
+
+    expect(await screen.findByText("No se pudo contactar con el servidor")).toBeInTheDocument();
+  });
+
+  it("usa un mensaje genérico si el error al finalizar una baja/permiso no es un ApiError", async () => {
+    const user = userEvent.setup();
+    endLeave.mockRejectedValue(new Error("boom"));
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: "l1" })]);
+
+    await user.click(screen.getByRole("button", { name: "Finalizar baja/permiso" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Finalizar" }));
+
+    expect(await screen.findByText("No se pudo finalizar la baja/permiso")).toBeInTheDocument();
+  });
+
+  it("cierra el modal de registrar baja/permiso sin guardar", async () => {
+    const user = userEvent.setup();
+    renderList([member()]);
+
+    await user.click(screen.getByRole("button", { name: "Registrar baja/permiso" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByText("×"));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(createLeave).not.toHaveBeenCalled();
+  });
+
+  it("no llama a endLeave si la persona no tiene un id de baja/permiso", async () => {
+    const user = userEvent.setup();
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: null })]);
+
+    await user.click(screen.getByRole("button", { name: "Finalizar baja/permiso" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Finalizar" }));
+
+    expect(endLeave).not.toHaveBeenCalled();
+  });
+
+  it("cancela el diálogo de finalizar baja/permiso sin llamar a endLeave", async () => {
+    const user = userEvent.setup();
+    renderList([member({ status: "on_leave", leaveType: "sick_leave", leaveId: "l1" })]);
+
+    await user.click(screen.getByRole("button", { name: "Finalizar baja/permiso" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(endLeave).not.toHaveBeenCalled();
   });
 });
