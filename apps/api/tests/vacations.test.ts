@@ -434,10 +434,11 @@ describe("saldo de vacaciones", () => {
     const admin = await createAdmin();
     const { supervisorToken, worker } = await setupTeam(admin.token);
 
+    const firstRange = vacationRange(10, 20); // 20 días
     const first = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(10), endDate: isoDateOffset(29) }); // 20 días
+      .send(firstRange);
     expect(first.status).toBe(201);
     await request(app)
       .post(`/api/vacations/${first.body.id}/reject`)
@@ -448,7 +449,7 @@ describe("saldo de vacaciones", () => {
     const second = await request(app)
       .post("/api/vacations")
       .set(...authHeader(worker.token))
-      .send({ startDate: isoDateOffset(40), endDate: isoDateOffset(59) });
+      .send(vacationRangeAfter(firstRange, 10, 20));
     expect(second.status).toBe(201);
   });
 
@@ -475,9 +476,15 @@ describe("saldo de vacaciones", () => {
     await setExcludeWeekends(admin.token, true);
     const worker = await createWorker(admin.token); // hireDate por defecto: 1 de enero
 
+    // Un viernes y su lunes que no sean festivos (p. ej. el lunes 12 de
+    // octubre): empezar o terminar en festivo es otro 400 distinto.
     const friday = nextDow(5);
     const monday = new Date(friday);
     monday.setUTCDate(friday.getUTCDate() + 3);
+    while (isNationalHoliday(isoDate(friday)) || isNationalHoliday(isoDate(monday))) {
+      friday.setUTCDate(friday.getUTCDate() + 7);
+      monday.setUTCDate(monday.getUTCDate() + 7);
+    }
 
     // Viernes a lunes: 4 días naturales, pero sábado y domingo no
     // cuentan, así que solo se consumen 2.
