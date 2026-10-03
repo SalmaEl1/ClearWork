@@ -238,6 +238,8 @@ describe("AdminUserDetail", () => {
 
     const leaveItem = screen.getByText("Enfermedad").closest("li") as HTMLElement;
     await user.click(within(leaveItem).getByRole("button", { name: "Eliminar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Eliminar baja/permiso" });
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
 
     await waitFor(() => expect(deleteLeave).toHaveBeenCalledWith("l1"));
     expect(fetchLeaves).toHaveBeenCalledTimes(2);

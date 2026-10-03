@@ -225,13 +225,20 @@ function LeavesCard({ userId }: { userId: string }) {
 
   const { page, pageSize, total, pageItems, setPage, onPageSizeChange } = usePaginatedList(leaves);
 
+  const [deletingLeave, setDeletingLeave] = useState<LeaveDTO | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   async function handleDelete(leaveId: string) {
     setError(null);
+    setIsDeleting(true);
     try {
       await deleteLeave(leaveId);
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo eliminar");
+    } finally {
+      setIsDeleting(false);
+      setDeletingLeave(null);
     }
   }
 
@@ -250,7 +257,7 @@ function LeavesCard({ userId }: { userId: string }) {
                 <span className="team-list__hours">
                   {l.startDate} – {l.endDate ?? "en curso"}
                 </span>
-                <button type="button" className="secondary" onClick={() => handleDelete(l.id)}>
+                <button type="button" className="secondary" onClick={() => setDeletingLeave(l)}>
                   Eliminar
                 </button>
               </li>
@@ -268,6 +275,22 @@ function LeavesCard({ userId }: { userId: string }) {
       <button type="button" style={{ marginTop: "1rem" }} onClick={() => setIsRegistering(true)}>
         Registrar baja/permiso
       </button>
+
+      {deletingLeave && (
+        <ConfirmDialog
+          title="Eliminar baja/permiso"
+          message={`¿Eliminar la baja/permiso de tipo ${LEAVE_TYPE_LABEL[deletingLeave.type]} ${
+            deletingLeave.endDate
+              ? `del ${deletingLeave.startDate} al ${deletingLeave.endDate}`
+              : `desde ${deletingLeave.startDate}`
+          }? Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar"
+          confirmingLabel="Eliminando…"
+          isConfirming={isDeleting}
+          onConfirm={() => handleDelete(deletingLeave.id)}
+          onCancel={() => setDeletingLeave(null)}
+        />
+      )}
 
       {isRegistering && (
         <Modal title="Registrar baja/permiso" onClose={() => setIsRegistering(false)}>
