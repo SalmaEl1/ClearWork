@@ -93,6 +93,12 @@ export function createAdminUser(
   return apiFetch<AdminCreateUserResponse>("/admin/users", { method: "POST", body: input });
 }
 
+export function resendWelcomeEmail(userId: string): Promise<AdminCreateUserResponse> {
+  return apiFetch<AdminCreateUserResponse>(`/admin/users/${userId}/resend-welcome`, {
+    method: "POST",
+  });
+}
+
 export function fetchAdminUser(userId: string): Promise<AdminUserSummary> {
   return apiFetch<AdminUserSummary>(`/admin/users/${userId}`);
 }

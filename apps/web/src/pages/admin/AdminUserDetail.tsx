@@ -1,11 +1,21 @@
-import type { AdminUserSummary, ContractType, LeaveDTO } from "@clearwork/shared";
+import type {
+  AdminCreateUserResponse,
+  AdminUserSummary,
+  ContractType,
+  LeaveDTO,
+} from "@clearwork/shared";
 import { CONTRACT_TYPES } from "@clearwork/shared";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.js";
 import { ApiError } from "../../api/client.js";
-import { deleteAdminUser, fetchAdminUser, updateAdminUser } from "../../api/admin.js";
+import {
+  deleteAdminUser,
+  fetchAdminUser,
+  resendWelcomeEmail,
+  updateAdminUser,
+} from "../../api/admin.js";
 import { deleteLeave, fetchLeaves } from "../../api/leaves.js";
 import { Avatar } from "../../components/Avatar.js";
 import { BackLink } from "../../components/BackLink.js";
@@ -327,6 +337,72 @@ function DeleteUserCard({ user, isSelf }: { user: AdminUserSummary; isSelf: bool
   );
 }
 
+function ResendWelcomeCard({ user }: { user: AdminUserSummary }) {
+  const [error, setError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [result, setResult] = useState<AdminCreateUserResponse | null>(null);
+
+  async function handleResend() {
+    setError(null);
+    setResult(null);
+    setIsSending(true);
+    try {
+      setResult(await resendWelcomeEmail(user.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo reenviar la bienvenida");
+    } finally {
+      setIsSending(false);
+      setIsConfirmOpen(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Reenviar bienvenida</h3>
+      <p>
+        Genera una nueva contraseña provisional y la envía por correo. La contraseña anterior
+        dejará de funcionar.
+      </p>
+      {error && <div className="error-banner">{error}</div>}
+      {result &&
+        (result.passwordEmailSent ? (
+          <div className="alert-banner status-ok">
+            Se ha enviado un correo a <strong>{result.email}</strong> con una nueva contraseña
+            provisional.
+          </div>
+        ) : (
+          <div className="alert-banner status-warning">
+            <p style={{ margin: "0 0 0.5rem" }}>
+              Se ha generado una nueva contraseña, pero no se pudo enviar el correo. Comparte esta
+              contraseña provisional manualmente:
+            </p>
+            <code className="password-reveal">{result.temporaryPassword}</code>
+          </div>
+        ))}
+      <button
+        type="button"
+        className="secondary"
+        disabled={isSending}
+        onClick={() => setIsConfirmOpen(true)}
+      >
+        {isSending ? "Enviando…" : "Reenviar bienvenida"}
+      </button>
+      {isConfirmOpen && (
+        <ConfirmDialog
+          title="Reenviar bienvenida"
+          message={`¿Generar una nueva contraseña provisional para ${user.fullName} y enviársela por correo?`}
+          confirmLabel="Reenviar"
+          confirmingLabel="Enviando…"
+          isConfirming={isSending}
+          onConfirm={handleResend}
+          onCancel={() => setIsConfirmOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function AdminUserDetail() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
@@ -365,6 +441,8 @@ export function AdminUserDetail() {
             <EditUserForm user={user} isSelf={isSelf} onSaved={load} />
             <DeleteUserCard user={user} isSelf={isSelf} />
           </div>
+
+          {!isSelf && <ResendWelcomeCard user={user} />}
 
           {user.role !== "admin" && <LeavesCard userId={user.id} />}
         </>
