@@ -27,7 +27,8 @@ export function SupervisorMemberHistory() {
   useEffect(() => {
     if (!id) return;
     fetchSupervisorDashboard()
-      .then((dashboard) => setMemberName(dashboard.team.find((m) => m.id === id)?.fullName ?? null));
+      .then((dashboard) => setMemberName(dashboard.team.find((m) => m.id === id)?.fullName ?? null))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo cargar el nombre del miembro"));
 
     Promise.all([
       fetchTeamMemberWorkSessionHistory(id),

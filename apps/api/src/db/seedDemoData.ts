@@ -262,9 +262,10 @@ async function seedLeave(adminId: string, workerId: string): Promise<void> {
   console.log("Baja de demo creada.");
 }
 
-seedDemoData()
+void seedDemoData()
   .then(() => pool.end())
-  .catch((err) => {
+  .catch(async (err) => {
     console.error(err);
-    pool.end().finally(() => process.exit(1));
+    await pool.end();
+    process.exitCode = 1;
   });
