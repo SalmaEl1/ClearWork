@@ -94,6 +94,10 @@ async function issuePasswordEmail(
   password: string,
   summary: AdminUserSummary,
 ): Promise<AdminCreateUserResponse> {
+  if (!env.SENDGRID_API_KEY || !env.SENDGRID_FROM_EMAIL) {
+    return { ...summary, passwordEmailSent: false, temporaryPassword: password };
+  }
+
   try {
     await sendMail(
       user.email,
