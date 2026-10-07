@@ -14,6 +14,9 @@ import { nationalHolidaysForYear } from "../src/modules/holidays/nationalHoliday
 function isoDateOffset(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
+  if (days >= 0) {
+    while (isNationalHoliday(isoDate(d))) d.setDate(d.getDate() + 1);
+  }
   return d.toISOString().slice(0, 10);
 }
 
